@@ -38,6 +38,15 @@ ARG NEXT_PUBLIC_PREVIEW_ORIGIN=http://localhost:3001
 ENV NEXT_PUBLIC_PREVIEW_ORIGIN=$NEXT_PUBLIC_PREVIEW_ORIGIN
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
+# Phone previews (worker only): the Expo SDK every generated app pins, installed into the image so
+# the worker never runs npm at runtime and the first preview doesn't wait minutes for it. Railway
+# passes service variables to ARGs: set INSTALL_EXPO_RUNTIME=1 on the worker service.
+ARG INSTALL_EXPO_RUNTIME=0
+RUN if [ "$INSTALL_EXPO_RUNTIME" = "1" ]; then \
+    mkdir -p /opt/expo-runtime && cp templates/expo-app/package.json /opt/expo-runtime/ \
+    && cd /opt/expo-runtime && npm install --no-audit --no-fund && npm cache clean --force; \
+  fi
+ENV EXPO_RUNTIME_DIR=/opt/expo-runtime
 ENV NODE_ENV=production
 # Local files (when S3_* is unset) live here; mount a volume at /data to keep them.
 ENV APP_DATA_DIR=/data

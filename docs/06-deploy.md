@@ -56,7 +56,7 @@ Postgres template and a Railway bucket:
 |---------|---------------|-------|
 | web | `npm run start -w @appbuilder/web` | Domain on port 3000; pre-deploy `npm run db:migrate`; health check `/api/health` |
 | preview | `npm run start -w @appbuilder/preview` | Its own domain on port 3001 (a separate site from the app) |
-| worker | `npm run start -w @appbuilder/worker` | A volume at `/data`; for phone previews, a wildcard domain (below) |
+| worker | `npm run start -w @appbuilder/worker` | For phone previews, `INSTALL_EXPO_RUNTIME=1` and a domain (below) |
 
 **Phone previews on Railway.** Railway gives a service HTTPS domains, not the raw ports each
 Metro dev server listens on, so the worker routes phones itself: every preview session gets a
@@ -65,8 +65,10 @@ server. To turn it on:
 
 1. In the worker's settings, add the custom domain `*.dev.example.com` with target port 8090,
    and add the CNAME and TXT records Railway shows at your DNS provider.
-2. Attach a volume at `/data` to the worker, so the Expo SDK it installs on first use survives
-   redeploys.
+2. Set `INSTALL_EXPO_RUNTIME=1` on the worker. It is a build argument: the worker's image then
+   carries the Expo SDK that generated apps pin, so the worker never runs npm at runtime and
+   the first preview starts in seconds. (Without it the worker installs the SDK on first use;
+   on Railway that install crashed inside npm, so the image route is the one to use there.)
 3. Set `DEVICE_PREVIEW_DOMAIN=dev.example.com`, `DEVICE_PREVIEW_ENABLED=1` and `PORT=8090` on
    the worker.
 

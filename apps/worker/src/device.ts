@@ -18,7 +18,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, symlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, readlink, symlink, unlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { networkInterfaces } from "node:os";
 import { join } from "node:path";
@@ -51,9 +51,15 @@ export function previewSingleHost(): string {
 
 let runtimeInstall: Promise<string> | null = null;
 
-/** Install the pinned SDK dependencies once; every session symlinks to them. */
+/**
+ * The pinned SDK dependencies every session symlinks to: the copy baked into the image when
+ * there is one (EXPO_RUNTIME_DIR, see the Dockerfile), otherwise installed here once.
+ */
 export function ensureRuntime(templatePackageJson: string): Promise<string> {
   runtimeInstall ??= (async () => {
+    const baked = process.env.EXPO_RUNTIME_DIR;
+    if (baked && existsSync(join(baked, "node_modules/expo/package.json")))
+      return join(baked, "node_modules");
     const dir = dataDir("expo-runtime");
     if (!existsSync(join(dir, "node_modules/expo/package.json"))) {
       await mkdir(dir, { recursive: true });
@@ -89,6 +95,15 @@ function run(
       });
     });
   });
+}
+
+/** Point a session's node_modules at the runtime, replacing a link to an older runtime. */
+async function linkNodeModules(link: string, target: string) {
+  const current = await lstat(link).catch(() => null);
+  if (current?.isSymbolicLink() && (await readlink(link)) === target) return;
+  if (current?.isSymbolicLink()) await unlink(link);
+  else if (current) return; // a real directory: leave it alone
+  await symlink(target, link, "dir");
 }
 
 /** npm prints only the error's message; the stack that explains it is in its debug log. */
@@ -203,8 +218,7 @@ export class DeviceManager {
       const dir = dataDir("device", projectId);
       await mkdir(dir, { recursive: true });
       await materialize(exportBundle("Preview", files), dir);
-      if (!existsSync(join(dir, "node_modules")))
-        await symlink(nodeModules, join(dir, "node_modules"), "dir");
+      await linkNodeModules(join(dir, "node_modules"), nodeModules);
 
       const port = await freePort();
       const domain = previewDomain();
@@ -214,10 +228,11 @@ export class DeviceManager {
       const token = domain ? randomBytes(12).toString("hex") : undefined;
       const publicHost = token ? `${token}.${domain}` : single;
       if (single) await this.releaseSingleHost(projectId);
+      // Expo's CLI straight from the runtime, not through npx: no npm at runtime.
       const child = spawn(
-        "npx",
+        process.execPath,
         [
-          "expo",
+          join(nodeModules, "expo/bin/cli"),
           "start",
           "--port",
           String(port),
