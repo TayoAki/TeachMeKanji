@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Github,
   Globe,
+  KeyRound,
   Loader2,
   Smartphone,
   Trash2,
@@ -531,11 +532,112 @@ interface DeviceState {
   expoAccount?: string | null;
 }
 
+const EXPO_TOKENS_URL = "https://expo.dev/settings/access-tokens";
+
+/**
+ * Connect the viewer's Expo account from the phone dialog: on a physical iPhone, Expo Go only
+ * opens a dev server signed in as the phone's own Expo account (Android doesn't check).
+ */
+function ConnectExpo({
+  replacing,
+  onConnected,
+}: {
+  replacing: boolean;
+  onConnected: (account: string) => void;
+}) {
+  const [token, setToken] = useState("");
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="w-full rounded-lg border p-3 text-sm" data-testid="connect-expo">
+      <p className="font-medium">
+        {replacing
+          ? "Connect a different Expo account"
+          : "Using an iPhone? Connect your Expo account"}
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Expo Go on iPhone only opens previews from your own Expo account. Android works without
+        this.
+      </p>
+      <ol className="mt-3 list-decimal space-y-2 pl-4 text-xs">
+        <li>
+          <a
+            href={EXPO_TOKENS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 font-medium underline"
+          >
+            Create a token on expo.dev <ExternalLink className="size-3" />
+          </a>
+          <span className="text-muted-foreground">
+            {" "}
+            (sign in, choose Create token, and copy it). Use a personal token, not a robot one.
+          </span>
+        </li>
+        <li>
+          Paste it here:
+          <form
+            className="mt-1.5 flex gap-2"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              setBusy(true);
+              try {
+                const { label } = await api<{ label: string }>("/api/integrations/expo", {
+                  method: "PUT",
+                  json: { token: token.trim() },
+                });
+                setToken("");
+                onConnected(label);
+              } catch {
+                // api() already showed why (for example, Expo rejected the token).
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <Input
+              type="password"
+              autoComplete="off"
+              placeholder="Expo access token"
+              aria-label="Expo access token"
+              value={token}
+              onChange={(event) => setToken(event.target.value)}
+              className="h-8 text-xs"
+              data-testid="expo-token-input"
+            />
+            <Button
+              type="submit"
+              size="sm"
+              disabled={busy || token.trim().length < 10}
+              data-testid="expo-connect"
+            >
+              {busy ? <Loader2 className="animate-spin" /> : <KeyRound />} Connect
+            </Button>
+          </form>
+        </li>
+        <li>In Expo Go, sign in with the same account, then scan the code.</li>
+      </ol>
+    </div>
+  );
+}
+
 export function DeviceDialog({ open, onOpenChange, projectId }: DialogProps) {
   const [session, setSession] = useState<DeviceSession | null>(null);
   const [available, setAvailable] = useState(true);
   const [expoAccount, setExpoAccount] = useState<string | null | undefined>(undefined);
+  const [changingAccount, setChangingAccount] = useState(false);
   const [qrCode, setQrCode] = useState<{ url: string; data: string } | null>(null);
+
+  async function connected(account: string) {
+    setExpoAccount(account);
+    setChangingAccount(false);
+    toast.success(`Connected to Expo as ${account}`);
+    // Restart the dev server so it runs signed in as this account.
+    const state = await api<DeviceState>(`/api/projects/${projectId}/device`, {
+      method: "POST",
+      json: { restart: true },
+    }).catch(() => null);
+    if (state) setSession(state.session);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -602,24 +704,6 @@ export function DeviceDialog({ open, onOpenChange, projectId }: DialogProps) {
               {session.error ? (
                 <p className="text-center text-xs text-destructive">{session.error}</p>
               ) : null}
-              <p className="text-center text-xs text-muted-foreground">
-                {expoAccount === null ? (
-                  <>
-                    On iPhone, Expo Go only opens apps from your own Expo account: add your Expo
-                    access token in{" "}
-                    <Link href="/settings#integrations" className="underline">
-                      Settings
-                    </Link>
-                    , then sign in to Expo Go with that account. Android works without it.
-                  </>
-                ) : expoAccount && expoAccount !== "Expo access token" ? (
-                  <>
-                    On iPhone, sign in to Expo Go as <strong>{expoAccount}</strong>.
-                  </>
-                ) : (
-                  "On iPhone, sign in to Expo Go with the account your Expo token belongs to."
-                )}
-              </p>
             </>
           ) : session?.status === "error" ? (
             <p className="text-sm text-destructive">{session.error ?? "The dev server stopped."}</p>
@@ -633,6 +717,33 @@ export function DeviceDialog({ open, onOpenChange, projectId }: DialogProps) {
               The first start on a server installs the Expo SDK and can take a few minutes.
             </p>
           )}
+          {available &&
+          (session?.status === "running" || session?.status === "starting") &&
+          expoAccount !== undefined ? (
+            expoAccount === null || changingAccount || session.error ? (
+              <ConnectExpo
+                replacing={expoAccount !== null}
+                onConnected={(account) => void connected(account)}
+              />
+            ) : (
+              <p className="text-center text-xs text-muted-foreground" data-testid="expo-account">
+                {expoAccount === "Expo access token" ? (
+                  "On iPhone, sign in to Expo Go with the account your Expo token belongs to."
+                ) : (
+                  <>
+                    On iPhone, sign in to Expo Go as <strong>{expoAccount}</strong>.
+                  </>
+                )}{" "}
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => setChangingAccount(true)}
+                >
+                  Use a different account
+                </button>
+              </p>
+            )
+          ) : null}
           <p className="text-center text-xs text-muted-foreground">
             {session?.url?.startsWith("exps://")
               ? "Needs the Expo Go app (SDK 58). Works on any network."

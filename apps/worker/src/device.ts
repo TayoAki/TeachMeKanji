@@ -208,10 +208,9 @@ export class DeviceManager {
       await this.stopIdle();
       const rows = await this.db.select().from(schema.deviceSession);
       for (const row of rows) {
-        const session = this.sessions.get(row.projectId);
-        // Opened by someone else: restart it signed in as their Expo account.
-        if (row.status === "starting" && session && session.userId !== row.userId)
-          this.kill(row.projectId);
+        // "starting" while a dev server runs is a restart request: someone else opened it (it
+        // must run as their Expo account) or the viewer just connected their Expo account.
+        if (row.status === "starting" && this.sessions.has(row.projectId)) this.kill(row.projectId);
         if (row.status === "starting" && !this.sessions.has(row.projectId))
           await this.start(row.projectId, row.userId);
         else if (row.status === "running") await this.sync(row.projectId);
@@ -238,7 +237,7 @@ export class DeviceManager {
     const account = await expoAccount(token);
     if (account === null)
       return {
-        note: "Expo rejected your saved access token, so an iPhone can't open this preview. Replace it in Settings.",
+        note: "Expo rejected your saved access token, so an iPhone can't open this preview. Connect a new one below.",
       };
     if (account?.robot)
       return {

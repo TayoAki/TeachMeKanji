@@ -50,8 +50,10 @@ export const GET = route(
 );
 
 export const POST = route(
-  async (_request: Request, ctx: RouteContext<"/api/projects/[id]/device">) => {
+  async (request: Request, ctx: RouteContext<"/api/projects/[id]/device">) => {
     const { id } = await ctx.params;
+    // `restart`: start the dev server again, e.g. so it picks up a newly connected Expo account.
+    const { restart } = (await request.json().catch(() => ({}))) as { restart?: boolean };
     const { project, viewer } = await requireProject(id, "edit");
     if (!project.currentVersionId) throw new HttpError(400, "Build the app first.");
     // Nothing would ever pick the session up: say so instead of spinning forever.
@@ -60,7 +62,13 @@ export const POST = route(
     const row = await current(id);
     // (Re)start it for this viewer: the dev server runs as their Expo account, so someone else
     // opening the dialog on a shared project restarts it as theirs.
-    if (!row || row.status === "error" || row.status === "stopped" || row.userId !== viewer?.id) {
+    if (
+      !row ||
+      restart === true ||
+      row.status === "error" ||
+      row.status === "stopped" ||
+      row.userId !== viewer?.id
+    ) {
       const fresh = {
         status: "starting" as const,
         userId: viewer?.id ?? null,
