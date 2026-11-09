@@ -94,10 +94,11 @@ steps). This page says exactly what was verified here and what wasn't.
 | Lint, typecheck (all workspaces), production build | ✅ |
 
 **Live with Claude (Railway, Opus 5.5):** a kanji learning app ("KanjiDojo") went from prompt
-to a running app on the deployed site. The plan took 22 seconds (1 credit). The build took
-9 minutes 20 seconds: 28 files, valid on the first pass, every screen rendering in the preview,
-32 credits (about $1.60). One screen generated through the same client in a local check: valid
-on the first attempt, 33 seconds, $0.14.
+to a running app on the deployed site. The plan took about 20 seconds (1 credit). Generating one
+screen at a time, the build took about 9 minutes (28 files, 32 credits, about $1.60). With
+parallel generation the same prompt built in 3 minutes 14 seconds: 29 files, valid on the first
+pass, every screen rendering in the preview, 30 credits (about $1.50). One screen generated
+through the same client in a local check: valid on the first attempt, 33 seconds, $0.14.
 
 ![KanjiDojo, built live by Claude on the deployed site](images/kanji-live.png)
 
@@ -149,7 +150,7 @@ image-fetch DNS pinning:
 
 | Feature | What to provide | Status |
 |---------|-----------------|--------|
-| AI generation with Claude | `ANTHROPIC_API_KEY` | Run live on the deployed site (plan in 22 s, build in about 9 min for about $1.65 total). Quality looks good on one app; there is no eval set yet, and builds are slow |
+| AI generation with Claude | `ANTHROPIC_API_KEY` | Run live on the deployed site (plan in about 20 s, build in about 3 min for about $1.55 total). Quality looks good on two builds; there is no eval set yet |
 | Building from Claude / ChatGPT / Cursor (MCP) | A deployed https URL, and a Claude or ChatGPT account | The full OAuth + MCP flow is tested with a scripted client; not yet connected from Claude.ai, ChatGPT or Cursor (custom connectors are beta, and passing ChatGPT-generated images to tools is reported to be unreliable) |
 | Production hosting | A Railway account ([06-deploy.md](06-deploy.md)) | Deployed on Railway (web, preview, worker, Postgres, bucket) and checked in a real browser: sign-up, build, live preview on its own domain, OAuth discovery and the MCP sign-in challenge over https |
 | Verification emails | `RESEND_API_KEY`, `EMAIL_FROM` | Built; sends never run against Resend |
