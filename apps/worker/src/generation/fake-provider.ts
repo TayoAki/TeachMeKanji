@@ -14,7 +14,8 @@ type Params = Anthropic.Beta.Messages.MessageCreateParamsNonStreaming;
 
 export const FAKE_MODEL = "offline-template-generator";
 
-export const fakeCreateMessage: CreateMessage = async (params) => {
+export const fakeCreateMessage: CreateMessage = async (params, hooks) => {
+  hooks?.onStreamStart?.();
   await new Promise((resolve) => setTimeout(resolve, Number(process.env.FAKE_LLM_DELAY_MS || 120)));
   return message(respond(params));
 };
@@ -53,8 +54,16 @@ function systemText(params: Params): string {
 function respond(params: Params): string {
   const request = lastUserText(params);
   if (params.output_config?.format) return JSON.stringify(fakePlan(request));
-  if (request.includes("Write the shared layer of this app"))
-    return formatFileBlocks(sharedLayer(request));
+  // The shared layer arrives as two parallel requests: the theme, and everything else.
+  if (request.includes("Write the theme of this app")) {
+    const { "theme/tokens.ts": tokens } = sharedLayer(request);
+    return formatFileBlocks({ "theme/tokens.ts": tokens! });
+  }
+  if (request.includes("Write the data and shared components of this app")) {
+    const rest = sharedLayer(request);
+    delete rest["theme/tokens.ts"];
+    return formatFileBlocks(rest);
+  }
   const screen = /Write the screen `([^`]+)` \("([^"]+)"/.exec(request);
   if (screen)
     return formatFileBlocks({
@@ -312,7 +321,9 @@ function palette(primary: string, dark: boolean) {
 
 function sharedLayer(request: string): Record<string, string> {
   const plan = JSON.parse(
-    /Plan:\n([\s\S]*?)\n\nWrite the shared layer/.exec(request)![1]!,
+    /Plan:\n([\s\S]*?)\n\nWrite the (?:theme|data and shared components) of this app/.exec(
+      request,
+    )![1]!,
   ) as AppPlan;
   const collection = plan.collections[0]!;
   const d = DOMAINS.find((x) => x.collection === collection.name) ?? domainFor(plan.appName);

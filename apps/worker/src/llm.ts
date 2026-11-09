@@ -35,9 +35,9 @@ export function cancellable(
   createMessage: CreateMessage,
   isCancelled: () => boolean,
 ): CreateMessage {
-  return async (params) => {
+  return async (params, hooks) => {
     if (isCancelled()) throw new Cancelled();
-    const result = await createMessage(params);
+    const result = await createMessage(params, hooks);
     if (isCancelled()) throw new Cancelled();
     return result;
   };
@@ -55,10 +55,12 @@ export class BudgetExceeded extends AgentError {
  */
 export function metered(createMessage: CreateMessage, model: string, budgetUsd: number) {
   let usage: TokenUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
-  const wrapped: CreateMessage = async (params) => {
+  // Parallel calls each check the budget when they start, so a run can end slightly over it;
+  // the charge itself is still capped at the reserve.
+  const wrapped: CreateMessage = async (params, hooks) => {
     const spent = costUsd(model, usage);
     if (spent !== null && spent >= budgetUsd) throw new BudgetExceeded();
-    const response = await createMessage(params);
+    const response = await createMessage(params, hooks);
     usage = addUsage(usage, response);
     return response;
   };

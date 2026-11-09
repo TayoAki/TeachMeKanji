@@ -50,44 +50,63 @@ export function filesAsContext(files: ProjectFiles, paths?: string[]): string {
   return list.map((p) => `<file path="${p}">\n${files[p]}\n</file>`).join("\n\n");
 }
 
-export function sharedLayerRequest(plan: AppPlan): string {
-  const tabs = plan.screens.filter((s) => s.kind === "tab");
+function planHeader(plan: AppPlan): string {
+  return `Plan:
+${JSON.stringify(plan, null, 2)}`;
+}
+
+/**
+ * The shared layer is written in two parallel steps that don't depend on each other: the
+ * theme packs, and the data layer with the tab layout and shared components.
+ */
+export function themeRequest(plan: AppPlan): string {
   const themes = plan.themes
     .map(
       (t, i) =>
         `   ${i + 1}. id "${t.id}", name "${t.name}", ${t.dark ? "dark" : "light"}, mood: ${t.mood}, primary ${t.primary}`,
     )
     .join("\n");
-  return `Plan:
-${JSON.stringify(plan, null, 2)}
+  return `${planHeader(plan)}
 
-Write the shared layer of this app:
+Write the theme of this app:
 - theme/tokens.ts: \`import type { Theme } from "./types";\` then \`export const themes: Theme[]\` with exactly these 5 packs, in this order, each setting every key of Theme (colors, radius, spacing, font):
 ${themes}
   and \`export const defaultThemeId = "${plan.themes[0]?.id}";\`. Make text readable on every surface (good contrast for text, textMuted and onPrimary).
+Write exactly one <file> block, for theme/tokens.ts.`;
+}
+
+export function dataLayerRequest(plan: AppPlan): string {
+  const tabs = plan.screens.filter((s) => s.kind === "tab");
+  return `${planHeader(plan)}
+
+Write the data and shared components of this app (the theme is written separately; use the Theme type and useTheme() as usual):
 - data/schema.ts: an exported TypeScript interface per collection (each with \`id: string\`), plus small pure helpers the screens will need (formatting, date helpers).
 - data/seed.ts: \`export const seed = { ... }\` with one key per collection (${plan.collections.map((c) => c.name).join(", ")}) and 5–8 realistic records each, using ids like "${plan.collections[0]?.name.slice(0, 1) ?? "r"}1". Dates as ISO strings relative to today.
 - app/(tabs)/_layout.tsx: a Tabs navigator with headerShown false, colors from the theme, and one <Tabs.Screen> per tab in this order: ${tabs.map((t) => `"${t.path.replace("app/(tabs)/", "").replace(".tsx", "")}" (${t.title}, icon ${t.icon})`).join(", ")}.
-- components/: 1–3 small shared components the screens will reuse (cards, list rows, empty states, buttons).`;
+- components/: 1–3 small shared components the screens will reuse (cards, list rows, empty states, buttons), directly in components/.
+Do not write theme/tokens.ts.`;
 }
 
-export function screenRequest(plan: AppPlan, screen: PlanScreen, written: ProjectFiles): string {
+/** Where a screen's own new components go, so screens written in parallel never collide. */
+export function screenComponentDir(screen: PlanScreen): string {
+  return `components/${screen.key.replace(/[^A-Za-z0-9_-]/g, "-") || "screen"}/`;
+}
+
+export function screenRequest(plan: AppPlan, screen: PlanScreen): string {
   const others = plan.screens
     .filter((s) => s.key !== screen.key)
     .map((s) => `   - ${s.title} (${s.kind}) at ${s.path}: ${s.purpose}`)
     .join("\n");
-  const done = Object.keys(written).filter(
-    (p) => p.startsWith("app/") && !p.endsWith("_layout.tsx"),
-  );
+  const dir = screenComponentDir(screen);
   return `App: ${plan.appName} — ${plan.summary}
 
 Write the screen \`${screen.path}\` ("${screen.title}", ${screen.kind} screen).
 What it is for: ${screen.purpose}
 
-Other screens in the app (link to them by their routes when it helps the user):
+Other screens in the app (link to them by their routes when it helps the user; they are being written at the same time, so don't import from them):
 ${others || "   (none)"}
-${done.length ? `\nAlready written: ${done.join(", ")}.` : ""}
-Write exactly one <file> block for ${screen.path}. You may add one more <file> block for a new component in components/ if this screen needs it. Make it look polished: clear hierarchy, generous spacing, cards, and empty states.`;
+
+Write exactly one <file> block for ${screen.path}. You may add one more <file> block for a new component this screen needs, in ${dir} (for example ${dir}Row.tsx); reuse the shared components in components/ where they fit, and don't change them. Make it look polished: clear hierarchy, generous spacing, cards, and empty states.`;
 }
 
 export function editRequest(input: {

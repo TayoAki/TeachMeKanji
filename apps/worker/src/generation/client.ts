@@ -1,7 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
 
+export interface CallHooks {
+  /** Called once, when the response starts streaming: its prompt prefix is now cached. */
+  onStreamStart?: () => void;
+}
+
 export type CreateMessage = (
   params: Anthropic.Beta.Messages.MessageCreateParamsNonStreaming,
+  hooks?: CallHooks,
 ) => Promise<Anthropic.Beta.Messages.BetaMessage>;
 
 export const DEFAULT_MODEL = process.env.GENERATION_MODEL || "claude-opus-5-5";
@@ -14,14 +20,15 @@ export const DEFAULT_EFFORT = (process.env.GENERATION_EFFORT || "high") as
  * the API re-runs the request on Anthropic's recommended fallback model in the same call.
  */
 export function anthropicCreateMessage(client = new Anthropic()): CreateMessage {
-  return (params) =>
-    client.beta.messages
-      .stream({
-        ...params,
-        betas: [...(params.betas ?? []), "server-side-fallback-2026-07-01"],
-        fallbacks: "default",
-      })
-      .finalMessage();
+  return (params, hooks) => {
+    const stream = client.beta.messages.stream({
+      ...params,
+      betas: [...(params.betas ?? []), "server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+    });
+    if (hooks?.onStreamStart) stream.once("streamEvent", () => hooks.onStreamStart?.());
+    return stream.finalMessage();
+  };
 }
 
 export function textOf(message: Anthropic.Beta.Messages.BetaMessage): string {

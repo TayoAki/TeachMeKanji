@@ -30,9 +30,15 @@ import {
   filesAsContext,
   planRequest,
   planSystem,
+  dataLayerRequest,
+  screenComponentDir,
   screenRequest,
-  sharedLayerRequest,
+  themeRequest,
 } from "./prompts";
+import { fanOut } from "../generation/fan-out";
+
+/** How many screens are generated at once (each is one streaming model call). */
+const GENERATION_CONCURRENCY = Math.max(1, Number(process.env.GENERATION_CONCURRENCY || 4));
 
 export class AgentError extends Error {}
 
@@ -119,63 +125,113 @@ export async function buildApp(input: {
   if (input.platform)
     files = { ...files, [BACKEND_CONFIG_FILE]: backendConfigFile(input.platform) };
 
-  await emit({ type: "step", label: "Designing themes, data and shared components" });
+  // 1. Shared layer: the theme and the data layer are independent, so they run in parallel.
+  await emit({ type: "step", label: "Designing the theme, data and shared components" });
+  const sharedSystem = codeSystem(
+    "The app's platform-owned template files:",
+    filesAsContext(files),
+  );
   const tabsLayout = "app/(tabs)/_layout.tsx";
-  const shared = await generateFiles({
-    createMessage,
-    model: input.model,
-    system: codeSystem("The app's platform-owned template files:", filesAsContext(files)),
-    request: sharedLayerRequest(plan),
-    baseFiles: files,
-    expectPaths: ["theme/tokens.ts", "data/schema.ts", "data/seed.ts", tabsLayout],
-    onProgress: (e) => (e.type === "file" ? void emit(e) : undefined),
-  });
-  usage = sumUsage(usage, shared.usage);
-  if (!shared.ok) {
+  const sharedParts = [
+    {
+      request: themeRequest(plan),
+      expectPaths: ["theme/tokens.ts"],
+      allowWrite: {
+        test: (path: string) => path === "theme/tokens.ts",
+        describe: "theme/tokens.ts may be written",
+      },
+    },
+    {
+      request: dataLayerRequest(plan),
+      expectPaths: ["data/schema.ts", "data/seed.ts", tabsLayout],
+      allowWrite: {
+        test: (path: string) =>
+          path === "data/schema.ts" ||
+          path === "data/seed.ts" ||
+          path === tabsLayout ||
+          /^components\/[^/]+\.tsx?$/.test(path),
+        describe:
+          "data/schema.ts, data/seed.ts, app/(tabs)/_layout.tsx and components/*.tsx may be written",
+      },
+    },
+  ];
+  const shared = await fanOut(sharedParts, sharedParts.length, (part, _index, onStreamStart) =>
+    generateFiles({
+      createMessage,
+      model: input.model,
+      system: sharedSystem,
+      request: part.request,
+      baseFiles: files,
+      expectPaths: part.expectPaths,
+      allowWrite: part.allowWrite,
+      onStreamStart,
+      onProgress: (e) => (e.type === "file" ? void emit(e) : undefined),
+    }),
+  );
+  for (const result of shared) usage = sumUsage(usage, result.usage);
+  const sharedFailures = shared.filter((result) => !result.ok);
+  if (sharedFailures.length > 0) {
     throw new AgentError(
-      `Could not generate the app's shared layer:\n${formatIssues(shared.issues)}`,
+      `Could not generate the app's shared layer:\n${sharedFailures.map((r) => formatIssues(r.issues)).join("\n")}`,
     );
   }
-  files = { ...files, ...shared.files };
+  for (const result of shared) files = { ...files, ...result.files };
   await emit({ type: "files", files });
 
-  // Template + shared layer are identical for every screen call: one cached prefix.
+  // 2. Screens, in parallel. They share one cached prefix (template + shared layer); each
+  // writes only its own screen and components in its own folder, so they can't collide.
   const screenSystem = codeSystem(
     "The app so far (template + shared layer):",
     filesAsContext(files),
   );
+  const sharedFiles = files;
   const screens = plan.screens;
-  for (const [index, screen] of screens.entries()) {
-    await emit({
-      type: "step",
-      label: `Building screen ${index + 1} of ${screens.length}: ${screen.title}`,
-    });
+  await emit({
+    type: "step",
+    label:
+      screens.length === 1
+        ? `Building ${screens[0]!.title}`
+        : `Building ${screens.length} screens at once`,
+  });
+  let built = 0;
+  await fanOut(screens, GENERATION_CONCURRENCY, async (screen, _index, onStreamStart) => {
+    const dir = screenComponentDir(screen);
+    let screenFiles: ProjectFiles;
     try {
       const result = await generateFiles({
         createMessage,
         model: input.model,
         system: screenSystem,
-        request: screenRequest(plan, screen, files),
-        baseFiles: files,
+        request: screenRequest(plan, screen),
+        baseFiles: sharedFiles,
         expectPaths: [screen.path],
+        allowWrite: {
+          test: (path) => path === screen.path || path.startsWith(dir),
+          describe: `${screen.path} and a new component in ${dir} may be written`,
+        },
+        onStreamStart,
         onProgress: (e) => (e.type === "file" ? void emit(e) : undefined),
       });
       usage = sumUsage(usage, result.usage);
       if (result.ok) {
-        files = { ...files, ...result.files };
+        screenFiles = result.files;
       } else {
         warnings.push(
           `${screen.title}: ${formatIssues(result.issues.filter((i) => i.severity === "error"))}`,
         );
-        files = { ...files, [screen.path]: fallbackScreen(screen.title, screen.path) };
+        screenFiles = { [screen.path]: fallbackScreen(screen.title, screen.path) };
       }
     } catch (error) {
       if (!(error instanceof GenerationStopped)) throw error;
       warnings.push(`${screen.title}: ${error.message}`);
-      files = { ...files, [screen.path]: fallbackScreen(screen.title, screen.path) };
+      screenFiles = { [screen.path]: fallbackScreen(screen.title, screen.path) };
     }
+    // Screens appear on the canvas as each one finishes.
+    files = { ...files, ...screenFiles };
+    built += 1;
     await emit({ type: "files", files });
-  }
+    await emit({ type: "step", label: `Built ${built} of ${screens.length} screens` });
+  });
 
   for (const warning of warnings) await emit({ type: "warning", message: warning });
   const issues = validateProject(files);

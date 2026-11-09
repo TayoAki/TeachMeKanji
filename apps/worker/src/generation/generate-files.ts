@@ -41,6 +41,13 @@ export interface GenerateFilesOptions {
   expectPaths?: string[];
   /** Paths the model must never write. */
   allowTemplateWrites?: boolean;
+  /**
+   * The only paths this call may write, when calls run in parallel and must not touch each
+   * other's files. Writes elsewhere are reported for repair.
+   */
+  allowWrite?: { test: (path: string) => boolean; describe: string };
+  /** Called once when the first response starts streaming (its prompt is then cached). */
+  onStreamStart?: () => void;
   maxRepairs?: number;
   model?: string;
   effort?: "low" | "medium" | "high" | "xhigh" | "max";
@@ -76,13 +83,16 @@ export async function generateFiles(options: GenerateFilesOptions): Promise<Gene
 
   for (let attempt = 1; attempt <= maxRepairs + 1; attempt++) {
     options.onProgress?.({ type: "attempt", attempt });
-    const response = await createMessage({
-      model,
-      max_tokens: 64_000,
-      output_config: { effort },
-      system,
-      messages,
-    });
+    const response = await createMessage(
+      {
+        model,
+        max_tokens: 64_000,
+        output_config: { effort },
+        system,
+        messages,
+      },
+      attempt === 1 ? { onStreamStart: options.onStreamStart } : undefined,
+    );
     usage = addUsage(usage, response);
     if (response.stop_reason !== "end_turn") {
       const detail =
@@ -95,8 +105,13 @@ export async function generateFiles(options: GenerateFilesOptions): Promise<Gene
     const parsed = parseFileBlocks(textOf(response));
     summary = parsed.summary ?? summary;
     for (const path of parsed.deletes) deletes.add(path);
+    const outOfScope: string[] = [];
     for (const [path, content] of Object.entries(parsed.files)) {
       if (isTemplateFile(path) && !options.allowTemplateWrites) continue; // platform-owned
+      if (options.allowWrite && !options.allowWrite.test(path)) {
+        outOfScope.push(path); // dropped: another parallel step owns it
+        continue;
+      }
       written[path] = content;
       deletes.delete(path);
       options.onProgress?.({ type: "file", path, lines: content.split("\n").length });
@@ -106,7 +121,12 @@ export async function generateFiles(options: GenerateFilesOptions): Promise<Gene
     for (const path of deletes) delete project[path];
     const paths = new Set(Object.keys(project));
 
-    issues = [];
+    issues = outOfScope.map((path) => ({
+      path,
+      rule: "generation/outside-scope",
+      severity: "error" as const,
+      message: `Don't write ${path} in this step (it was discarded). Only ${options.allowWrite!.describe}.`,
+    }));
     for (const path of expectPaths) {
       if (!(path in written)) {
         issues.push({

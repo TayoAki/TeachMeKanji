@@ -76,4 +76,47 @@ describe("agent pipeline (offline provider)", () => {
       }),
     ).rejects.toThrow(/allows 4 screens/);
   });
+
+  it("builds screens in parallel after the shared layer, reading one warmed cache", async () => {
+    const template = await readTree(join(REPO_ROOT, "templates/expo-app"));
+    const { plan } = await planApp({
+      createMessage: fakeCreateMessage,
+      prompt: "Build me an expense tracker with budgets",
+      platforms: "both",
+      defaultScreens: 4,
+      maxScreens: 5,
+    });
+    let running = 0;
+    let maxRunning = 0;
+    let screenCalls = 0;
+    let firstScreenStreaming = false;
+    const timeline: string[] = [];
+    const createMessage: typeof fakeCreateMessage = async (params, hooks) => {
+      const request = JSON.stringify(params.messages);
+      const isScreen = request.includes("Write the screen");
+      if (isScreen) {
+        screenCalls += 1;
+        // Every screen after the first waits until the first one is streaming.
+        if (screenCalls > 1) expect(firstScreenStreaming).toBe(true);
+      }
+      running += 1;
+      maxRunning = Math.max(maxRunning, running);
+      timeline.push(isScreen ? "screen" : request.includes("Write the theme") ? "theme" : "data");
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      const response = await fakeCreateMessage(params, {
+        onStreamStart: () => {
+          if (isScreen && screenCalls === 1) firstScreenStreaming = true;
+          hooks?.onStreamStart?.();
+        },
+      });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      running -= 1;
+      return response;
+    };
+    const built = await buildApp({ createMessage, plan, template });
+    expect(formatIssues(validateProject(built.files))).toBe("");
+    expect(timeline.slice(0, 2).sort()).toEqual(["data", "theme"]);
+    expect(screenCalls).toBe(plan.screens.length);
+    expect(maxRunning).toBeGreaterThan(1);
+  });
 });

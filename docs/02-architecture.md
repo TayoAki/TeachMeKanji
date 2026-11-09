@@ -184,23 +184,20 @@ creates a `restore` version so history stays linear.
 
 ### 4.2 Build (orchestrated by our code; one `agent_run`)
 1. **Scaffold** the template files.
-2. **Shared layer** (one call): `theme/tokens.ts`, `data/schema.ts`, `data/seed.ts`,
-   `components/*`, and `app/(tabs)/_layout.tsx`.
-3. **Each screen in plan order** (one call per screen). The context includes:
-   - the contract,
-   - the plan,
-   - the shared layer's source,
-   - the exported signatures of screens already generated.
-
-   Tokens are streamed and progress events emitted (screen started, lines written, screen
-   done).
-4. **Validate** each file (§2.3). On failure, run a repair call with the errors (at most 2).
-5. **Optional smoke render:** the worker loads the preview runtime in headless Chromium with
-   the file set and fails the screen if it throws.
-6. **Commit** a `project_version` and update `screen` rows. The canvas shows each screen as
-   soon as it lands.
-
-Each screen is a checkpoint, so a crashed run resumes from the last completed screen.
+2. **Shared layer, two calls in parallel:** the theme (`theme/tokens.ts`), and the data layer
+   with the tab layout and shared components (`data/schema.ts`, `data/seed.ts`,
+   `app/(tabs)/_layout.tsx`, `components/*`). They don't depend on each other.
+3. **All screens in parallel** (`GENERATION_CONCURRENCY`, default 4), one call per screen.
+   Every call has the same cached prefix: the contract plus the template and shared-layer
+   source. Each screen writes only its own file and new components in its own folder
+   (`components/<screen key>/`); writes elsewhere are discarded and sent back for repair, so
+   parallel screens can't collide. Screens appear on the canvas as each one finishes.
+4. **Prompt cache warm-up:** in each parallel wave the first call goes alone until its response
+   starts streaming; then the rest start and read the cache it wrote (`fanOut`). Starting all
+   at once would make every call pay full price for the shared prefix.
+5. **Validate** each file (§2.3). On failure, run a repair call with the errors (at most 2). A
+   screen that still fails gets a placeholder and a warning; the shared layer must pass.
+6. **Commit** a `project_version`.
 
 ### 4.3 Edit agent (chat after the build)
 A tool-using agent loop with these tools:
