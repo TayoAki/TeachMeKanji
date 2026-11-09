@@ -9,8 +9,14 @@ ARG NODE_IMAGE=node:22-bookworm-slim
 #   migrate  npm run db:migrate                     (one-shot, before web and worker)
 
 FROM ${NODE_IMAGE} AS base
-# npm 10 crashes on this dependency tree; the repo pins npm 11.
-RUN npm install -g npm@11.21.2 && apt-get update \
+# npm 10 crashes on this dependency tree; the repo pins npm 11. Unpack it over the bundled npm
+# rather than `npm install -g npm`: upgrading npm in place can leave old internal modules behind
+# (on Railway it did, and every later `npm install` crashed in minipass-flush).
+RUN cd /tmp && npm pack npm@11.21.2 --silent \
+  && rm -rf /usr/local/lib/node_modules/npm && mkdir /usr/local/lib/node_modules/npm \
+  && tar -xzf npm-11.21.2.tgz -C /usr/local/lib/node_modules/npm --strip-components=1 \
+  && rm npm-11.21.2.tgz && npm -v \
+  && apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates git \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
