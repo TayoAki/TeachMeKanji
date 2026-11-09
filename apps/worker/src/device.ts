@@ -18,7 +18,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, symlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, symlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { networkInterfaces } from "node:os";
 import { join } from "node:path";
@@ -80,14 +80,29 @@ function run(
     child.stdout.on("data", (d) => (output += d));
     child.stderr.on("data", (d) => (output += d));
     child.on("error", reject);
-    child.on("exit", (code) =>
-      code === 0
-        ? resolve(output)
-        : reject(
-            new Error(`${command} ${args.join(" ")} failed (${code}):\n${output.slice(-2000)}`),
-          ),
-    );
+    child.on("exit", (code) => {
+      if (code === 0) return resolve(output);
+      void npmStack(output).then((stack) => {
+        const message = `${command} ${args.join(" ")} failed (${code}):\n${stack || output.slice(-2000)}`;
+        console.error(`worker: ${message}\n${output.slice(-2000)}`);
+        reject(new Error(message));
+      });
+    });
   });
+}
+
+/** npm prints only the error's message; the stack that explains it is in its debug log. */
+async function npmStack(output: string): Promise<string> {
+  const logPath = /complete log of this run can be found in:\s*(\S+)/.exec(output)?.[1];
+  if (!logPath) return "";
+  try {
+    const lines = (await readFile(logPath, "utf8")).split("\n");
+    const start = lines.findIndex((line) => / verbose stack /.test(line));
+    const versions = lines.filter((line) => / verbose (node|npm)  ?v/.test(line)).slice(0, 2);
+    return start < 0 ? "" : [...versions, ...lines.slice(start, start + 12)].join("\n");
+  } catch {
+    return "";
+  }
 }
 
 export function previewHost(): string {
