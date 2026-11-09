@@ -11,6 +11,10 @@ export const CREDIT_USD = 0.05;
 /** Estimated hosting cost of one active paying user per month (database, compute, bandwidth). */
 export const HOSTING_USD_PER_USER_MONTH = 2;
 
+/** Card processing (2.9% + $0.30, US cards) plus Stripe Billing (0.7%) on each monthly charge. */
+export const PAYMENT_FEE_RATE = 0.029 + 0.007;
+export const PAYMENT_FEE_FIXED_USD = 0.3;
+
 /** The gross margin every paid plan must keep. */
 export const TARGET_MARGIN = 0.9;
 
@@ -55,7 +59,8 @@ export const PLANS: Record<PlanId, PlanLimits> = {
     name: "Pro",
     priceUsdPerMonth: 99,
     signupCredits: 0,
-    monthlyCredits: 150,
+    // The most included AI that keeps a 90% margin after hosting and payment fees.
+    monthlyCredits: 80,
     maxProjects: null,
     maxScreensPerProject: 12,
     nativeBuilds: true,
@@ -64,17 +69,46 @@ export const PLANS: Record<PlanId, PlanLimits> = {
 };
 
 export function isPlanId(value: unknown): value is PlanId {
-  return typeof value === "string" && value in PLANS;
+  return typeof value === "string" && Object.hasOwn(PLANS, value);
 }
 
 /**
- * Worst-case gross margin of a plan: every included credit spent on model usage, plus hosting.
- * (Credits aren't sold separately, so they can't exceed what plans include.)
+ * Worst-case monthly cost of serving one subscriber (COGS): every included credit spent on model
+ * usage, hosting, and payment fees. Credits aren't sold separately, so they can't exceed what
+ * plans include.
  */
-export function planMargin(plan: PaidPlanId): number {
+export function planCost(plan: PaidPlanId): { ai: number; hosting: number; payments: number } {
   const { priceUsdPerMonth, monthlyCredits } = PLANS[plan];
-  const cost = monthlyCredits * CREDIT_USD + HOSTING_USD_PER_USER_MONTH;
-  return (priceUsdPerMonth - cost) / priceUsdPerMonth;
+  return {
+    ai: monthlyCredits * CREDIT_USD,
+    hosting: HOSTING_USD_PER_USER_MONTH,
+    payments: priceUsdPerMonth * PAYMENT_FEE_RATE + PAYMENT_FEE_FIXED_USD,
+  };
+}
+
+export function planMargin(plan: PaidPlanId): number {
+  const { ai, hosting, payments } = planCost(plan);
+  const price = PLANS[plan].priceUsdPerMonth;
+  return (price - ai - hosting - payments) / price;
+}
+
+/**
+ * Complimentary plans by email, for the team and testers: COMP_PLANS="you@x.com:studio,b@y.com:pro".
+ * A real subscription always wins.
+ */
+export function compPlanFor(email: string): PlanId | null {
+  for (const entry of (process.env.COMP_PLANS || "").split(",")) {
+    const [who, plan] = entry.trim().split(":");
+    if (
+      who &&
+      who.toLowerCase() === email.toLowerCase() &&
+      isPlanId(plan) &&
+      Object.hasOwn(PLANS, plan)
+    ) {
+      return plan;
+    }
+  }
+  return null;
 }
 
 /**

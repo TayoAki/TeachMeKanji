@@ -41,6 +41,20 @@ describe("plan pricing", () => {
     for (const plan of PAID_PLANS) expect(planMargin(plan)).toBeGreaterThanOrEqual(TARGET_MARGIN);
     expect(PLANS.studio.mcp && PLANS.pro.mcp && !PLANS.free.mcp).toBe(true);
   });
+
+  it("grants complimentary plans by email, ignoring unknown plans", async () => {
+    const { compPlanFor } = await import("./billing");
+    process.env.COMP_PLANS =
+      "Owner@Example.com:studio, tester@example.com:pro, x@example.com:toString";
+    try {
+      expect(compPlanFor("owner@example.com")).toBe("studio");
+      expect(compPlanFor("tester@example.com")).toBe("pro");
+      expect(compPlanFor("x@example.com")).toBeNull();
+      expect(compPlanFor("nobody@example.com")).toBeNull();
+    } finally {
+      delete process.env.COMP_PLANS;
+    }
+  });
 });
 
 describe("images", () => {

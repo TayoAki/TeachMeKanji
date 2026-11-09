@@ -178,8 +178,8 @@ succeeds for an account with Apple credentials.
   the project passes), add images (ChatGPT can pass generated images as files), preview link,
   App Cloud, publish. The open workspace picks up each write live.
 - Plans: Free (built-in AI trial), Studio $49 (bring your own AI, no credits), Pro $99
-  (150 built-in credits plus MCP). Every paid plan keeps a 90% gross margin even if all
-  included credits are used (`planMargin`, tested). The plan follows the Stripe price.
+  (80 built-in credits plus MCP). Every paid plan keeps a 90% gross margin, after hosting and
+  payment fees, even if all included credits are used (`planMargin`, tested). The plan follows the Stripe price.
 - Settings shows the connector URL, setup steps per assistant, and connected assistants with
   Disconnect (which stops access immediately).
 - Invite links (single-use, a week) so sharing works without an email provider; password

@@ -58,14 +58,16 @@ export function fileStorage(root: string): Storage {
 export function s3Storage(config: {
   endpoint?: string;
   region?: string;
+  /** Path-style URLs (MinIO). Railway buckets and AWS use virtual-hosted style. */
+  forcePathStyle?: boolean;
   bucket: string;
   accessKeyId: string;
   secretAccessKey: string;
 }): Storage {
   const client = new S3Client({
     endpoint: config.endpoint,
-    region: config.region ?? "auto",
-    forcePathStyle: Boolean(config.endpoint),
+    region: config.region || "auto",
+    forcePathStyle: config.forcePathStyle ?? Boolean(config.endpoint),
     credentials: { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey },
   });
   return {
@@ -102,14 +104,16 @@ let shared: Storage | undefined;
 export function getStorage(): Storage {
   if (shared) return shared;
   const { S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY, S3_ENDPOINT, S3_REGION } = process.env;
+  const pathStyle = process.env.S3_FORCE_PATH_STYLE;
   shared =
     S3_BUCKET && S3_ACCESS_KEY_ID && S3_SECRET_ACCESS_KEY
       ? s3Storage({
           bucket: S3_BUCKET,
           accessKeyId: S3_ACCESS_KEY_ID,
           secretAccessKey: S3_SECRET_ACCESS_KEY,
-          endpoint: S3_ENDPOINT,
+          endpoint: S3_ENDPOINT || undefined,
           region: S3_REGION,
+          forcePathStyle: pathStyle ? pathStyle === "1" : undefined,
         })
       : fileStorage(process.env.STORAGE_DIR || dataDir("storage"));
   return shared;
