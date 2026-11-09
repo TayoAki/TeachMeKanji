@@ -93,8 +93,16 @@ steps). This page says exactly what was verified here and what wasn't.
 | Phone preview through the UI | ✅ QR ready in 36 s on first use (one-time SDK install); the dev server serves an `exposdk:58.0.0` manifest and compiles the generated app (6.4 MB bundle) |
 | Lint, typecheck (all workspaces), production build | ✅ |
 
-**What these runs used:** the worker ran with `LLM_PROVIDER=fake`, an offline template
-generator, because this environment has no usable Anthropic credentials. It answers the same
+**Live with Claude (Railway, Opus 5.5):** a kanji learning app ("KanjiDojo") went from prompt
+to a running app on the deployed site. The plan took 22 seconds (1 credit). The build took
+9 minutes 20 seconds: 28 files, valid on the first pass, every screen rendering in the preview,
+32 credits (about $1.60). One screen generated through the same client in a local check: valid
+on the first attempt, 33 seconds, $0.14.
+
+![KanjiDojo, built live by Claude on the deployed site](images/kanji-live.png)
+
+**The automated test runs** use `LLM_PROVIDER=fake`, an offline template generator, so they
+cost nothing and run anywhere. It answers the same
 requests in the same formats, so everything except the model itself (jobs, validation, repair,
 versions, credits, preview, App Cloud, export, publishing) ran for real. The Claude path
 (`apps/worker/src/generation/client.ts`) is covered by unit tests with a fake client but has
@@ -141,7 +149,7 @@ image-fetch DNS pinning:
 
 | Feature | What to provide | Status |
 |---------|-----------------|--------|
-| AI generation with Claude | `ANTHROPIC_API_KEY` | Built and unit-tested, never run live; quality untuned |
+| AI generation with Claude | `ANTHROPIC_API_KEY` | Run live on the deployed site (plan in 22 s, build in about 9 min for about $1.65 total). Quality looks good on one app; there is no eval set yet, and builds are slow |
 | Building from Claude / ChatGPT / Cursor (MCP) | A deployed https URL, and a Claude or ChatGPT account | The full OAuth + MCP flow is tested with a scripted client; not yet connected from Claude.ai, ChatGPT or Cursor (custom connectors are beta, and passing ChatGPT-generated images to tools is reported to be unreliable) |
 | Production hosting | A Railway account ([06-deploy.md](06-deploy.md)) | Deployed on Railway (web, preview, worker, Postgres, bucket) and checked in a real browser: sign-up, build, live preview on its own domain, OAuth discovery and the MCP sign-in challenge over https |
 | Verification emails | `RESEND_API_KEY`, `EMAIL_FROM` | Built; sends never run against Resend |

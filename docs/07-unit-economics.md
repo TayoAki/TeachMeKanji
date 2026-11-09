@@ -37,8 +37,9 @@ reserves a budget that the worker enforces, so no run can cost more than:
 | Build (plan, theme, data, about 5 screens) | 60 credits = $3.00 | $1 to $2 |
 | Chat edit | 12 credits = $0.60 | $0.10 to $0.60 |
 
-The typical figures are estimates: the Claude path has not run live yet. Every run records its
-real token counts and cost (`agent_run`), so the first week of real usage replaces them.
+Measured on the deployed site (a kanji learning app on Opus 5.5): the plan cost 1 credit
+($0.05) and the build 32 credits ($1.60), inside the estimates. Every run records its real
+token counts and cost (`agent_run`), so a week of real usage will firm these numbers up.
 
 So 80 Pro credits buy roughly two new apps and a dozen edits a month. Ways to give more for
 the same margin:
