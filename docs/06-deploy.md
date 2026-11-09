@@ -73,6 +73,12 @@ server. To turn it on:
 The QR code then encodes `exps://<random>.dev.example.com`, which Expo Go opens over HTTPS on
 any network. The router never forwards Metro's debugger or "open in editor" endpoints.
 
+To try it before setting up DNS, give the worker a Railway domain (target port 8090) and set
+`DEVICE_PREVIEW_SINGLE_HOST` to it instead of `DEVICE_PREVIEW_DOMAIN`. That address serves one
+phone preview at a time: opening another ends the first, whose dialog says so. Anyone who has
+the address can load the app being previewed while it runs, so switch to a wildcard domain
+before real users.
+
 Variables reference the database and bucket (`${{Postgres.DATABASE_URL}}`,
 `${{uploads.ENDPOINT}}` and so on, with `S3_FORCE_PATH_STYLE=0`). `CLIENT_IP_HEADER=x-real-ip`
 is set because Railway's edge sends the client address in X-Real-IP. Set

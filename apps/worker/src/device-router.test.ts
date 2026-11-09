@@ -44,8 +44,7 @@ beforeAll(async () => {
   });
   await new Promise<void>((r) => metro.listen(0, "127.0.0.1", r));
   router = createDeviceRouter({
-    domain: DOMAIN,
-    resolve: (token) => (token === TOKEN ? port(metro) : null),
+    resolve: (host) => (tokenFromHost(host, DOMAIN) === TOKEN ? port(metro) : null),
   });
   await new Promise<void>((r) => router.listen(0, "127.0.0.1", r));
   routerPort = port(router);

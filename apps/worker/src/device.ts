@@ -9,6 +9,9 @@
  * Phones reach the dev servers one of three ways:
  * - DEVICE_PREVIEW_DOMAIN: a wildcard domain routed to this worker; each session gets a random
  *   subdomain (see device-router.ts). The way to run it on a platform such as Railway.
+ * - DEVICE_PREVIEW_SINGLE_HOST: one fixed public host routed to this worker (Railway's own
+ *   `*.up.railway.app` address). One session at a time: a new one ends the previous one. Meant
+ *   for trying phone previews before setting up a wildcard domain.
  * - DEVICE_PREVIEW_TUNNEL=1: Expo's shared tunnel.
  * - Otherwise the LAN address (DEVICE_PREVIEW_HOST or the first IPv4), for self-hosting.
  */
@@ -22,7 +25,7 @@ import { join } from "node:path";
 import { eq, lt, or } from "drizzle-orm";
 import { dataDir, exportBundle, getCurrentFiles } from "@appbuilder/core";
 import { schema, type Database } from "@appbuilder/db";
-import { createDeviceRouter } from "./device-router";
+import { createDeviceRouter, normalizeHost, tokenFromHost } from "./device-router";
 import { childEnv, materialize } from "./project";
 
 const IDLE_MINUTES = Number(process.env.DEVICE_PREVIEW_IDLE_MINUTES || 15);
@@ -38,6 +41,12 @@ interface Session {
 /** The wildcard's parent domain (`dev.example.com` for `*.dev.example.com`), if routed. */
 export function previewDomain(): string {
   return (process.env.DEVICE_PREVIEW_DOMAIN || "").toLowerCase().replace(/^\*\./, "");
+}
+
+/** One fixed public host for one session at a time, when there is no wildcard domain. */
+export function previewSingleHost(): string {
+  if (previewDomain()) return "";
+  return normalizeHost((process.env.DEVICE_PREVIEW_SINGLE_HOST || "").replace(/^https?:\/\//, ""));
 }
 
 let runtimeInstall: Promise<string> | null = null;
@@ -126,12 +135,32 @@ export class DeviceManager {
   /** With DEVICE_PREVIEW_DOMAIN set, accept phones on one port and route them by subdomain. */
   listen(port = Number(process.env.PORT || 8090)): void {
     const domain = previewDomain();
-    if (!domain) return;
+    const single = previewSingleHost();
+    if (!domain && !single) return;
     createDeviceRouter({
-      domain,
-      resolve: (token) =>
-        [...this.sessions.values()].find((session) => session.token === token)?.port ?? null,
-    }).listen(port, () => console.log(`worker: phone previews at *.${domain} (port ${port})`));
+      resolve: (host) => {
+        const sessions = [...this.sessions.values()];
+        if (single) return host === single ? (sessions[0]?.port ?? null) : null;
+        const token = tokenFromHost(host, domain);
+        return sessions.find((session) => token && session.token === token)?.port ?? null;
+      },
+    }).listen(port, () =>
+      console.log(`worker: phone previews at ${single || `*.${domain}`} (port ${port})`),
+    );
+  }
+
+  /** With one shared host, a new session takes the host over from the previous one. */
+  private async releaseSingleHost(projectId: string) {
+    for (const other of [...this.sessions.keys()]) {
+      if (other === projectId) continue;
+      this.kill(other);
+      await this.update(other, {
+        status: "error",
+        url: null,
+        error:
+          "Another phone preview started. This server shows one at a time; close and reopen to take it back.",
+      });
+    }
   }
 
   async tick(): Promise<void> {
@@ -164,9 +193,12 @@ export class DeviceManager {
 
       const port = await freePort();
       const domain = previewDomain();
-      const tunnel = !domain && process.env.DEVICE_PREVIEW_TUNNEL === "1";
+      const single = previewSingleHost();
+      const tunnel = !domain && !single && process.env.DEVICE_PREVIEW_TUNNEL === "1";
       // 96 random bits: the subdomain is the only thing standing between a stranger and the app.
       const token = domain ? randomBytes(12).toString("hex") : undefined;
+      const publicHost = token ? `${token}.${domain}` : single;
+      if (single) await this.releaseSingleHost(projectId);
       const child = spawn(
         "npx",
         [
@@ -174,7 +206,7 @@ export class DeviceManager {
           "start",
           "--port",
           String(port),
-          domain ? "--localhost" : tunnel ? "--tunnel" : "--lan",
+          publicHost ? "--localhost" : tunnel ? "--tunnel" : "--lan",
         ],
         {
           cwd: dir,
@@ -182,9 +214,11 @@ export class DeviceManager {
             EXPO_NO_TELEMETRY: "1",
             BROWSER: "none",
             // Manifest and bundle URLs must point at the public subdomain, not localhost.
-            ...(token ? { EXPO_PACKAGER_PROXY_URL: `https://${token}.${domain}` } : {}),
+            ...(publicHost ? { EXPO_PACKAGER_PROXY_URL: `https://${publicHost}` } : {}),
           }),
           stdio: ["ignore", "pipe", "pipe"],
+          // Its own process group, so stopping it also stops the Metro that npx launches.
+          detached: true,
         },
       );
       let log = "";
@@ -201,8 +235,8 @@ export class DeviceManager {
       });
       this.sessions.set(projectId, { child, port, versionId, token });
       await waitForStatus(port);
-      const url = token
-        ? `exps://${token}.${domain}` // Expo Go opens exps:// over https
+      const url = publicHost
+        ? `exps://${publicHost}` // Expo Go opens exps:// over https
         : tunnel
           ? (/exp:\/\/[^\s]+/.exec(log)?.[0] ?? null)
           : `exp://${previewHost()}:${port}`;
@@ -248,7 +282,12 @@ export class DeviceManager {
     const session = this.sessions.get(projectId);
     if (!session) return;
     this.sessions.delete(projectId);
-    session.child.kill("SIGTERM");
+    try {
+      // The whole group: npx, and the expo/Metro process it started.
+      if (session.child.pid) process.kill(-session.child.pid, "SIGTERM");
+    } catch {
+      session.child.kill("SIGTERM");
+    }
   }
 
   private async update(

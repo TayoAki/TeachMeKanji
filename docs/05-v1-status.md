@@ -159,7 +159,7 @@ image-fetch DNS pinning:
 | Studio and Pro upgrades | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_STUDIO`, `STRIPE_PRICE_PRO` | Webhook verified with signed events; Checkout and the portal never run against Stripe |
 | Push to GitHub | A user's fine-grained token (Settings) | Request sequence unit-tested; never run against GitHub |
 | Android/iOS builds | A user's Expo token (Settings); Apple account for iOS | Built; never run against EAS |
-| Phone on another network | A wildcard domain for `DEVICE_PREVIEW_DOMAIN` | The worker's router was checked locally against a real SDK 58 dev server: the manifest points at `https://<token>.<domain>`, the 6.4 MB bundle and the fast-refresh WebSocket come through, debugger endpoints don't. Not yet scanned from a phone |
+| Phone on another network | A wildcard domain for `DEVICE_PREVIEW_DOMAIN` (or `DEVICE_PREVIEW_SINGLE_HOST` to try it on Railway's own address, one preview at a time) | The worker's router was checked locally against a real SDK 58 dev server: the manifest points at `https://<token>.<domain>`, the 6.4 MB bundle and the fast-refresh WebSocket come through, debugger endpoints don't. Not yet scanned from a phone |
 | S3 / R2 storage | `S3_*` variables | Adapter written; local files used here |
 
 ## Known limits

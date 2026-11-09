@@ -6,6 +6,9 @@
  *
  * The token is the only credential, so it is long and random, and the endpoints that would let
  * a visitor debug the phone's JS or open files on the server are never forwarded.
+ *
+ * Without a wildcard domain, one fixed host (such as Railway's `*.up.railway.app` address) can
+ * serve one session at a time; the caller's `resolve` decides which.
  */
 import { request, createServer, type IncomingMessage, type Server } from "node:http";
 import type { Duplex } from "node:stream";
@@ -22,16 +25,19 @@ const BLOCKED_PATHS = [
 ];
 
 export interface DeviceRouterOptions {
-  /** The wildcard's parent, e.g. `dev.example.com` for `*.dev.example.com`. */
-  domain: string;
-  /** The local Metro port for a subdomain token, or null when no session has it. */
-  resolve: (token: string) => number | null;
+  /** The local Metro port for a request's host name, or null when no session answers there. */
+  resolve: (host: string) => number | null;
+}
+
+/** A Host header as a bare lowercase name: no port, no trailing dot. */
+export function normalizeHost(host: string | undefined): string {
+  return (host ?? "").toLowerCase().replace(/:\d+$/, "").replace(/\.$/, "");
 }
 
 /** The subdomain token in a Host header, or null when the host isn't `<token>.<domain>`. */
 export function tokenFromHost(host: string | undefined, domain: string): string | null {
-  if (!host) return null;
-  const name = host.toLowerCase().replace(/:\d+$/, "").replace(/\.$/, "");
+  const name = normalizeHost(host);
+  if (!name) return null;
   const suffix = `.${domain.toLowerCase()}`;
   if (!name.endsWith(suffix)) return null;
   const token = name.slice(0, -suffix.length);
@@ -55,8 +61,8 @@ function forwardedHeaders(req: IncomingMessage): Record<string, string> {
 
 function target(req: IncomingMessage, options: DeviceRouterOptions): number | null {
   if (isBlockedPath(req.url)) return null;
-  const token = tokenFromHost(req.headers.host, options.domain);
-  return token ? options.resolve(token) : null;
+  const host = normalizeHost(req.headers.host);
+  return host ? options.resolve(host) : null;
 }
 
 export function createDeviceRouter(options: DeviceRouterOptions): Server {
