@@ -64,7 +64,10 @@ services:
     environment:
       DATABASE_URL: postgres://appbuilder:${POSTGRES_PASSWORD:-appbuilder}@postgres:5432/appbuilder
       # Phone previews need the worker's Metro ports reachable from phones; off by default here.
+      # With DEVICE_PREVIEW_DOMAIN set, route *.<domain> from your TLS proxy to port 8090.
       DEVICE_PREVIEW_ENABLED: ${DEVICE_PREVIEW_ENABLED:-0}
+    ports:
+      - "127.0.0.1:8090:8090"
     depends_on:
       migrate:
         condition: service_completed_successfully

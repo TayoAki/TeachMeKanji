@@ -145,6 +145,7 @@ export async function runWorker(
   // Only one worker should manage phone-preview dev servers (they are local processes).
   const manageDevices = process.env.DEVICE_PREVIEW_ENABLED !== "0";
   const workerId = `${hostname()}-${process.pid}-${randomUUID().slice(0, 8)}`;
+  if (manageDevices) devices.listen();
   let active = 0;
   const concurrency = Number(process.env.WORKER_CONCURRENCY || 4);
 

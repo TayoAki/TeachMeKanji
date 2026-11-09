@@ -5,8 +5,15 @@
  *
  * Sessions live in the device_session table. The web app creates them (status "starting") and
  * refreshes lastSeenAt while the QR dialog is open; this manager starts, syncs and stops them.
+ *
+ * Phones reach the dev servers one of three ways:
+ * - DEVICE_PREVIEW_DOMAIN: a wildcard domain routed to this worker; each session gets a random
+ *   subdomain (see device-router.ts). The way to run it on a platform such as Railway.
+ * - DEVICE_PREVIEW_TUNNEL=1: Expo's shared tunnel.
+ * - Otherwise the LAN address (DEVICE_PREVIEW_HOST or the first IPv4), for self-hosting.
  */
 import { spawn, type ChildProcess } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, symlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
@@ -15,6 +22,7 @@ import { join } from "node:path";
 import { eq, lt, or } from "drizzle-orm";
 import { dataDir, exportBundle, getCurrentFiles } from "@appbuilder/core";
 import { schema, type Database } from "@appbuilder/db";
+import { createDeviceRouter } from "./device-router";
 import { childEnv, materialize } from "./project";
 
 const IDLE_MINUTES = Number(process.env.DEVICE_PREVIEW_IDLE_MINUTES || 15);
@@ -23,6 +31,13 @@ interface Session {
   child: ChildProcess;
   port: number;
   versionId: string | null;
+  /** The session's subdomain when phones come in through the router. */
+  token?: string;
+}
+
+/** The wildcard's parent domain (`dev.example.com` for `*.dev.example.com`), if routed. */
+export function previewDomain(): string {
+  return (process.env.DEVICE_PREVIEW_DOMAIN || "").toLowerCase().replace(/^\*\./, "");
 }
 
 let runtimeInstall: Promise<string> | null = null;
@@ -108,6 +123,17 @@ export class DeviceManager {
 
   constructor(private readonly db: Database) {}
 
+  /** With DEVICE_PREVIEW_DOMAIN set, accept phones on one port and route them by subdomain. */
+  listen(port = Number(process.env.PORT || 8090)): void {
+    const domain = previewDomain();
+    if (!domain) return;
+    createDeviceRouter({
+      domain,
+      resolve: (token) =>
+        [...this.sessions.values()].find((session) => session.token === token)?.port ?? null,
+    }).listen(port, () => console.log(`worker: phone previews at *.${domain} (port ${port})`));
+  }
+
   async tick(): Promise<void> {
     if (this.busy) return;
     this.busy = true;
@@ -137,13 +163,27 @@ export class DeviceManager {
         await symlink(nodeModules, join(dir, "node_modules"), "dir");
 
       const port = await freePort();
-      const tunnel = process.env.DEVICE_PREVIEW_TUNNEL === "1";
+      const domain = previewDomain();
+      const tunnel = !domain && process.env.DEVICE_PREVIEW_TUNNEL === "1";
+      // 96 random bits: the subdomain is the only thing standing between a stranger and the app.
+      const token = domain ? randomBytes(12).toString("hex") : undefined;
       const child = spawn(
         "npx",
-        ["expo", "start", "--port", String(port), tunnel ? "--tunnel" : "--lan"],
+        [
+          "expo",
+          "start",
+          "--port",
+          String(port),
+          domain ? "--localhost" : tunnel ? "--tunnel" : "--lan",
+        ],
         {
           cwd: dir,
-          env: childEnv({ EXPO_NO_TELEMETRY: "1", BROWSER: "none" }),
+          env: childEnv({
+            EXPO_NO_TELEMETRY: "1",
+            BROWSER: "none",
+            // Manifest and bundle URLs must point at the public subdomain, not localhost.
+            ...(token ? { EXPO_PACKAGER_PROXY_URL: `https://${token}.${domain}` } : {}),
+          }),
           stdio: ["ignore", "pipe", "pipe"],
         },
       );
@@ -159,11 +199,13 @@ export class DeviceManager {
           });
         }
       });
-      this.sessions.set(projectId, { child, port, versionId });
+      this.sessions.set(projectId, { child, port, versionId, token });
       await waitForStatus(port);
-      const url = tunnel
-        ? (/exp:\/\/[^\s]+/.exec(log)?.[0] ?? null)
-        : `exp://${previewHost()}:${port}`;
+      const url = token
+        ? `exps://${token}.${domain}` // Expo Go opens exps:// over https
+        : tunnel
+          ? (/exp:\/\/[^\s]+/.exec(log)?.[0] ?? null)
+          : `exp://${previewHost()}:${port}`;
       await this.update(projectId, { status: "running", url, port, versionId, error: null });
     } catch (error) {
       this.kill(projectId);

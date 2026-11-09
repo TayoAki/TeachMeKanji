@@ -609,7 +609,9 @@ export function DeviceDialog({ open, onOpenChange, projectId }: DialogProps) {
             </p>
           )}
           <p className="text-center text-xs text-muted-foreground">
-            Needs Expo Go for SDK 58 and a network that can reach this server.
+            {session?.url?.startsWith("exps://")
+              ? "Needs the Expo Go app (SDK 58). Works on any network."
+              : "Needs Expo Go for SDK 58 and a network that can reach this server."}
           </p>
         </div>
       </DialogContent>

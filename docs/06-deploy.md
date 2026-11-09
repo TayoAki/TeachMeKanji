@@ -56,7 +56,22 @@ Postgres template and a Railway bucket:
 |---------|---------------|-------|
 | web | `npm run start -w @appbuilder/web` | Domain on port 3000; pre-deploy `npm run db:migrate`; health check `/api/health` |
 | preview | `npm run start -w @appbuilder/preview` | Its own domain on port 3001 (a separate site from the app) |
-| worker | `npm run start -w @appbuilder/worker` | No domain; `DEVICE_PREVIEW_ENABLED=0` (Railway exposes HTTP domains, not the raw ports Metro needs) |
+| worker | `npm run start -w @appbuilder/worker` | A volume at `/data`; for phone previews, a wildcard domain (below) |
+
+**Phone previews on Railway.** Railway gives a service HTTPS domains, not the raw ports each
+Metro dev server listens on, so the worker routes phones itself: every preview session gets a
+random subdomain of one wildcard domain, and the worker forwards it to that session's dev
+server. To turn it on:
+
+1. In the worker's settings, add the custom domain `*.dev.example.com` with target port 8090,
+   and add the CNAME and TXT records Railway shows at your DNS provider.
+2. Attach a volume at `/data` to the worker, so the Expo SDK it installs on first use survives
+   redeploys.
+3. Set `DEVICE_PREVIEW_DOMAIN=dev.example.com`, `DEVICE_PREVIEW_ENABLED=1` and `PORT=8090` on
+   the worker.
+
+The QR code then encodes `exps://<random>.dev.example.com`, which Expo Go opens over HTTPS on
+any network. The router never forwards Metro's debugger or "open in editor" endpoints.
 
 Variables reference the database and bucket (`${{Postgres.DATABASE_URL}}`,
 `${{uploads.ENDPOINT}}` and so on, with `S3_FORCE_PATH_STYLE=0`). `CLIENT_IP_HEADER=x-real-ip`
@@ -130,7 +145,8 @@ set up.
 - **Housekeeping:** the worker deletes expired App Cloud sessions and anonymous app users who
   never saved anything (after 30 days) once an hour.
 - **Phone previews** run a Metro dev server per project on the worker (ports from 8100). Phones
-  must reach those ports at `DEVICE_PREVIEW_HOST`; the compose file leaves them off
-  (`DEVICE_PREVIEW_ENABLED=0`) until you expose them. Workers report what they run every 30
+  reach them through `DEVICE_PREVIEW_DOMAIN` (a wildcard domain routed to port 8090, as on
+  Railway above) or directly at `DEVICE_PREVIEW_HOST`; the compose file leaves them off
+  (`DEVICE_PREVIEW_ENABLED=0`) until you set one up. Workers report what they run every 30
   seconds (`worker_heartbeat`), so while no worker runs them "Open on your phone" says so and
   points to Export instead of waiting.
