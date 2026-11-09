@@ -1,0 +1,302 @@
+# Architecture: AI mobile app builder
+
+This design follows the review in [01-transcript-review.md](01-transcript-review.md). Items
+marked **(decision)** depend on the open decisions listed there.
+
+---
+
+## 1. System overview
+
+```
+                         ┌──────────────────────────────────────────────┐
+  Browser                │  Web app (Next.js, App Router)               │
+  ─────────              │  • home / dashboard / workspace UI           │
+  workspace UI ─────────►│  • auth (Better Auth)                        │
+   │  ▲   SSE progress   │  • thin API routes: CRUD, enqueue runs,      │
+   │  └──────────────────│    stream run events, signed upload URLs     │
+   │                     └───────────────┬──────────────────────────────┘
+   │ postMessage                         │ enqueue / read
+   ▼                                     ▼
+ ┌────────────────────┐        ┌───────────────────┐      ┌──────────────────────┐
+ │ Preview origin     │        │ Postgres (Drizzle)│◄────►│ Worker (job runner)  │
+ │ preview.<domain>   │        │ projects, versions│      │ • agent runs         │
+ │ sandboxed iframes: │        │ runs, events,     │      │   (plan/build/edit)  │
+ │ RN-web runtime +   │        │ ledger, builds …  │      │ • validate / repair  │
+ │ vendor bundle      │        └───────────────────┘      │ • zip / GitHub push  │
+ └────────────────────┘        ┌───────────────────┐      │ • EAS build / deploy │
+                               │ Object storage    │◄────►│ • Snack sessions     │
+                               │ (S3-compatible)   │      └──────────┬───────────┘
+                               │ assets, blobs,    │                 │
+                               │ zips, artifacts   │                 ▼
+                               └───────────────────┘   Anthropic API · Expo (Snack, EAS
+                                                       Build, EAS Hosting) · GitHub ·
+                                                       ImageKit · Stripe · generated-app
+                                                       backend provider (decision)
+```
+
+**Principles**
+
+- The web app never runs anything long. Each long operation is an `agent_run` or job that
+  the **worker** executes, and the web app streams its progress from the database.
+- Every change to an app produces a new immutable **project version**. Export, build, publish
+  and preview always point at a specific version.
+- Generated code is **untrusted**. It runs only on the preview origin, in sandboxed iframes
+  with no access to platform cookies or secrets.
+- Each vendor sits behind an adapter: `StorageAdapter`, `JobQueue`, `LLMClient`,
+  `BackendProvider`, `BuildService`, `HostingService`, `ImageGen`.
+
+---
+
+## 2. The generated-app contract (v1)
+
+Every generated app follows this contract. The template provides the fixed files; the model
+writes only the files marked *generated*. A validator enforces the contract on every write.
+
+### 2.1 Runtime and dependencies
+- **Expo SDK:** pinned to the version Expo Go currently ships, since Snack and the QR flow
+  depend on it. It is recorded once in `templates/expo-app/package.json`.
+- **Router:** Expo Router (file-based).
+- **Allowed dependencies (initial list):** `react`, `react-native`, `expo`, `expo-router`,
+  `expo-status-bar`, `expo-image`, `expo-linear-gradient`, `@expo/vector-icons`,
+  `react-native-safe-area-context`, `react-native-screens`,
+  `@react-native-async-storage/async-storage`, `react-native-svg`.
+  The preview runtime's vendor bundle ships **exactly** this list, and the validator rejects
+  any other import.
+- **SDK upgrades** are a scripted procedure: bump the template, re-pin dependencies, rebuild
+  the vendor bundle, run codemods on existing projects, and re-run evals.
+
+### 2.2 File layout
+```
+app/_layout.tsx              template  — ThemeProvider, DataProvider, root Stack
+app/(tabs)/_layout.tsx       generated — tab definitions from the plan
+app/(tabs)/<screen>.tsx      generated — one file per tab screen
+app/<screen>.tsx             generated — stack screens (detail, add/edit forms …)
+components/*.tsx             generated — shared UI components
+theme/tokens.ts              generated — 5 theme packs (same keys, different values)
+theme/ThemeProvider.tsx      template  — context + useTheme(), active pack by id
+data/schema.ts               generated — entity types (zod) from the plan's data model
+data/seed.ts                 generated — realistic seed data
+data/repo.ts                 template  — Repository<T> interface + useCollection hooks
+data/local.ts                template  — AsyncStorage implementation
+data/remote.ts               added on backend connect (decision: provider)
+app.json / package.json      template  — name, slug, icons from plan
+```
+
+### 2.3 Rules the validator enforces
+1. Each file transpiles (Sucrase / esbuild) and imports only allowed packages or relative
+   paths that exist.
+2. Screens and components use theme tokens: no hex, rgb or named color literals outside
+   `theme/tokens.ts`. Spacing and font sizes use the token scales.
+3. Screens read data through `useCollection(...)` from `data/repo.ts`, never by calling
+   AsyncStorage or fetch directly. This is what lets an app move from local to remote data
+   without touching screens.
+4. Every screen file has a default export, scrolls when its content is longer than the
+   viewport, and renders with seed data and no route params (needed for canvas frames).
+5. The theme pack keys are identical across all 5 packs.
+
+A violation sends the file back to the model with the errors (at most 2 repair attempts).
+If it still fails, the run surfaces a "fix with AI" message.
+
+### 2.4 Element identity for inline editing
+The model does **not** write element IDs. Instead, when the preview runtime transpiles a file,
+it injects `dataSet={{ fid: "<path>:<start>-<end>" }}` into every host JSX element.
+react-native-web renders this as a `data-fid` attribute. The ID is the element's source span
+in the **current version** of the file, so it is always exact and costs no tokens.
+
+---
+
+## 3. Data model (Drizzle, Postgres)
+
+Better Auth owns `user`, `session`, `account` and `verification`. Our tables:
+
+| Table | Key columns | Notes |
+|-------|-------------|-------|
+| `project` | id, owner_id, name, slug, prompt, platforms (`ios`/`android`/`both`), status (`draft`/`planning`/`awaiting_confirmation`/`building`/`ready`/`error`), visibility (`private`/`public`), active_theme_id, current_version_id, timestamps, deleted_at | Soft delete |
+| `project_asset` | id, project_id, storage_key, mime, bytes, width, height, uploaded_by | Pre-signed upload; MIME checked from content |
+| `project_member` | project_id, user_id?, email, role (`viewer`/`editor`), invited_by, accepted_at | Share by email |
+| `message` | id, project_id, role, content (jsonb: text, attachment ids, plan ref, selection ref), run_id, created_at | Chat history |
+| `plan` | id, project_id, version, app_name, screens (jsonb), data_model (jsonb), themes (jsonb), status (`proposed`/`confirmed`/`superseded`) | Revisions keep history |
+| `project_version` | id, project_id, parent_id, created_by_run_id, kind (`generate`/`ai_edit`/`inline_edit`/`restore`), summary, created_at | Immutable |
+| `version_file` | version_id, path, blob_hash | One row per file per version |
+| `blob` | hash (sha256), content (text) or storage_key, bytes | Content-addressed and deduplicated |
+| `screen` | project_id, key, title, route, file_path, order, canvas_x, canvas_y | Canvas layout |
+| `agent_run` | id, project_id, user_id, kind (`plan`/`revise`/`build`/`edit`/`fix`/`backend_connect`), status (`queued`/`running`/`succeeded`/`failed`/`cancelled`), input, progress, error, model, tokens_in/out, cache_read_tokens, credits_reserved, credits_charged, started_at, finished_at | One row per job |
+| `run_event` | run_id, seq, type, payload, created_at | Streamed to the UI over SSE |
+| `credit_ledger` | id, user_id, delta, reason (`grant`/`reserve`/`settle`/`release`/`purchase`/`refund`), run_id?, stripe_event_id?, created_at | Append-only; the balance is a guarded transactional sum or cache |
+| `subscription` | user_id, plan (`free`/`pro`), stripe_customer_id, stripe_subscription_id, status, current_period_end | |
+| `integration_connection` | user_id, provider (`github`/`expo`/`backend`), encrypted_token, scopes, account_label, expires_at | Envelope-encrypted |
+| `project_github_repo` | project_id, owner, repo, default_branch, last_pushed_version_id | |
+| `build` | id, project_id, version_id, platform, artifact (`apk`/`aab`/`ipa`), eas_build_id, status, artifact_url, app_version, build_number | |
+| `web_deployment` | id, project_id, version_id, url, provider_deployment_id, status | |
+| `backend_binding` | project_id, provider, external_project_id, services (jsonb), connection_id | Generated-app backend |
+
+**Undo and restore:** point `project.current_version_id` at an older version, which also
+creates a `restore` version so history stays linear.
+
+---
+
+## 4. Agent pipeline
+
+### 4.1 Plan and revise (structured output)
+- **Input:** the prompt, attached images (sent as vision input), platforms, and the
+  default/maximum screen count from config (3 and 8 in the video).
+- **Output (JSON schema):**
+  - `appName`, `summary`
+  - `screens[]`: `{ key, title, kind: tab|stack, purpose, keyComponents, dataNeeds }`
+  - `dataModel.entities[]`
+  - `themes[5]`: `{ id, name, tokens }`
+- **Revise:** send the current plan plus the user's feedback and get back plan v(n+1). The
+  UI renders a plan card with **Confirm & build**.
+
+### 4.2 Build (orchestrated by our code; one `agent_run`)
+1. **Scaffold** the template files.
+2. **Shared layer** (one call): `theme/tokens.ts`, `data/schema.ts`, `data/seed.ts`,
+   `components/*`, and `app/(tabs)/_layout.tsx`.
+3. **Each screen in plan order** (one call per screen). The context includes:
+   - the contract,
+   - the plan,
+   - the shared layer's source,
+   - the exported signatures of screens already generated.
+
+   Tokens are streamed and progress events emitted (screen started, lines written, screen
+   done).
+4. **Validate** each file (§2.3). On failure, run a repair call with the errors (at most 2).
+5. **Optional smoke render:** the worker loads the preview runtime in headless Chromium with
+   the file set and fails the screen if it throws.
+6. **Commit** a `project_version` and update `screen` rows. The canvas shows each screen as
+   soon as it lands.
+
+Each screen is a checkpoint, so a crashed run resumes from the last completed screen.
+
+### 4.3 Edit agent (chat after the build)
+A tool-using agent loop with these tools:
+- `list_files`, `read_file`, `write_file`, `edit_file` (exact string replace)
+- `add_screen`, `delete_screen`, `rename_screen`, `reorder_screens`
+- `set_theme`, `validate`
+
+When the user picks an element with the inline editor, the message carries a selection
+reference (`path`, source span, snippet). Every run writes a new version, so users can undo.
+
+### 4.4 Model and SDK notes
+- Use the **Anthropic TypeScript SDK** (`@anthropic-ai/sdk`), called directly rather than
+  through an OpenAI-compatible gateway.
+- Default to the current **Opus-tier** Claude model with adaptive thinking. Set effort
+  explicitly per route and tune it with the eval set. Using cheaper tiers for some routes is
+  a product decision, made only on eval evidence.
+- **Plan:** use structured outputs (`output_config.format`). Current top models reject
+  *forced* `tool_choice`, so don't force a tool to get JSON back.
+- **Edit agent:** use the SDK tool runner, with strict tool schemas.
+- **Stream** every generation call. Cache the stable prefix (system prompt + contract +
+  template sources). Check `stop_reason` before using output, and handle `refusal` and
+  `max_tokens` (enable server-side fallbacks as the SDK docs recommend).
+- **Credits:** reserve an estimate when a run starts, then settle from `response.usage`
+  (input, output and cache tokens) when it ends.
+- **Rough cost** at current Opus-tier list prices ($4 in / $20 out per million tokens):
+  - plan ≈ $0.10
+  - shared layer ≈ $0.30
+  - each screen ≈ $0.15–0.20 (cache reads make repeated context cheap)
+  - **total ≈ $1–2 for a 5-screen app** including repairs; chat edits ≈ $0.05–0.30.
+
+  These are estimates. Measure real usage before setting credit prices.
+
+---
+
+## 5. Preview runtime (canvas and interactive preview)
+
+- **Origin:** `preview.<domain>`, separate from the app origin. It serves a static runtime
+  and a prebuilt **vendor bundle** (React, react-native-web, the allowed dependencies, and
+  shims for native-only modules).
+- **Frames:** `<iframe sandbox="allow-scripts">` without `allow-same-origin`, at device size.
+  The parent sends `{ files (or pretranspiled modules), mode, route, themeId, selectMode }`
+  over `postMessage`.
+- **Module loader:**
+  1. Transpile TSX → JS (Sucrase).
+  2. Inject `dataSet.fid` (§2.4).
+  3. Evaluate CommonJS-style modules, with `require` resolving to the vendor bundle or
+     sibling files.
+- **Router shim:** implements `Stack`, `Tabs`, `Link`, `router.push/back/replace`,
+  `useRouter`, `useLocalSearchParams` and `usePathname` over an in-memory history.
+  **This is the riskiest piece. Spike it in Phase 0.** Fallback: Snack's web player.
+- **Modes:**
+  - **Screen mode** (canvas frames): render a single route with seed data. Navigation
+    attempts are posted to the parent, which focuses that screen.
+  - **App mode** (right panel): the full app, interactive, with local data.
+- **Theme switch:** the parent posts a new `themeId` and the ThemeProvider swaps tokens
+  instantly, with no regeneration.
+- **Select mode:** hovering outlines the nearest element with `data-fid`. Clicking posts
+  `{ fid, text, computedStyle, styleProp }` to the parent.
+- **Errors:** an error boundary in each frame posts the error to the parent, which shows a
+  "Fix with AI" action.
+
+## 6. On-device preview (QR)
+- The worker or server uses `snack-sdk` to create a Snack from the current version's files
+  plus pinned dependencies, keeps it online, and returns its `exp://` URL. The client renders
+  the URL as a QR code.
+- When a new version lands, the worker pushes the changed files to the same Snack session,
+  and Expo Go reloads live.
+- This requires the contract's SDK to match the one Expo Go currently ships (§2.1).
+
+## 7. Inline editing write-back
+1. A click gives a `fid` (path + span in version N). The quick editor shows text (if it is a
+   literal), color (token picker first, custom value second), spacing, layout, border and
+   effects.
+2. On change, `POST /api/projects/:id/inline-edit { versionId, fid, patch }` runs an AST
+   transform with Babel + recast that edits the `style` prop or the literal child, keeping
+   formatting. It returns 409 if `versionId` is not the current version.
+3. Edits within one editing session are debounced into a single `inline_edit` version, and
+   the preview hot-swaps the changed module.
+4. JSX expressions are read-only. "Edit with AI" opens the chat with the selection attached.
+
+## 8. Export, GitHub, builds, web publish
+- **Zip:** the worker writes the version's files plus a README and pinned `package.json`,
+  uploads the zip to storage, and returns a short-lived signed URL.
+- **GitHub:** prefer a **GitHub App** (per-repo installation) over an OAuth app with the
+  `repo` scope.
+  - Create the repo with `auto_init` (the Git Data API cannot commit to an empty repo).
+  - Commit with blobs → tree → commit → ref; no git binary needed.
+  - The first push goes to the default branch. Later pushes go to a branch named
+    `<product>/<version-id>` and open a PR.
+- **Native builds (EAS):**
+  1. The worker materializes the version into a temp directory, writes `eas.json`, and runs
+     `eas build --non-interactive --no-wait` with the user's encrypted `EXPO_TOKEN`.
+  2. It polls the build status and stores the artifact URL.
+  3. Credentials must exist before the first build: the Android keystore is generated and
+     backed up (or managed by EAS), and **iOS requires the user's Apple Developer
+     credentials**, collected in an onboarding step.
+- **Web publish:** `npx expo export --platform web`, then `eas deploy` with the user's
+  token. Store the URL per version, and republish from a newer version.
+
+## 9. Security baseline
+- Separate preview origin, sandboxed iframes and a CSP. Generated code never runs on the app
+  origin.
+- One central `authorize(user, project, action)` helper used by every route and job. Write
+  tests for viewer vs editor vs owner vs public.
+- Third-party tokens are envelope-encrypted: a data key per record, wrapped by a master key
+  held in KMS or an environment variable. Store scopes and an account label, and support
+  revocation.
+- The agent's context contains no secrets. Generated code receives no platform environment
+  variables.
+- Uploads: pre-signed PUT URLs, size limits, content-sniffed MIME, image re-encoding.
+- Rate limits on run creation, uploads and auth. Free-tier abuse controls (e.g. requiring
+  email verification before generating).
+- Stripe webhooks: verify the signature and store `stripe_event_id` for idempotency.
+- Never log or store prompts or assets anywhere that would share them for third-party
+  training.
+
+## 10. Environments and configuration
+
+**Local dev:** `docker compose` runs Postgres and MinIO, and the worker runs locally, so jobs
+need no tunnel. A tunnel (ngrok or cloudflared) is needed only for third-party webhooks
+(Stripe, EAS).
+
+**Environment variables (grouped):**
+- **Core:** `DATABASE_URL`, `APP_URL`, `PREVIEW_ORIGIN`, `ENCRYPTION_MASTER_KEY`,
+  `BETTER_AUTH_SECRET`
+- **OAuth:** Google and GitHub sign-in client ID/secret pairs
+- **Storage:** `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`
+- **LLM:** `ANTHROPIC_API_KEY`, `DEFAULT_SCREEN_COUNT`, `MAX_SCREEN_COUNT`
+- **GitHub App:** `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_CLIENT_ID`,
+  `GITHUB_APP_CLIENT_SECRET`
+- **Images:** `IMAGEKIT_PRIVATE_KEY`, `IMAGEKIT_URL_ENDPOINT`
+- **Billing:** `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO`
+- **Generated-app backend:** provider OAuth client ID/secret (decision)
