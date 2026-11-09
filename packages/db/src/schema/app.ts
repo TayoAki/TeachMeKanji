@@ -288,6 +288,8 @@ export const deviceSession = pgTable("device_session", {
     .primaryKey()
     .references(() => project.id, { onDelete: "cascade" }),
   versionId: text("version_id"),
+  /** Whose Expo account the dev server runs as (Expo Go on iPhone must be signed in as them). */
+  userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
   status: text("status").$type<"starting" | "running" | "stopped" | "error">().notNull(),
   url: text("url"),
   port: integer("port"),

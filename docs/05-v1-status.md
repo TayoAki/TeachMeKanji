@@ -159,7 +159,7 @@ image-fetch DNS pinning:
 | Studio and Pro upgrades | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_STUDIO`, `STRIPE_PRICE_PRO` | Webhook verified with signed events; Checkout and the portal never run against Stripe |
 | Push to GitHub | A user's fine-grained token (Settings) | Request sequence unit-tested; never run against GitHub |
 | Android/iOS builds | A user's Expo token (Settings); Apple account for iOS | Built; never run against EAS |
-| Phone on another network | A wildcard domain for `DEVICE_PREVIEW_DOMAIN` (or `DEVICE_PREVIEW_SINGLE_HOST` to try it on Railway's own address, one preview at a time) | Live on Railway with Railway's address: the session starts in about 5 s from the SDK in the worker image, and over the public internet the manifest (`exposdk:58.0.0`), the 6.6 MB bundle and the fast-refresh WebSocket (101) come through; debugger endpoints return 404. Not yet scanned from a phone |
+| Phone on another network | A wildcard domain for `DEVICE_PREVIEW_DOMAIN` (or `DEVICE_PREVIEW_SINGLE_HOST` to try it on Railway's own address, one preview at a time) | Live on Railway with Railway's address: the session starts in about 5 s from the SDK in the worker image, and over the public internet the manifest (`exposdk:58.0.0`), the 6.6 MB bundle and the fast-refresh WebSocket (101) come through; debugger endpoints return 404. First scan from an iPhone reached the server; Expo Go then required the dev server to be signed in as the phone's Expo account, which previews now do with the user's Expo token |
 | S3 / R2 storage | `S3_*` variables | Adapter written; local files used here |
 
 ## Known limits

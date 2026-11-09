@@ -22,8 +22,14 @@ import { lstat, mkdir, readFile, readlink, symlink, unlink, writeFile } from "no
 import { createServer } from "node:net";
 import { networkInterfaces } from "node:os";
 import { join } from "node:path";
-import { eq, lt, or } from "drizzle-orm";
-import { dataDir, exportBundle, getCurrentFiles } from "@appbuilder/core";
+import { and, eq, lt, or } from "drizzle-orm";
+import {
+  dataDir,
+  decryptSecret,
+  expoAccount,
+  exportBundle,
+  getCurrentFiles,
+} from "@appbuilder/core";
 import { schema, type Database } from "@appbuilder/db";
 import { createDeviceRouter, normalizeHost, tokenFromHost } from "./device-router";
 import { childEnv, materialize } from "./project";
@@ -36,6 +42,8 @@ interface Session {
   versionId: string | null;
   /** The session's subdomain when phones come in through the router. */
   token?: string;
+  /** Whose Expo account the dev server is signed in as. */
+  userId: string | null;
 }
 
 /** The wildcard's parent domain (`dev.example.com` for `*.dev.example.com`), if routed. */
@@ -200,8 +208,12 @@ export class DeviceManager {
       await this.stopIdle();
       const rows = await this.db.select().from(schema.deviceSession);
       for (const row of rows) {
+        const session = this.sessions.get(row.projectId);
+        // Opened by someone else: restart it signed in as their Expo account.
+        if (row.status === "starting" && session && session.userId !== row.userId)
+          this.kill(row.projectId);
         if (row.status === "starting" && !this.sessions.has(row.projectId))
-          await this.start(row.projectId);
+          await this.start(row.projectId, row.userId);
         else if (row.status === "running") await this.sync(row.projectId);
         else if (row.status === "stopped") this.kill(row.projectId);
       }
@@ -210,7 +222,32 @@ export class DeviceManager {
     }
   }
 
-  private async start(projectId: string) {
+  /**
+   * The Expo token to run a session's dev server with. On a physical iPhone, Expo Go only opens a
+   * dev server signed in as the phone's own Expo account; a token Expo rejects would break the
+   * preview for every phone, so it is checked first. `note` explains what won't work.
+   */
+  private async expoLogin(userId: string | null): Promise<{ token?: string; note: string | null }> {
+    if (!userId) return { note: null };
+    const [row] = await this.db
+      .select()
+      .from(schema.integration)
+      .where(and(eq(schema.integration.userId, userId), eq(schema.integration.provider, "expo")));
+    if (!row) return { note: null };
+    const token = decryptSecret(row.encryptedToken);
+    const account = await expoAccount(token);
+    if (account === null)
+      return {
+        note: "Expo rejected your saved access token, so an iPhone can't open this preview. Replace it in Settings.",
+      };
+    if (account?.robot)
+      return {
+        note: "Your saved Expo token is a robot token. On iPhone, Expo Go needs a personal access token from your own account.",
+      };
+    return { token, note: null };
+  }
+
+  private async start(projectId: string, userId: string | null = null) {
     try {
       const { versionId, files } = await getCurrentFiles(this.db, projectId);
       if (!versionId) throw new Error("Build the app first");
@@ -219,6 +256,7 @@ export class DeviceManager {
       await mkdir(dir, { recursive: true });
       await materialize(exportBundle("Preview", files), dir);
       await linkNodeModules(join(dir, "node_modules"), nodeModules);
+      const expo = await this.expoLogin(userId);
 
       const port = await freePort();
       const domain = previewDomain();
@@ -243,6 +281,8 @@ export class DeviceManager {
           env: childEnv({
             EXPO_NO_TELEMETRY: "1",
             BROWSER: "none",
+            // Signs the dev server in as the viewer, so Expo Go on their iPhone accepts it.
+            ...(expo.token ? { EXPO_TOKEN: expo.token } : {}),
             // Manifest and bundle URLs must point at the public subdomain, not localhost.
             ...(publicHost ? { EXPO_PACKAGER_PROXY_URL: `https://${publicHost}` } : {}),
           }),
@@ -263,14 +303,15 @@ export class DeviceManager {
           });
         }
       });
-      this.sessions.set(projectId, { child, port, versionId, token });
+      this.sessions.set(projectId, { child, port, versionId, token, userId });
       await waitForStatus(port);
       const url = publicHost
         ? `exps://${publicHost}` // Expo Go opens exps:// over https
         : tunnel
           ? (/exp:\/\/[^\s]+/.exec(log)?.[0] ?? null)
           : `exp://${previewHost()}:${port}`;
-      await this.update(projectId, { status: "running", url, port, versionId, error: null });
+      // While running, `error` carries a warning for the dialog (what won't work on iPhone).
+      await this.update(projectId, { status: "running", url, port, versionId, error: expo.note });
     } catch (error) {
       this.kill(projectId);
       await this.update(projectId, {

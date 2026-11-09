@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { encryptSecret } from "@appbuilder/core";
+import { encryptSecret, expoAccount } from "@appbuilder/core";
 import { schema } from "@appbuilder/db";
 import { db, HttpError, readJson, requireViewer, route } from "@/lib/server";
 
@@ -21,7 +21,10 @@ async function describeToken(provider: Provider, token: string): Promise<string>
     const login = response?.ok ? ((await response.json()) as { login?: string }).login : undefined;
     return login ? `@${login}` : "GitHub token";
   }
-  return "Expo access token";
+  // The label is the Expo username: phone previews on iPhone need Expo Go signed in as it.
+  const account = await expoAccount(token);
+  if (account === null) throw new HttpError(400, "Expo rejected this token.");
+  return account?.username ?? "Expo access token";
 }
 
 export const PUT = route(

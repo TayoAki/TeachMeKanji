@@ -23,9 +23,17 @@ export async function testDb(): Promise<{ db: Database; close: () => Promise<voi
   await admin.end();
 
   const { db, pool } = createDb(TEST_URL);
-  await migrate(db, {
-    migrationsFolder: fileURLToPath(new URL("../../db/drizzle", import.meta.url)),
-  });
+  // Test files run in parallel and each migrates: one at a time, or a new migration races itself.
+  const lock = new Client({ connectionString: TEST_URL });
+  await lock.connect();
+  try {
+    await lock.query("select pg_advisory_lock(7310)");
+    await migrate(db, {
+      migrationsFolder: fileURLToPath(new URL("../../db/drizzle", import.meta.url)),
+    });
+  } finally {
+    await lock.end(); // ending the session releases the lock
+  }
   return { db, close: () => pool.end() };
 }
 

@@ -1,10 +1,23 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { devicePreviewsAvailable } from "@appbuilder/core";
 import { schema } from "@appbuilder/db";
 import { db, HttpError, requireProject, route } from "@/lib/server";
 
-const { deviceSession } = schema;
+const { deviceSession, integration } = schema;
+
+/**
+ * The viewer's connected Expo account, as Settings shows it: on a physical iPhone, Expo Go only
+ * opens the preview when it is signed in to that same account.
+ */
+async function expoAccountLabel(userId: string | undefined): Promise<string | null> {
+  if (!userId) return null;
+  const [row] = await db()
+    .select({ label: integration.label })
+    .from(integration)
+    .where(and(eq(integration.userId, userId), eq(integration.provider, "expo")));
+  return row ? (row.label ?? "Expo access token") : null;
+}
 
 async function current(projectId: string) {
   const [row] = await db()
@@ -21,36 +34,50 @@ async function current(projectId: string) {
 export const GET = route(
   async (_request: Request, ctx: RouteContext<"/api/projects/[id]/device">) => {
     const { id } = await ctx.params;
-    await requireProject(id, "edit");
+    const { viewer } = await requireProject(id, "edit");
     const row = await current(id);
     if (row)
       await db()
         .update(deviceSession)
         .set({ lastSeenAt: new Date() })
         .where(eq(deviceSession.projectId, id));
-    return NextResponse.json({ session: row, available: await devicePreviewsAvailable(db()) });
+    return NextResponse.json({
+      session: row,
+      available: await devicePreviewsAvailable(db()),
+      expoAccount: await expoAccountLabel(viewer?.id),
+    });
   },
 );
 
 export const POST = route(
   async (_request: Request, ctx: RouteContext<"/api/projects/[id]/device">) => {
     const { id } = await ctx.params;
-    const { project } = await requireProject(id, "edit");
+    const { project, viewer } = await requireProject(id, "edit");
     if (!project.currentVersionId) throw new HttpError(400, "Build the app first.");
     // Nothing would ever pick the session up: say so instead of spinning forever.
     if (!(await devicePreviewsAvailable(db())))
       return NextResponse.json({ session: null, available: false });
     const row = await current(id);
-    if (!row || row.status === "error" || row.status === "stopped") {
+    // (Re)start it for this viewer: the dev server runs as their Expo account, so someone else
+    // opening the dialog on a shared project restarts it as theirs.
+    if (!row || row.status === "error" || row.status === "stopped" || row.userId !== viewer?.id) {
+      const fresh = {
+        status: "starting" as const,
+        userId: viewer?.id ?? null,
+        error: null,
+        url: null,
+        lastSeenAt: new Date(),
+      };
       await db()
         .insert(deviceSession)
-        .values({ projectId: id, status: "starting", lastSeenAt: new Date() })
-        .onConflictDoUpdate({
-          target: deviceSession.projectId,
-          set: { status: "starting", error: null, url: null, lastSeenAt: new Date() },
-        });
+        .values({ projectId: id, ...fresh })
+        .onConflictDoUpdate({ target: deviceSession.projectId, set: fresh });
     }
-    return NextResponse.json({ session: await current(id), available: true });
+    return NextResponse.json({
+      session: await current(id),
+      available: true,
+      expoAccount: await expoAccountLabel(viewer?.id),
+    });
   },
 );
 

@@ -75,6 +75,12 @@ server. To turn it on:
 The QR code then encodes `exps://<random>.dev.example.com`, which Expo Go opens over HTTPS on
 any network. The router never forwards Metro's debugger or "open in editor" endpoints.
 
+On a physical iPhone, Expo Go only opens a dev server that is signed in to Expo as the same
+account as the phone (Android and simulators don't check). Each preview's dev server therefore
+runs with the Expo access token of the person who opened it (Settings → Expo, a personal token);
+without one, the dialog explains how to add it. Tokens are checked against Expo when saved and
+again before a preview starts, because one Expo rejects makes the dev server fail for every phone.
+
 To try it before setting up DNS, give the worker a Railway domain (target port 8090) and set
 `DEVICE_PREVIEW_SINGLE_HOST` to it instead of `DEVICE_PREVIEW_DOMAIN`. That address serves one
 phone preview at a time: opening another ends the first, whose dialog says so. Anyone who has

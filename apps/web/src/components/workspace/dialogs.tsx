@@ -527,11 +527,14 @@ interface DeviceState {
   session: DeviceSession | null;
   /** False when no worker on this server runs phone previews. */
   available: boolean;
+  /** The viewer's connected Expo account (Settings), which Expo Go on iPhone must match. */
+  expoAccount?: string | null;
 }
 
 export function DeviceDialog({ open, onOpenChange, projectId }: DialogProps) {
   const [session, setSession] = useState<DeviceSession | null>(null);
   const [available, setAvailable] = useState(true);
+  const [expoAccount, setExpoAccount] = useState<string | null | undefined>(undefined);
   const [qrCode, setQrCode] = useState<{ url: string; data: string } | null>(null);
 
   useEffect(() => {
@@ -542,6 +545,7 @@ export function DeviceDialog({ open, onOpenChange, projectId }: DialogProps) {
       if (!alive) return;
       setSession(state.session);
       setAvailable(state.available);
+      setExpoAccount(state.expoAccount);
     };
     api<DeviceState>(`/api/projects/${projectId}/device`, { method: "POST" })
       .then((state) => {
@@ -595,6 +599,27 @@ export function DeviceDialog({ open, onOpenChange, projectId }: DialogProps) {
                 className="size-60 rounded-lg border"
               />
               <code className="max-w-full truncate text-xs">{session.url}</code>
+              {session.error ? (
+                <p className="text-center text-xs text-destructive">{session.error}</p>
+              ) : null}
+              <p className="text-center text-xs text-muted-foreground">
+                {expoAccount === null ? (
+                  <>
+                    On iPhone, Expo Go only opens apps from your own Expo account: add your Expo
+                    access token in{" "}
+                    <Link href="/settings#integrations" className="underline">
+                      Settings
+                    </Link>
+                    , then sign in to Expo Go with that account. Android works without it.
+                  </>
+                ) : expoAccount && expoAccount !== "Expo access token" ? (
+                  <>
+                    On iPhone, sign in to Expo Go as <strong>{expoAccount}</strong>.
+                  </>
+                ) : (
+                  "On iPhone, sign in to Expo Go with the account your Expo token belongs to."
+                )}
+              </p>
             </>
           ) : session?.status === "error" ? (
             <p className="text-sm text-destructive">{session.error ?? "The dev server stopped."}</p>

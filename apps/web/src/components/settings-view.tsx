@@ -71,7 +71,7 @@ function Integration({
       : {
           title: "Expo (EAS Build)",
           icon: <Smartphone className="size-5" />,
-          help: "An Expo access token, so builds run on your own Expo account.",
+          help: "A personal Expo access token (expo.dev → Access tokens), so builds run on your own Expo account and phone previews open in Expo Go on iPhone.",
           link: "https://expo.dev/settings/access-tokens",
         };
   return (
