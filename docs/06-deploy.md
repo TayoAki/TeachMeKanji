@@ -47,6 +47,23 @@ If Docker Hub rate-limits the base image, build from a mirror of the official No
 docker build --build-arg NODE_IMAGE=mirror.gcr.io/library/node:22-bookworm-slim -t appbuilder .
 ```
 
+## On Railway
+
+The repo deploys to Railway as three services built from the same Dockerfile, plus the
+Postgres template and a Railway bucket:
+
+| Service | Start command | Notes |
+|---------|---------------|-------|
+| web | `npm run start -w @appbuilder/web` | Domain on port 3000; pre-deploy `npm run db:migrate`; health check `/api/health` |
+| preview | `npm run start -w @appbuilder/preview` | Its own domain on port 3001 (a separate site from the app) |
+| worker | `npm run start -w @appbuilder/worker` | No domain; `DEVICE_PREVIEW_ENABLED=0` |
+
+Variables reference the database and bucket (`${{Postgres.DATABASE_URL}}`,
+`${{uploads.ENDPOINT}}` and so on, with `S3_FORCE_PATH_STYLE=0`). `CLIENT_IP_HEADER=x-real-ip`
+is set because Railway's edge sends the client address in X-Real-IP. Set
+`NEXT_PUBLIC_PREVIEW_ORIGIN` on the web service before its first build: Railway passes service
+variables to the Dockerfile's `ARG`s.
+
 ## On separate hosts
 
 | Service | Command | Notes |

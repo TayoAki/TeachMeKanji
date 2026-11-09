@@ -33,7 +33,7 @@ ENV NEXT_PUBLIC_PREVIEW_ORIGIN=$NEXT_PUBLIC_PREVIEW_ORIGIN
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 ENV NODE_ENV=production
+# Local files (when S3_* is unset) live here; mount a volume at /data to keep them.
 ENV APP_DATA_DIR=/data
-VOLUME /data
 EXPOSE 3000 3001
 CMD ["npm", "run", "start", "-w", "@appbuilder/web"]
