@@ -30,6 +30,7 @@ export const GET = route(async (_request: Request, ctx: RouteContext<"/api/proje
       platforms: project.platforms,
       activeThemeId: project.activeThemeId,
       publishedSlug: project.publishedSlug,
+      backend: project.backend,
       updatedAt: project.updatedAt,
     },
     access,

@@ -39,6 +39,7 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[id]"
       platforms: project.platforms,
       activeThemeId: project.activeThemeId,
       publishedSlug: project.publishedSlug,
+      backend: project.backend,
       updatedAt: project.updatedAt,
     },
     access,

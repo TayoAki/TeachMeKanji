@@ -31,7 +31,7 @@ export async function creditBalance(db: Executor, userId: string): Promise<numbe
 
 export async function userPlan(db: Executor, userId: string): Promise<PlanId> {
   const [row] = await db.select().from(subscription).where(eq(subscription.userId, userId));
-  return row && row.plan === "pro" && row.status === "active" ? "pro" : "free";
+  return row?.plan === "pro" && ["active", "trialing"].includes(row.status) ? "pro" : "free";
 }
 
 /** Give a new user their sign-up credits once (idempotent). */

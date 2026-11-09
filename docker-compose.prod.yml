@@ -1,0 +1,74 @@
+# Production-style stack: Postgres, migrations, web, preview runtime and worker, from one image.
+#   cp .env.example .env    # fill in secrets; see docs/06-deploy.md
+#   docker compose -f docker-compose.prod.yml up -d --build
+# Put a TLS proxy in front: the app and the preview must be different origins (two hostnames).
+x-app: &app
+  image: appbuilder:latest
+  build:
+    context: .
+    args:
+      NEXT_PUBLIC_PREVIEW_ORIGIN: ${NEXT_PUBLIC_PREVIEW_ORIGIN:-http://localhost:3001}
+  env_file: .env
+  environment:
+    DATABASE_URL: postgres://appbuilder:${POSTGRES_PASSWORD:-appbuilder}@postgres:5432/appbuilder
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
+    environment:
+      POSTGRES_USER: appbuilder
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-appbuilder}
+      POSTGRES_DB: appbuilder
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appbuilder"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    <<: *app
+    command: ["npm", "run", "db:migrate"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    <<: *app
+    command: ["npm", "run", "start", "-w", "@appbuilder/web"]
+    # Bound to localhost: put a TLS proxy in front. Exposed directly, clients could send their
+    # own X-Forwarded-For and dodge the per-IP rate limits.
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - app-data:/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  preview:
+    <<: *app
+    command: ["npm", "run", "start", "-w", "@appbuilder/preview"]
+    ports:
+      - "127.0.0.1:3001:3001"
+
+  worker:
+    <<: *app
+    command: ["npm", "run", "start", "-w", "@appbuilder/worker"]
+    # Uploads live in /data unless S3_* is set, so web and worker share the volume.
+    volumes:
+      - app-data:/data
+    environment:
+      DATABASE_URL: postgres://appbuilder:${POSTGRES_PASSWORD:-appbuilder}@postgres:5432/appbuilder
+      # Phone previews need the worker's Metro ports reachable from phones; off by default here.
+      DEVICE_PREVIEW_ENABLED: ${DEVICE_PREVIEW_ENABLED:-0}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  postgres-data:
+  app-data:

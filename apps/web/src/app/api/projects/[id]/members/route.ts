@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listMembers, shareProject, unshareProject } from "@appbuilder/core";
+import { listMembers, revokePreviewSessions, shareProject, unshareProject } from "@appbuilder/core";
 import { db, HttpError, readJson, requireProject, route } from "@/lib/server";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -38,6 +38,8 @@ export const DELETE = route(
     await requireProject(id, "manage");
     const email = new URL(request.url).searchParams.get("email") ?? "";
     await unshareProject(db(), id, email);
+    // The workspace preview's App Cloud sessions are shared by everyone who can edit.
+    await revokePreviewSessions(db(), id);
     return NextResponse.json({ ok: true });
   },
 );

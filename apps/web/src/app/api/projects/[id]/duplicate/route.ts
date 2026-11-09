@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { canSeeSource, duplicateProject } from "@appbuilder/core";
+import { assertProjectRate, canSeeSource, duplicateProject } from "@appbuilder/core";
 import { db, HttpError, requireProject, route } from "@/lib/server";
 
 /** Duplicate your own project, or remix a public one into your account. */
@@ -8,6 +8,7 @@ export const POST = route(
     const { id } = await ctx.params;
     const { project, viewer, access } = await requireProject(id);
     if (!viewer) throw new HttpError(401, "Sign in to remix this app.");
+    await assertProjectRate(db(), viewer.id);
     const copy = await duplicateProject(db(), project, viewer.id, {
       includePrivate: canSeeSource(access),
     });

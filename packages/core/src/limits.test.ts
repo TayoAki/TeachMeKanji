@@ -1,0 +1,36 @@
+import { describe, expect, it } from "vitest";
+import { WindowLimiter } from "./limits";
+
+describe("WindowLimiter", () => {
+  it("allows up to the limit per key within the window, then recovers", () => {
+    const limiter = new WindowLimiter(3, 1_000);
+    expect([0, 10, 20].map((t) => limiter.take("a", t))).toEqual([true, true, true]);
+    expect(limiter.take("a", 30)).toBe(false);
+    // Other keys are independent.
+    expect(limiter.take("b", 30)).toBe(true);
+    // Refused attempts don't extend the lockout; old hits age out of the window.
+    expect(limiter.take("a", 1_001)).toBe(true);
+    expect(limiter.take("a", 1_002)).toBe(false);
+    expect(limiter.take("a", 2_100)).toBe(true);
+  });
+
+  it("keeps memory bounded under a flood of distinct keys", () => {
+    const limiter = new WindowLimiter(5, 60_000, 100);
+    for (let i = 0; i < 1_000; i++) limiter.take(`flood-${i}`, 1_000 + i);
+    expect(limiter.size).toBeLessThanOrEqual(100);
+    // The most recently used keys are kept.
+    expect(limiter.take("flood-999", 3_000)).toBe(true);
+  });
+});
+
+describe("error report redaction", () => {
+  it("drops query parameters but keeps the query and the stack", async () => {
+    const { redact } = await import("./report");
+    const text =
+      'Failed query: insert into "app_user" values ($1, $2)\nparams: au_1,sam@example.com\n    at run (db.ts:1:1)';
+    expect(redact(text)).toBe(
+      'Failed query: insert into "app_user" values ($1, $2)\nparams: [redacted]\n    at run (db.ts:1:1)',
+    );
+    expect(redact("plain message")).toBe("plain message");
+  });
+});

@@ -30,8 +30,7 @@ marked **(decision)** depend on the open decisions listed there.
                                │ zips, artifacts   │                 ▼
                                └───────────────────┘   Anthropic API · Expo (Expo Go, EAS
                                                        Build, EAS Hosting) · GitHub ·
-                                                       ImageKit · Stripe · generated-app
-                                                       backend provider (decision)
+                                                       ImageKit · Stripe · Resend
 ```
 
 **Principles**
@@ -82,7 +81,10 @@ data/schema.ts               generated — entity types from the plan's data mod
 data/seed.ts                 generated — realistic seed data
 data/repo.ts                 template  — Repository<T> interface + useCollection hooks
 data/local.ts                template  — AsyncStorage implementation
-data/remote.ts               added on backend connect (decision: provider)
+data/remote.ts               template  — App Cloud implementation of the same repository
+data/auth.ts                 template  — useAuth(): App Cloud accounts (sign up / in / out)
+data/backend.ts              platform  — App Cloud URL and ImageKit endpoint; never model-written
+components/AiImage.tsx       template  — <AiImage prompt="…" />: ImageKit-generated images
 app.json / package.json      template  — name, slug, icons from plan
 ```
 
@@ -106,6 +108,34 @@ The model does **not** write element IDs. Instead, when the preview runtime tran
 it injects `dataSet={{ fid: "<path>:<start>-<end>" }}` into every host JSX element.
 react-native-web renders this as a `data-fid` attribute. The ID is the element's source span
 in the **current version** of the file, so it is always exact and costs no tokens.
+
+### 2.5 App Cloud (generated-app backend) and AI images
+Decision (Phase 8): a built-in backend instead of a third-party provider, so an app gets data
+and accounts with one switch and no setup.
+
+- **Data:** `app_user`, `app_session`, `app_record` tables in the platform's Postgres. Records
+  are JSON documents keyed by (project, owner, collection, id). Limits: 500 records per
+  anonymous user, 5,000 per account, 20,000 per app (checked under a per-app lock), 32 KB per
+  record, 200 per write, 7 MB per request body.
+- **Users:** a device gets an anonymous user on first launch, so its data is saved
+  immediately. `useAuth()` signs up (upgrading the anonymous user in place, so its data stays
+  theirs), signs in and out. Passwords are scrypt-hashed; sessions are random bearer tokens
+  stored as SHA-256 hashes, valid 90 days.
+- **API:** `/api/app/<projectId>/auth/*` and `/collections/<name>[/<id>]`, CORS-open and
+  authenticated only by bearer tokens (never cookies), because apps call it from phones, the
+  sandboxed preview and published web pages. Every query is scoped to the project and to the
+  token's user. Sign-in (per account and per address), sign-up and anonymous-user creation
+  (per address, plus a per-app backstop) are rate limited. Errors are logged without query
+  parameters, which would contain end users' emails and records.
+- **Switch:** turning App Cloud on rewrites `data/backend.ts` (a platform file) as a new
+  version; `data/repo.ts` then uses `remote.ts` instead of `local.ts`, and screens don't
+  change. The workspace preview acts as one stable "Preview" user per project (sessions last a
+  day, are revoked when a member is removed, and can't be upgraded to an account), and the
+  Data tab shows the app's users and records to editors. A remix never shares the original's
+  App Cloud: its `data/backend.ts` is reset to on-device data.
+- **Images:** `AiImage` builds an ImageKit URL that contains the prompt
+  (`ik-genimg-prompt-…`); ImageKit generates and caches the image on first request. Without
+  `IMAGEKIT_URL_ENDPOINT` it renders a themed placeholder.
 
 ---
 
@@ -300,8 +330,8 @@ SDK ≤ 55, while store Expo Go runs only the latest SDK (58). See
 - The agent's context contains no secrets. Generated code receives no platform environment
   variables.
 - Uploads: pre-signed PUT URLs, size limits, content-sniffed MIME, image re-encoding.
-- Rate limits on run creation, uploads and auth. Free-tier abuse controls (e.g. requiring
-  email verification before generating).
+- Rate limits on run creation, new projects, auth and App Cloud sign-in. Shared projects
+  require a verified email in production (sharing is keyed on email).
 - Stripe webhooks: verify the signature and store `stripe_event_id` for idempotency.
 - Never log or store prompts or assets anywhere that would share them for third-party
   training.
@@ -320,6 +350,9 @@ need no tunnel. A tunnel (ngrok or cloudflared) is needed only for third-party w
 - **LLM:** `ANTHROPIC_API_KEY`, `DEFAULT_SCREEN_COUNT`, `MAX_SCREEN_COUNT`
 - **GitHub App:** `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_CLIENT_ID`,
   `GITHUB_APP_CLIENT_SECRET`
-- **Images:** `IMAGEKIT_PRIVATE_KEY`, `IMAGEKIT_URL_ENDPOINT`
+- **Images:** `IMAGEKIT_URL_ENDPOINT` (no key: generation is by URL)
 - **Billing:** `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO`
-- **Generated-app backend:** provider OAuth client ID/secret (decision)
+- **Generated-app backend:** none (App Cloud is built in); `APP_PUBLIC_URL` is the origin
+  generated apps call
+- **Email and operations:** `RESEND_API_KEY`, `EMAIL_FROM`, `ERROR_WEBHOOK_URL`,
+  `REQUIRE_VERIFIED_EMAIL`, `AUTH_RATE_LIMIT`, `RATE_LIMIT_*` (see `.env.example`)

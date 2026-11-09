@@ -12,6 +12,10 @@ export const TEMPLATE_FILES = [
   "theme/active.ts",
   "data/repo.ts",
   "data/local.ts",
+  "data/remote.ts",
+  "data/auth.ts",
+  "data/backend.ts",
+  "components/AiImage.tsx",
 ] as const;
 
 /** Files every generated app must contain in addition to the template. */

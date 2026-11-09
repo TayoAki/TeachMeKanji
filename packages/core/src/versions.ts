@@ -1,5 +1,5 @@
 import { asc, desc, eq, inArray, sql } from "drizzle-orm";
-import type { ProjectFiles } from "@appbuilder/contract";
+import { BACKEND_CONFIG_FILE, type ProjectFiles } from "@appbuilder/contract";
 import { schema, type Database } from "@appbuilder/db";
 import { sha256 } from "./crypto";
 import { newId } from "./ids";
@@ -136,6 +136,10 @@ export async function restoreVersion(
   const [target] = await db.select().from(projectVersion).where(eq(projectVersion.id, versionId));
   if (!target || target.projectId !== projectId) throw new Error("Version not found");
   const files = await getVersionFiles(db, versionId);
+  // Platform settings (App Cloud, image endpoint) belong to the project, not to a version.
+  const current = await getCurrentFiles(db, projectId);
+  const config = current.files[BACKEND_CONFIG_FILE];
+  if (config !== undefined) files[BACKEND_CONFIG_FILE] = config;
   return commitVersion(db, {
     projectId,
     files,

@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
-import { timeAgo } from "@/lib/utils";
+import { TimeAgo } from "@/components/time-ago";
 
 export interface SettingsData {
   user: RailUser;
@@ -204,7 +204,9 @@ export function SettingsView({ initial }: { initial: SettingsData }) {
                 .map((l) => (
                   <li key={l.id} className="flex items-center gap-3 px-4 py-2">
                     <span className="flex-1">{l.note ?? REASONS[l.reason] ?? l.reason}</span>
-                    <span className="text-xs text-muted-foreground">{timeAgo(l.createdAt)}</span>
+                    <span className="text-xs text-muted-foreground">
+                      <TimeAgo date={l.createdAt} />
+                    </span>
                     <span
                       className={`w-14 text-right tabular-nums ${l.delta < 0 ? "" : "text-emerald-600"}`}
                     >

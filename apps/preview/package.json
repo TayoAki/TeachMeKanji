@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx --env-file-if-exists=../../.env scripts/build.ts --serve --port 3001",
     "build": "tsx --env-file-if-exists=../../.env scripts/build.ts",
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "tsc --noEmit -p .",
+    "start": "tsx --env-file-if-exists=../../.env scripts/serve.ts --port 3001"
   },
   "dependencies": {
     "@appbuilder/contract": "*",

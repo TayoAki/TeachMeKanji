@@ -27,6 +27,7 @@ export interface ProjectState {
     platforms: string;
     activeThemeId: string | null;
     publishedSlug: string | null;
+    backend: "local" | "cloud";
     updatedAt: string;
   };
   access: "owner" | "editor" | "viewer" | "public";

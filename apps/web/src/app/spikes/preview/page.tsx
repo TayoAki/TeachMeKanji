@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import { loadProject } from "@appbuilder/contract/node";
 import { PreviewSpike } from "./preview-spike";
 
@@ -17,6 +18,8 @@ async function loadFixture() {
 
 export default async function PreviewSpikePage() {
   // A development harness for the preview runtime (and its e2e tests), not a product page.
+  // Rendered per request, so ENABLE_SPIKES is read at run time, not baked in at build time.
+  await connection();
   if (process.env.NODE_ENV === "production" && !process.env.ENABLE_SPIKES) notFound();
   const files = await loadFixture();
   const themes = [

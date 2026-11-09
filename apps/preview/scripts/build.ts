@@ -9,7 +9,7 @@
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
-import { dirname, extname, join, normalize } from "node:path";
+import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as esbuild from "esbuild";
 
@@ -20,28 +20,8 @@ const args = process.argv.slice(2);
 const serve = args.includes("--serve");
 const port = Number(args[args.indexOf("--port") + 1] || process.env.PORT || 3001);
 
-/** Origins allowed to embed the preview (the workspace app). */
-const allowedParents = (process.env.PREVIEW_ALLOWED_PARENTS ?? "http://localhost:3000").split(",");
-
-export function securityHeaders(): Record<string, string> {
-  return {
-    "Content-Security-Policy": [
-      "default-src 'self'",
-      // Generated modules are evaluated with new Function() inside the sandboxed frame.
-      "script-src 'self' 'unsafe-eval'",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https:",
-      "font-src 'self'",
-      // v0: generated apps run on local data only; no network from the preview.
-      "connect-src 'none'",
-      `frame-ancestors ${allowedParents.join(" ")}`,
-    ].join("; "),
-    "X-Content-Type-Options": "nosniff",
-    "Referrer-Policy": "no-referrer",
-    // The frame has an opaque origin, so its font and asset requests are cross-origin.
-    "Access-Control-Allow-Origin": "*",
-  };
-}
+import { securityHeaders } from "./headers";
+import { staticPath } from "./static";
 
 const options: esbuild.BuildOptions = {
   entryPoints: [join(root, "src/runtime.tsx")],
@@ -88,11 +68,11 @@ if (serve) {
   const context = await esbuild.context(options);
   await context.watch();
   createServer(async (req, res) => {
-    const path = normalize(decodeURIComponent((req.url ?? "/").split(/[?#]/)[0]!)).replace(
-      /^(\.\.[/\\])+/,
-      "",
-    );
-    const file = join(dist, path === "/" ? "index.html" : path);
+    const file = staticPath(dist, req.url);
+    if (!file) {
+      res.writeHead(400).end();
+      return;
+    }
     try {
       const body = await readFile(file);
       res.writeHead(200, {

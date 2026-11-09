@@ -67,4 +67,13 @@ jobs:
       - run: npx playwright install --with-deps chromium
         working-directory: apps/web
       - run: npm run db:migrate
+      # Against production builds (next build + next start, the preview's static server).
       - run: npm run test:e2e
+        env:
+          E2E_PROD: "1"
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t appbuilder .

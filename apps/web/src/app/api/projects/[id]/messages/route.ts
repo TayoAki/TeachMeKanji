@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { activeRun, addMessage, enqueueRun, latestPlan } from "@appbuilder/core";
+import { activeRun, addMessage, assertRunRate, enqueueRun, latestPlan } from "@appbuilder/core";
 import { db, HttpError, readJson, requireProject, route } from "@/lib/server";
 
 /**
@@ -18,6 +18,7 @@ export const POST = route(
     if (!text || text.length > 4000)
       throw new HttpError(400, "Write a message of up to 4000 characters.");
     if (await activeRun(db(), id)) throw new HttpError(409, "Wait for the current step to finish.");
+    await assertRunRate(db(), viewer!.id);
 
     const selection =
       body.selection && typeof body.selection.path === "string"

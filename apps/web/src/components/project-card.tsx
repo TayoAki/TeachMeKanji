@@ -27,7 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { api } from "@/lib/api";
-import { timeAgo } from "@/lib/utils";
+import { TimeAgo } from "@/components/time-ago";
 
 export interface ProjectCardData {
   id: string;
@@ -169,7 +169,9 @@ export function ProjectCard({
             {project.name}
           </Link>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>{timeAgo(project.updatedAt)}</span>
+            <span>
+              <TimeAgo date={project.updatedAt} />
+            </span>
             {project.role !== "owner" ? <span>· {project.ownerName}</span> : null}
           </div>
         </div>

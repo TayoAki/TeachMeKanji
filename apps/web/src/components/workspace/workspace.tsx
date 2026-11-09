@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
   Copy,
@@ -44,6 +44,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, ApiError } from "@/lib/api";
 import { Canvas } from "./canvas";
 import { ChatPanel, type ChatSelection } from "./chat-panel";
+import { AppCloudPanel, DataView } from "./app-cloud";
 import { CodeView, HistoryView } from "./code-and-history";
 import { DeviceDialog, ExportDialog, PublishDialog, ShareDialog } from "./dialogs";
 import { Inspector, ThemeList } from "./inspector";
@@ -62,7 +63,7 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
   const router = useRouter();
   const [state, setState] = useState(initial);
   const [runId, setRunId] = useState<string | null>(initial.activeRun?.id ?? null);
-  const [tab, setTab] = useState<"canvas" | "code" | "history">("canvas");
+  const [tab, setTab] = useState<"canvas" | "code" | "data" | "history">("canvas");
   const [chosenThemeId, setThemeId] = useState<string | undefined>(undefined);
   const [themes, setThemes] = useState<PreviewTheme[]>([]);
   const [selectMode, setSelectMode] = useState(false);
@@ -83,6 +84,38 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
     setState(next);
     return next;
   }, [project.id]);
+
+  // With App Cloud, every preview frame acts as the project's stable preview user.
+  const [previewToken, setPreviewToken] = useState<{
+    versionId: string | null;
+    token: string;
+  } | null>(null);
+  useEffect(() => {
+    if (
+      state.project.backend !== "cloud" ||
+      !(state.access === "owner" || state.access === "editor")
+    )
+      return;
+    let alive = true;
+    api<{ token: string | null }>(`/api/projects/${state.project.id}/preview-token`, {
+      method: "POST",
+      quiet: true,
+    })
+      .then(
+        (r) => alive && r.token && setPreviewToken({ versionId: state.versionId, token: r.token }),
+      )
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [state.project.backend, state.project.id, state.access, state.versionId]);
+  const previewStorage = useMemo(
+    () =>
+      state.project.backend === "cloud" && previewToken
+        ? { "app:auth:token": previewToken.token }
+        : undefined,
+    [state.project.backend, previewToken],
+  );
 
   const progress = useRunStream(runId, () => {
     setRunId(null);
@@ -320,6 +353,9 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
             <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
               <TabsList>
                 <TabsTrigger value="canvas">Canvas</TabsTrigger>
+                <TabsTrigger value="data" data-testid="tab-data">
+                  Data
+                </TabsTrigger>
                 <TabsTrigger value="code" data-testid="tab-code">
                   Code
                 </TabsTrigger>
@@ -419,6 +455,8 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
                 <PreviewFrame
                   key={appKey}
                   frameId="app"
+
+                  storage={previewStorage}
                   files={files}
                   mode="app"
                   href={appHref}
@@ -451,6 +489,16 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
               </Button>
             ) : null}
           </section>
+          {seeSource && state.versionId ? (
+            <AppCloudPanel
+              projectId={project.id}
+              backend={project.backend}
+              canManage={canManage}
+              disabled={busy}
+              onChanged={refresh}
+              onOpenData={() => setTab("data")}
+            />
+          ) : null}
           {selected ? (
             <Inspector
               key={selected.fid}
@@ -504,8 +552,11 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
             setAppKey((k) => k + 1);
           }}
           building={Boolean(buildingNow)}
+          storage={previewStorage}
           emptyState={emptyState}
         />
+      ) : tab === "data" ? (
+        <DataView projectId={project.id} canManage={canManage} refreshKey={state.versionId} />
       ) : tab === "code" ? (
         <CodeView key={codeFocus ?? "default"} files={files} focusPath={codeFocus} />
       ) : (

@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { api } from "@/lib/api";
-import { cn, timeAgo } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   CommandDialog,
@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { TimeAgo } from "@/components/time-ago";
 
 export interface RailUser {
   name: string;
@@ -201,7 +202,8 @@ function ActivityPopover() {
                     <span className="block truncate font-medium">{item.projectName}</span>
                     <span className="block truncate text-xs text-muted-foreground">
                       {RUN_LABELS[item.kind] ?? item.kind}
-                      {item.status === "failed" ? ` · failed` : ""} · {timeAgo(item.createdAt)}
+                      {item.status === "failed" ? ` · failed` : ""} ·{" "}
+                      <TimeAgo date={item.createdAt} />
                     </span>
                   </span>
                 </Link>

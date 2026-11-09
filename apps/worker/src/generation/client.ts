@@ -4,8 +4,8 @@ export type CreateMessage = (
   params: Anthropic.Beta.Messages.MessageCreateParamsNonStreaming,
 ) => Promise<Anthropic.Beta.Messages.BetaMessage>;
 
-export const DEFAULT_MODEL = process.env.GENERATION_MODEL ?? "claude-opus-5-5";
-export const DEFAULT_EFFORT = (process.env.GENERATION_EFFORT ?? "high") as
+export const DEFAULT_MODEL = process.env.GENERATION_MODEL || "claude-opus-5-5";
+export const DEFAULT_EFFORT = (process.env.GENERATION_EFFORT || "high") as
   "low" | "medium" | "high" | "xhigh" | "max";
 
 /**

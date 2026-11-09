@@ -15,7 +15,7 @@ type Params = Anthropic.Beta.Messages.MessageCreateParamsNonStreaming;
 export const FAKE_MODEL = "offline-template-generator";
 
 export const fakeCreateMessage: CreateMessage = async (params) => {
-  await new Promise((resolve) => setTimeout(resolve, Number(process.env.FAKE_LLM_DELAY_MS ?? 120)));
+  await new Promise((resolve) => setTimeout(resolve, Number(process.env.FAKE_LLM_DELAY_MS || 120)));
   return message(respond(params));
 };
 
@@ -225,7 +225,9 @@ function fakePlan(request: string): AppPlan {
       icon: "settings-outline",
     },
   ];
-  const count = Number(/(\d+)\s+screens?/.exec(idea)?.[1] ?? process.env.DEFAULT_SCREEN_COUNT ?? 3);
+  const count = Number(
+    /(\d+)\s+screens?/.exec(idea)?.[1] ?? (process.env.DEFAULT_SCREEN_COUNT || 3),
+  );
   return {
     appName: d.appName,
     summary: `${d.appName} helps you keep track of your ${d.collection}, with quick entry and clear insights.`,
@@ -631,6 +633,7 @@ export default function StatsScreen() {
 function detailScreen(root: string, collection: string, noun: string) {
   return `import { Stack, router, useLocalSearchParams } from "expo-router";
 import { Pressable, ScrollView, Text, View } from "react-native";
+import { AiImage } from "${root}components/AiImage";
 import { Card } from "${root}components/Card";
 import { useCollection } from "${root}data/repo";
 import { formatDate, VALUE_LABEL, type ${noun} } from "${root}data/schema";
@@ -653,6 +656,7 @@ export default function DetailScreen() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: theme.colors.background }} contentContainerStyle={{ padding: theme.spacing.md, gap: theme.spacing.md }}>
       <Stack.Screen options={{ title: item.title }} />
+      <AiImage prompt={item.title} style={{ borderRadius: theme.radius.md }} />
       <Card style={{ gap: theme.spacing.sm }}>
         <Text style={{ color: theme.colors.text, fontSize: theme.font.size.headline, fontWeight: theme.font.weight.bold }}>{item.title}</Text>
         <Text style={{ color: theme.colors.textMuted }}>{item.detail} · {formatDate(item.date)}</Text>
@@ -780,6 +784,28 @@ function fakeEdit(request: string, system: string): string {
   const files = filesFromSystem(system);
   const ask = /Change request: (.*)/.exec(request)?.[1] ?? "";
 
+  if (/sign[ -]?in|log[ -]?in|account/i.test(ask) && /screen|tab|page/i.test(ask)) {
+    const enabled = /apiUrl: "[^"]+"/.test(files["data/backend.ts"] ?? "");
+    if (!enabled) {
+      return "<summary>Sign-in needs App Cloud. Enable it from the App Cloud panel first, then ask again.</summary>";
+    }
+    const layout = files["app/(tabs)/_layout.tsx"] ?? "";
+    const entry = `      <Tabs.Screen
+        name="account"
+        options={{
+          title: "Account",
+          tabBarIcon: ({ color, size }) => <Ionicons name="person-circle-outline" color={color as string} size={size} />,
+        }}
+      />
+    </Tabs>`;
+    return `<summary>Added an Account tab where people can sign up, sign in and sign out with App Cloud.</summary>\n${formatFileBlocks(
+      {
+        "app/(tabs)/account.tsx": accountScreen(),
+        "app/(tabs)/_layout.tsx": layout.replace("    </Tabs>", entry),
+      },
+    )}`;
+  }
+
   const add = /add (?:an? |the )?([a-z ]+?) (?:screen|tab|page)/i.exec(ask);
   if (add) {
     const title = add[1]!.trim().replace(/^\w/, (c) => c.toUpperCase());
@@ -820,4 +846,73 @@ function fakeEdit(request: string, system: string): string {
   }
 
   return '<summary>Offline mode can only add screens ("add a settings screen") or replace text (change "A" to "B"). Connect an AI provider for other changes.</summary>';
+}
+
+function accountScreen() {
+  return `import { useState } from "react";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "../../data/auth";
+import { useTheme } from "../../theme/ThemeProvider";
+
+export default function AccountScreen() {
+  const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const auth = useAuth();
+  const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-up");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const input = {
+    color: theme.colors.text,
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.md,
+    padding: theme.spacing.md,
+  };
+
+  const submit = async () => {
+    setError(null);
+    try {
+      if (mode === "sign-up") await auth.signUp(email, password);
+      else await auth.signIn(email, password);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  return (
+    <ScrollView
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
+      contentContainerStyle={{ paddingTop: insets.top + theme.spacing.lg, padding: theme.spacing.md, gap: theme.spacing.md }}
+    >
+      <Text style={{ color: theme.colors.text, fontSize: theme.font.size.display, fontWeight: theme.font.weight.bold }}>Account</Text>
+      {auth.signedIn ? (
+        <View style={{ gap: theme.spacing.md }}>
+          <Text style={{ color: theme.colors.text, fontSize: theme.font.size.title }}>Signed in as {auth.user?.email}</Text>
+          <Pressable onPress={auth.signOut} style={{ borderColor: theme.colors.border, borderWidth: 1, borderRadius: theme.radius.pill, padding: theme.spacing.md, alignItems: "center" }}>
+            <Text style={{ color: theme.colors.text, fontWeight: theme.font.weight.bold }}>Sign out</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <View style={{ gap: theme.spacing.sm }}>
+          <Text style={{ color: theme.colors.textMuted }}>Sign up to keep your data on all your devices.</Text>
+          <TextInput value={email} onChangeText={setEmail} placeholder="Email" autoCapitalize="none" placeholderTextColor={theme.colors.textMuted} style={input} />
+          <TextInput value={password} onChangeText={setPassword} placeholder="Password" secureTextEntry placeholderTextColor={theme.colors.textMuted} style={input} />
+          {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
+          <Pressable onPress={submit} style={{ backgroundColor: theme.colors.primary, borderRadius: theme.radius.pill, padding: theme.spacing.md, alignItems: "center" }}>
+            <Text style={{ color: theme.colors.onPrimary, fontWeight: theme.font.weight.bold }}>{mode === "sign-up" ? "Create account" : "Sign in"}</Text>
+          </Pressable>
+          <Pressable onPress={() => setMode(mode === "sign-up" ? "sign-in" : "sign-up")}>
+            <Text style={{ color: theme.colors.primary, textAlign: "center" }}>
+              {mode === "sign-up" ? "I already have an account" : "Create a new account"}
+            </Text>
+          </Pressable>
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+`;
 }

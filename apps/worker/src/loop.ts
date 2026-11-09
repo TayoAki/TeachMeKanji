@@ -7,7 +7,9 @@ import {
   failRun,
   heartbeat,
   latestPlan,
+  pruneAppCloud,
   reapAbandonedRuns,
+  reportError,
   runBudgetUsd,
   updateProject,
   type Run,
@@ -95,7 +97,7 @@ export async function processRun(db: Database, run: Run, provider: Provider): Pr
       error instanceof Cancelled ||
       error instanceof GenerationStopped
     )) {
-      console.error(`run ${run.id} (${run.kind}) failed`, error);
+      reportError(error, { where: "worker", runId: run.id, kind: run.kind });
     }
     const message = userMessage(error);
     // Failed and cancelled runs pay for the model usage they consumed (never above the reserve).
@@ -135,10 +137,11 @@ export async function runWorker(
   );
   let lastDeviceTick = 0;
   let lastReap = 0;
+  let lastPrune = 0;
   // Only one worker should manage phone-preview dev servers (they are local processes).
   const manageDevices = process.env.DEVICE_PREVIEW_ENABLED !== "0";
   let active = 0;
-  const concurrency = Number(process.env.WORKER_CONCURRENCY ?? 4);
+  const concurrency = Number(process.env.WORKER_CONCURRENCY || 4);
 
   while (!options.signal?.aborted) {
     let worked = false;
@@ -159,8 +162,13 @@ export async function runWorker(
         lastReap = Date.now();
         await reapAbandonedRuns(db);
       }
+      if (Date.now() - lastPrune > 3_600_000) {
+        lastPrune = Date.now();
+        // Expired App Cloud sessions and anonymous users who never saved anything.
+        await pruneAppCloud(db);
+      }
     } catch (error) {
-      console.error("worker: loop error", error);
+      reportError(error, { where: "worker-loop" });
     }
     if (!worked) await new Promise((r) => setTimeout(r, 400));
   }

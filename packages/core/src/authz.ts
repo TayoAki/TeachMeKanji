@@ -9,6 +9,14 @@ export type Access = "owner" | "editor" | "viewer" | "public";
 export interface Viewer {
   id: string;
   email: string;
+  /** Sharing is by email, so access through an invite needs a verified address. */
+  emailVerified?: boolean;
+}
+
+/** On in production (or with REQUIRE_VERIFIED_EMAIL=1); REQUIRE_VERIFIED_EMAIL=0 turns it off. */
+export function invitesNeedVerifiedEmail(): boolean {
+  if (process.env.REQUIRE_VERIFIED_EMAIL === "0") return false;
+  return process.env.NODE_ENV === "production" || process.env.REQUIRE_VERIFIED_EMAIL === "1";
 }
 
 /**
@@ -26,7 +34,7 @@ export async function projectAccess(
     .where(and(eq(project.id, projectId), isNull(project.deletedAt)));
   if (!row) return null;
   if (viewer && row.ownerId === viewer.id) return { project: row, access: "owner" };
-  if (viewer) {
+  if (viewer && (viewer.emailVerified || !invitesNeedVerifiedEmail())) {
     const [member] = await db
       .select()
       .from(projectMember)

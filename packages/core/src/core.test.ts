@@ -12,7 +12,7 @@ import {
   publishProject,
   shareProject,
 } from "./projects";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { schema } from "@appbuilder/db";
 import {
   activeRun,
@@ -133,6 +133,11 @@ describe("core (Postgres)", () => {
   });
 
   it("claims each queued run exactly once across concurrent workers", async () => {
+    // The queue is global: settle leftovers from earlier tests so only this run is claimable.
+    await db
+      .update(schema.agentRun)
+      .set({ status: "failed" })
+      .where(inArray(schema.agentRun.status, ["queued", "running"]));
     const u = await makeUser(db);
     await ensureSignupGrant(db, u.id);
     const p = await createProject(db, { ownerId: u.id, prompt: "x", platforms: "both" });
@@ -215,6 +220,20 @@ describe("core (Postgres)", () => {
     expect(canEdit((await projectAccess(db, p.id, editor))!.access)).toBe(true);
     expect(await projectAccess(db, p.id, stranger)).toBeNull();
     expect(await projectAccess(db, p.id, null)).toBeNull();
+
+    // Invites are keyed on email, so with verification required an unverified address gets nothing.
+    process.env.REQUIRE_VERIFIED_EMAIL = "1";
+    try {
+      expect(await projectAccess(db, p.id, { ...editor, emailVerified: false })).toBeNull();
+      expect((await projectAccess(db, p.id, { ...editor, emailVerified: true }))?.access).toBe(
+        "editor",
+      );
+      expect((await projectAccess(db, p.id, { ...owner, emailVerified: false }))?.access).toBe(
+        "owner",
+      );
+    } finally {
+      delete process.env.REQUIRE_VERIFIED_EMAIL;
+    }
 
     await commitVersion(db, {
       projectId: p.id,

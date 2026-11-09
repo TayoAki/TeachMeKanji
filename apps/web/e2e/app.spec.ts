@@ -186,3 +186,48 @@ test("free plan limits", async ({ page }) => {
   });
   expect(status).toBe(403);
 });
+
+test("App Cloud: accounts and per-user data for the generated app", async ({ page, request }) => {
+  await signUp(page, "Cloud");
+  await createAndBuild(page, "A habit tracker with streaks");
+  const projectId = page.url().split("/projects/")[1]!;
+
+  // Without App Cloud the app's API doesn't exist.
+  expect((await request.get(`/api/app/${projectId}/collections/habits`)).status()).toBe(404);
+
+  await page.getByTestId("app-cloud-toggle").click();
+  await expect(page.getByTestId("app-cloud-panel")).toContainText("Connected", { timeout: 15_000 });
+  await expect(page.getByTestId("bottom-bar")).toContainText("Version 2");
+
+  // The API now requires a session; CORS is open for apps running anywhere.
+  const anonymous = await request.get(`/api/app/${projectId}/collections/habits`);
+  expect(anonymous.status()).toBe(401);
+  expect(anonymous.headers()["access-control-allow-origin"]).toBe("*");
+  // Oversized bodies are refused before they're read into memory.
+  const oversized = await request.post(`/api/app/${projectId}/auth/sign-in`, {
+    data: JSON.stringify({ email: "a@example.com", password: "x".repeat(40_000) }),
+    headers: { "content-type": "application/json" },
+  });
+  expect(oversized.status()).toBe(413);
+
+  // The agent adds sign-in, which uses App Cloud accounts.
+  await page.getByLabel("Message the agent").fill("add a sign in screen");
+  await page.getByTestId("chat-send").click();
+  await expect(page.getByText("Added an Account tab")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("status")).toHaveText("Ready", { timeout: 30_000 });
+
+  // Data loads from the cloud (seeded on first use), and accounts work inside the app.
+  const app = page.frameLocator('iframe[data-frame-id="app"]');
+  await expect(app.getByText("Drink water")).toBeVisible({ timeout: 15_000 });
+  await app.getByRole("tab", { name: /Account/ }).click();
+  await app.getByPlaceholder("Email").fill("member@example.com");
+  await app.getByPlaceholder("Password").fill("member-password");
+  await app.getByText("Create account").click();
+  await expect(app.getByText("Signed in as member@example.com")).toBeVisible({ timeout: 15_000 });
+
+  // The owner sees the app's users and records in the Data tab.
+  await page.getByTestId("tab-data").click();
+  await expect(page.getByTestId("data-accounts")).toContainText("member@example.com");
+  await expect(page.getByTestId("data-collection-habits")).not.toHaveText("0");
+  await expect(page.getByTestId("data-records")).toContainText("Drink water");
+});

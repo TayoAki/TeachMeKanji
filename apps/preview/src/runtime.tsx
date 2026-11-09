@@ -129,7 +129,10 @@ window.addEventListener("message", (event) => {
 function load(message: Extract<ParentToFrame, { type: "load" }>) {
   const started = performance.now();
   root?.unmount();
-  resetAsyncStorage();
+  resetAsyncStorage(
+    message.storage ?? {},
+    message.persistStorage ? (key, value) => post({ type: "storage", key, value }) : null,
+  );
 
   currentFiles = message.files;
   const tree = buildRouteTree(Object.keys(message.files));

@@ -11,7 +11,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { backend } from "./backend";
 import { localRepository } from "./local";
+import { remoteRepository } from "./remote";
 
 export interface Record_ {
   id: string;
@@ -24,11 +26,14 @@ export interface Repository {
   subscribe(collection: string, listener: () => void): () => void;
 }
 
-const RepositoryContext = createContext<Repository>(localRepository);
+/** App Cloud when the platform enabled it for this app, otherwise on-device storage. */
+export const defaultRepository: Repository = backend.apiUrl ? remoteRepository : localRepository;
+
+const RepositoryContext = createContext<Repository>(defaultRepository);
 
 export function DataProvider({
   children,
-  repository = localRepository,
+  repository = defaultRepository,
 }: {
   children: ReactNode;
   repository?: Repository;

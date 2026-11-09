@@ -120,20 +120,25 @@ without rescanning.
 **Done when** the downloaded zip runs with `npm install && npx expo start`; a second push
 opens a PR; a viewer can see but not edit.
 
-## Phase 8 — Generated-app backend (L) · *video ch. 9* · **not started (decision: provider)**
-- `BackendProvider` adapter; connect flow (OAuth or token); provisioning of DB + auth (+
-  storage).
-- `data/remote.ts` implementation: normalized tables generated from `data/schema.ts`, with
-  per-row `owner_id`; auth screens (email/password, plus social sign-in when the provider
-  supports it).
-- Public and shared previews keep using local seed data.
+## Phase 8 — Generated-app backend (L) · *video ch. 9* · **done** (built-in "App Cloud")
+- Decision: a built-in backend instead of a third-party provider, so it needs no account,
+  OAuth app or provisioning. One switch per project; the platform stores each app's users
+  and per-user records in its own Postgres.
+- Template `data/remote.ts` implements the same `useCollection` repository over the App Cloud
+  API, and `data/repo.ts` picks local or remote from `data/backend.ts` (written by the
+  platform). Screens don't change when the switch flips.
+- Accounts: anonymous device users by default (data saved from the first launch), email and
+  password via `data/auth.ts`'s `useAuth()`; signing up keeps the anonymous user's data.
+- The workspace's **Data** tab shows users, collections and recent records, and can clear them.
 
-**Done when** connecting a backend switches an existing app to remote data without
-rewriting its screens; records show up as rows (not JSON blobs) owned by the signed-in user.
+**Done when** connecting switches an existing app to remote data without rewriting its
+screens, and records are owned by the signed-in user. (Records are JSON documents per
+collection, not normalized tables; that is the trade for zero setup.)
 
-## Phase 9 — Images (S) · *video ch. 12* · **not started**
-- An `ImageGen` adapter (ImageKit). The agent emits image prompts; images are generated at
-  build time and stored in our storage; generated code references stored URLs.
+## Phase 9 — Images (S) · *video ch. 12* · **done** (ImageKit not tested live)
+- Template `components/AiImage.tsx`: the model writes `<AiImage prompt="…" />`; with
+  `IMAGEKIT_URL_ENDPOINT` set, ImageKit generates and caches the image from the prompt in the
+  URL. Without it, a themed placeholder.
 
 ## Phase 10 — Native builds and web publish (L) · *video ch. 14–15* · **done** (EAS untested live)
 - Expo account connect (encrypted token).
@@ -156,11 +161,14 @@ succeeds for an account with Apple credentials.
   pro = higher limits and monthly credits. Final numbers come from the measured cost per
   run.
 
-## Phase 13 — Production deploy and hardening (M) · *video ch. 18* · **partly** (see [05-v1-status.md](05-v1-status.md))
-- Web app on Vercel (or the chosen host); worker on a long-running host; preview origin on a
-  separate domain.
-- Production OAuth callbacks, webhooks and domains; error tracking; DB backups; rate limits;
-  a security review pass.
+## Phase 13 — Production deploy and hardening (M) · *video ch. 18* · **done** (deploy needs your hosting)
+- One Docker image and `docker-compose.prod.yml` (web, preview, worker, migrations,
+  Postgres); `next start` and the preview's static server, with the e2e suite run against
+  production builds. See [06-deploy.md](06-deploy.md).
+- Email verification (Resend) gates shared projects in production; password reset by email;
+  rate limits on sign-in, sign-up, password resets, agent runs, new projects and App Cloud;
+  error reporting from web and worker (JSON logs plus an optional webhook, with query
+  parameters redacted); two security review passes.
 
 ---
 

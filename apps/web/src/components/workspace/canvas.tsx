@@ -40,7 +40,9 @@ export function Canvas({
   onOpenScreen,
   building,
   emptyState,
+  storage,
 }: {
+  storage?: Record<string, string>;
   files: ProjectFiles;
   themeId?: string;
   selectMode: boolean;
@@ -130,6 +132,7 @@ export function Canvas({
                 width={DEVICE.width}
                 height={DEVICE.height}
                 scale={zoom}
+                storage={storage}
                 onMessage={(message) => onFrameMessage(`canvas:${screen.file}`, message)}
               />
             </div>

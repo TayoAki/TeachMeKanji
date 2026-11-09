@@ -1,6 +1,9 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import {
   APP_PLAN_JSON_SCHEMA,
+  BACKEND_CONFIG_FILE,
+  backendConfigFile,
+  type PlatformConfig,
   buildRouteTree,
   formatIssues,
   hasErrors,
@@ -117,6 +120,8 @@ export async function buildApp(input: {
   createMessage: CreateMessage;
   plan: AppPlan;
   template: ProjectFiles;
+  /** Platform settings written into data/backend.ts (project id, image endpoint). */
+  platform?: PlatformConfig;
   onEvent?: (event: AgentEvent) => Promise<void> | void;
   model?: string;
 }): Promise<{ files: ProjectFiles; usage: UsageTotals; model: string; warnings: string[] }> {
@@ -125,6 +130,8 @@ export async function buildApp(input: {
   const warnings: string[] = [];
   let usage = ZERO;
   let files = applyAppName(input.template, plan.appName);
+  if (input.platform)
+    files = { ...files, [BACKEND_CONFIG_FILE]: backendConfigFile(input.platform) };
 
   await emit({ type: "step", label: "Designing themes, data and shared components" });
   const tabsLayout = "app/(tabs)/_layout.tsx";

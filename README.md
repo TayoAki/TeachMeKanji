@@ -7,8 +7,9 @@ to the web.
 
 ![The workspace](docs/images/workspace.png)
 
-**Status:** the app works end to end. See [v1 status](docs/05-v1-status.md) for what's
-verified, what needs your accounts, and what's left.
+**Status:** every phase of the build plan is implemented and tested end to end, including in
+production mode and in Docker. See [v1 status](docs/05-v1-status.md) for what's verified and
+what needs your accounts, and [Deploying](docs/06-deploy.md) to run it in production.
 
 ## Getting started
 
@@ -48,8 +49,10 @@ http://localhost:3001 (a separate origin, by design), and the worker that runs t
 |---------|--------------|
 | `npm test` | Unit and integration tests (Vitest; uses Postgres) |
 | `npm run test:e2e` | End-to-end tests (Playwright; starts everything with the offline generator) |
+| `E2E_PROD=1 npm run test:e2e` | The same tests against production builds (`next start`, the preview's static server) |
 | `npm run typecheck` / `npm run lint` / `npm run format:check` | Static checks |
 | `npm run build` | Production build of the preview runtime and the app |
+| `docker compose -f docker-compose.prod.yml up -d --build` | The production stack in Docker (see [Deploying](docs/06-deploy.md)) |
 | `npm run spike:generate` | Generate one screen with Claude (needs `ANTHROPIC_API_KEY`) |
 | `npm run spike:snack-check` | Show which Expo SDKs Snack supports |
 
@@ -61,9 +64,9 @@ http://localhost:3001 (a separate origin, by design), and the worker that runs t
 | `apps/preview` | Preview runtime: runs generated apps with react-native-web in sandboxed iframes |
 | `apps/worker` | Job runner: plan/build/edit agents, GitHub pushes, EAS builds, phone-preview dev servers |
 | `packages/contract` | The generated-app contract: SDK pins, allowed imports, validator, route model, inline-edit write-back |
-| `packages/core` | Server-side domain logic: projects, versions, runs, credits, permissions, storage |
+| `packages/core` | Server-side domain logic: projects, versions, runs, credits, permissions, storage, App Cloud, rate limits |
 | `packages/db` | Drizzle schema and migrations |
-| `templates/expo-app` | Fixed files every generated app starts from |
+| `templates/expo-app` | Fixed files every generated app starts from (theme, data layer, App Cloud client, AiImage) |
 | `fixtures/habit-tracker` | A hand-written app used by the preview tests |
 
 ## Docs
@@ -73,3 +76,4 @@ http://localhost:3001 (a separate origin, by design), and the worker that runs t
 3. [Build plan](docs/03-build-plan.md): phases and their status.
 4. [Phase 0 results](docs/04-phase-0-results.md): what the spikes proved (including why Snack can't be used).
 5. [v1 status](docs/05-v1-status.md): what's built and verified.
+6. [Deploying](docs/06-deploy.md): Docker, hosts, settings, webhooks and operations.

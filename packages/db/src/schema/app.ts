@@ -37,6 +37,8 @@ export const project = pgTable(
     currentVersionId: text("current_version_id"),
     publishedSlug: text("published_slug").unique(),
     publishedVersionId: text("published_version_id"),
+    /** Where the generated app keeps its data: on the device, or in App Cloud. */
+    backend: text("backend").$type<"local" | "cloud">().notNull().default("local"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),

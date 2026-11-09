@@ -19,5 +19,5 @@ export function repoRoot(): string {
 
 /** Local data directory for development: storage, device-preview projects, caches. */
 export function dataDir(...parts: string[]): string {
-  return join(process.env.APP_DATA_DIR ?? join(repoRoot(), ".data"), ...parts);
+  return join(process.env.APP_DATA_DIR || join(repoRoot(), ".data"), ...parts);
 }

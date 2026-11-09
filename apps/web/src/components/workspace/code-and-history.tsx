@@ -7,7 +7,8 @@ import type { ProjectFiles } from "@appbuilder/contract/protocol";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
-import { cn, timeAgo } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { TimeAgo } from "@/components/time-ago";
 
 /** Remount with a new `key` to focus another file (e.g. the selected element's file). */
 export function CodeView({ files, focusPath }: { files: ProjectFiles; focusPath?: string | null }) {
@@ -141,7 +142,9 @@ export function HistoryView({
           <span className="w-8 text-sm font-semibold tabular-nums">v{v.number}</span>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm">{v.summary}</div>
-            <div className="text-xs text-muted-foreground">{timeAgo(v.createdAt)}</div>
+            <div className="text-xs text-muted-foreground">
+              <TimeAgo date={v.createdAt} />
+            </div>
           </div>
           <Badge variant="outline">{KIND_LABEL[v.kind]}</Badge>
           {v.id === currentVersionId ? (

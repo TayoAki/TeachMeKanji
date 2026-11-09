@@ -1,8 +1,13 @@
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { AppPlan, ProjectFiles } from "@appbuilder/contract";
-import { slugify } from "@appbuilder/contract";
+import {
+  BACKEND_CONFIG_FILE,
+  backendConfigFile,
+  readPlatformConfig,
+  slugify,
+} from "@appbuilder/contract";
 import { schema, type Database } from "@appbuilder/db";
-import type { Project } from "./authz";
+import { invitesNeedVerifiedEmail, type Project } from "./authz";
 import { PLANS } from "./billing";
 import { userPlan } from "./credits";
 import { newId } from "./ids";
@@ -99,7 +104,7 @@ const cardColumns = {
 
 export async function listProjectsFor(
   db: Database,
-  viewer: { id: string; email: string },
+  viewer: { id: string; email: string; emailVerified?: boolean },
 ): Promise<ProjectCard[]> {
   const own = await db
     .select(cardColumns)
@@ -107,13 +112,15 @@ export async function listProjectsFor(
     .innerJoin(user, eq(user.id, project.ownerId))
     .where(and(eq(project.ownerId, viewer.id), isNull(project.deletedAt)))
     .orderBy(desc(project.updatedAt));
-  const shared = await db
-    .select({ ...cardColumns, role: projectMember.role })
-    .from(projectMember)
-    .innerJoin(project, eq(project.id, projectMember.projectId))
-    .innerJoin(user, eq(user.id, project.ownerId))
-    .where(and(eq(projectMember.email, viewer.email.toLowerCase()), isNull(project.deletedAt)))
-    .orderBy(desc(project.updatedAt));
+  const shared = !(viewer.emailVerified || !invitesNeedVerifiedEmail())
+    ? []
+    : await db
+        .select({ ...cardColumns, role: projectMember.role })
+        .from(projectMember)
+        .innerJoin(project, eq(project.id, projectMember.projectId))
+        .innerJoin(user, eq(user.id, project.ownerId))
+        .where(and(eq(projectMember.email, viewer.email.toLowerCase()), isNull(project.deletedAt)))
+        .orderBy(desc(project.updatedAt));
   return [
     ...own.map((p) => ({ ...p, role: "owner" as const })),
     ...shared.filter((s) => !own.some((o) => o.id === s.id)),
@@ -137,11 +144,11 @@ export async function listPublicProjects(db: Database, limit = 24): Promise<Proj
   return rows.map((r) => ({ ...r, role: "public" as const }));
 }
 
-/** Copy a project's current files into a new project owned by `ownerId` ("remix"). */
 /**
  * Copy a project's current files into a new project for `ownerId`. A remix of someone else's
  * public app (`includePrivate: false`) copies only what a visitor can already see: the files,
- * not the original prompt or plan.
+ * not the original prompt or plan. The copy starts with data on the device: it never shares
+ * the original's App Cloud users or records.
  */
 export async function duplicateProject(
   db: Database,
@@ -155,7 +162,16 @@ export async function duplicateProject(
     platforms: source.platforms,
     name: `${source.name} (${options.includePrivate ? "copy" : "remix"})`,
   });
-  const { files } = await getCurrentFiles(db, source.id);
+  const { files: sourceFiles } = await getCurrentFiles(db, source.id);
+  const files = { ...sourceFiles };
+  if (files[BACKEND_CONFIG_FILE] !== undefined) {
+    const { imageEndpoint } = readPlatformConfig(files);
+    files[BACKEND_CONFIG_FILE] = backendConfigFile({
+      apiUrl: "",
+      projectId: copy.id,
+      imageEndpoint,
+    });
+  }
   if (Object.keys(files).length > 0) {
     await commitVersion(db, {
       projectId: copy.id,

@@ -7,6 +7,8 @@ import {
   InsufficientCredits,
   LimitReached,
   projectAccess,
+  RateLimited,
+  reportError,
   RunInProgress,
   VersionConflict,
   type Access,
@@ -20,6 +22,7 @@ export const db = () => getDb();
 export interface SessionUser extends Viewer {
   name: string;
   image: string | null;
+  emailVerified: boolean;
 }
 
 export async function getViewer(): Promise<SessionUser | null> {
@@ -30,6 +33,7 @@ export async function getViewer(): Promise<SessionUser | null> {
     email: session.user.email,
     name: session.user.name,
     image: session.user.image ?? null,
+    emailVerified: session.user.emailVerified,
   };
 }
 
@@ -85,9 +89,12 @@ export function route<Args extends unknown[]>(handler: (...args: Args) => Promis
       if (error instanceof RunInProgress || error instanceof VersionConflict) {
         return NextResponse.json({ error: error.message, code: "conflict" }, { status: 409 });
       }
+      if (error instanceof RateLimited) {
+        return NextResponse.json({ error: error.message, code: "rate_limited" }, { status: 429 });
+      }
       if (error instanceof LimitReached)
         return NextResponse.json({ error: error.message, code: "limit" }, { status: 403 });
-      console.error(error);
+      reportError(error, { where: "api" });
       return NextResponse.json({ error: "Something went wrong." }, { status: 500 });
     }
   };

@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
-import type { AppPlan } from "@appbuilder/contract";
+import { refreshTemplate, type AppPlan } from "@appbuilder/contract";
 import { readTree } from "@appbuilder/contract/node";
 import {
   addMessage,
@@ -87,7 +87,7 @@ export async function handlePlan(ctx: HandlerContext): Promise<HandlerResult> {
     images: await loadImages(ctx, input.assetIds ?? []),
     previous: previous ? (previous.data as unknown as AppPlan) : undefined,
     feedback: input.feedback,
-    defaultScreens: Number(process.env.DEFAULT_SCREEN_COUNT ?? 3),
+    defaultScreens: Number(process.env.DEFAULT_SCREEN_COUNT || 3),
     maxScreens: await maxScreens(ctx),
   });
 
@@ -120,6 +120,11 @@ export async function handleBuild(ctx: HandlerContext): Promise<HandlerResult> {
     model: ctx.model,
     plan,
     template,
+    platform: {
+      apiUrl: "",
+      projectId: project.id,
+      imageEndpoint: process.env.IMAGEKIT_URL_ENDPOINT || "",
+    },
     onEvent: forwardAgentEvent(ctx),
   });
 
@@ -154,8 +159,13 @@ export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
     request: string;
     selection?: { path: string; snippet: string } | null;
   };
-  const { files } = await getCurrentFiles(ctx.db, project.id);
-  if (Object.keys(files).length === 0) throw new AgentError("Build the app before editing it.");
+  const current = await getCurrentFiles(ctx.db, project.id);
+  // Projects made with an older template get the current platform files before editing.
+  const files = refreshTemplate(
+    current.files,
+    await readTree(join(repoRoot(), "templates/expo-app")),
+  );
+  if (!current.versionId) throw new AgentError("Build the app before editing it.");
 
   const history = (await listMessages(ctx.db, project.id))
     .filter((m) => m.kind === "text" && typeof m.content.text === "string")

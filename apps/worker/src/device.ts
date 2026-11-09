@@ -17,7 +17,7 @@ import { dataDir, exportBundle, getCurrentFiles } from "@appbuilder/core";
 import { schema, type Database } from "@appbuilder/db";
 import { childEnv, materialize } from "./project";
 
-const IDLE_MINUTES = Number(process.env.DEVICE_PREVIEW_IDLE_MINUTES ?? 15);
+const IDLE_MINUTES = Number(process.env.DEVICE_PREVIEW_IDLE_MINUTES || 15);
 
 interface Session {
   child: ChildProcess;

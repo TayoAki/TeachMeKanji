@@ -19,3 +19,4 @@ export * from "./routes";
 export * from "./preview-protocol";
 export * from "./app-plan";
 export * from "./inline-edit";
+export * from "./platform-config";

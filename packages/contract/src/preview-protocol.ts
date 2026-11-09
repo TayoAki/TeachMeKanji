@@ -23,6 +23,10 @@ export type ParentToFrame =
       href: string;
       themeId?: string;
       selectMode?: boolean;
+      /** Initial AsyncStorage contents (e.g. the App Cloud session token). */
+      storage?: Record<string, string>;
+      /** Report every AsyncStorage write back to the parent (published apps persist data). */
+      persistStorage?: boolean;
     }
   | { type: "set-theme"; themeId: string }
   | { type: "set-select-mode"; enabled: boolean }
@@ -45,6 +49,7 @@ export type FrameToParent =
   | { type: "navigate-request"; href: string; action: "push" | "replace" | "back" | "navigate" }
   | { type: "select"; element: SelectedElement }
   | { type: "theme-info"; activeThemeId: string; themes: PreviewTheme[] }
+  | { type: "storage"; key: string; value: string | null }
   | { type: "error"; message: string; file?: string };
 
 export interface PreviewTheme {

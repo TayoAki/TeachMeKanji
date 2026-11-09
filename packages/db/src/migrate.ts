@@ -4,7 +4,7 @@ import { createDb } from "./client";
 
 // Defaults to the docker-compose database for local development.
 const url =
-  process.env.DATABASE_URL ?? "postgres://appbuilder:appbuilder@localhost:5432/appbuilder";
+  process.env.DATABASE_URL || "postgres://appbuilder:appbuilder@localhost:5432/appbuilder";
 
 const { db, pool } = createDb(url);
 await migrate(db, { migrationsFolder: fileURLToPath(new URL("../drizzle", import.meta.url)) });

@@ -12,7 +12,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/lib/api";
-import { cn, timeAgo } from "@/lib/utils";
+import { authClient } from "@/lib/auth-client";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { TimeAgo } from "@/components/time-ago";
 
 export interface DashboardData {
   user: RailUser;
@@ -23,6 +26,7 @@ export interface DashboardData {
   limits: { name: string; maxProjects: number | null; maxScreensPerProject: number };
   /** A prompt typed on the landing page before signing up. */
   pendingPrompt: string;
+  emailVerified: boolean;
 }
 
 interface ActivityItem {
@@ -152,7 +156,7 @@ export function Dashboard({ initial }: { initial: DashboardData }) {
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium">{p.name}</span>
                     <span className="block truncate text-xs text-muted-foreground">
-                      {timeAgo(p.updatedAt)}
+                      <TimeAgo date={p.updatedAt} />
                     </span>
                   </span>
                 </Link>
@@ -249,6 +253,29 @@ export function Dashboard({ initial }: { initial: DashboardData }) {
       bottomRight={<span>Expo SDK 58</span>}
     >
       <div className="mx-auto max-w-5xl p-6">
+        {!data.emailVerified ? (
+          <div
+            className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-amber-300/60 bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+            data-testid="verify-banner"
+          >
+            Verify your email ({data.user.email}) to accept projects people share with you.
+            <Button
+              size="sm"
+              variant="outline"
+              className="ml-auto h-7"
+              onClick={async () => {
+                const result = await authClient.sendVerificationEmail({
+                  email: data.user.email,
+                  callbackURL: "/",
+                });
+                if (result.error) toast.error(result.error.message ?? "Couldn't send the email.");
+                else toast.success("Verification email sent");
+              }}
+            >
+              Resend email
+            </Button>
+          </div>
+        ) : null}
         {tab === "create" ? (
           <>
             <div className="mx-auto max-w-2xl py-8 text-center">

@@ -33,7 +33,9 @@ ${modules}
 6. Navigation: expo-router's Link (with asChild around a Pressable), router, and useLocalSearchParams. Routes come from file paths (listed below).
 7. TypeScript with function components and hooks. Reuse the project's existing components where they fit.
 8. theme/tokens.ts is the only file that may contain color literals; it defines exactly 5 theme packs, each setting every key of the Theme type in theme/types.ts.
-9. Files you may write live under app/, components/, theme/ (tokens.ts only) and data/ (schema.ts and seed.ts only). Never write app/_layout.tsx, theme/types.ts, theme/ThemeProvider.tsx, theme/active.ts, data/repo.ts or data/local.ts: the platform owns them.`;
+9. Files you may write live under app/, components/, theme/ (tokens.ts only) and data/ (schema.ts and seed.ts only). Never write app/_layout.tsx, theme/types.ts, theme/ThemeProvider.tsx, theme/active.ts, data/repo.ts, data/local.ts, data/remote.ts, data/auth.ts, data/backend.ts or components/AiImage.tsx: the platform owns them.
+10. Photos and illustrations: use <AiImage prompt="a short visual description" style={{ height: 180, borderRadius: theme.radius.md }} /> from components/AiImage. Never hard-code image URLs.
+11. Accounts: only when data/backend.ts has a non-empty apiUrl (App Cloud enabled) may the app have sign-in and sign-up screens; build them with useAuth() from data/auth ({ user, signedIn, signIn, signUp, signOut, loading }). Data keeps working through useCollection either way.`;
 }
 
 export const SINGLE_FILE_OUTPUT =

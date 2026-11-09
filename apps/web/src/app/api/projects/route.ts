@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   addMessage,
+  assertProjectRate,
   creditBalance,
   createProject,
   enqueueRun,
@@ -55,6 +56,7 @@ export const POST = route(async (request: Request) => {
     images.push({ name: file.name.slice(0, 200), mime, data });
   }
 
+  await assertProjectRate(db(), viewer.id);
   const balance = await creditBalance(db(), viewer.id);
   const needed = RUN_CREDITS.plan!.reserve;
   if (balance < needed) {

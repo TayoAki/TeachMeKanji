@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import { useHydrated } from "@/hooks/use-hydrated";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,13 +14,16 @@ export function AuthForm({
   mode,
   social,
   prompt,
+  notice,
 }: {
   mode: "sign-in" | "sign-up";
   social: Array<"google" | "github">;
   prompt?: string;
+  notice?: string;
 }) {
   const router = useRouter();
   const next = prompt ? `/?prompt=${encodeURIComponent(prompt)}` : "/";
+  const hydrated = useHydrated();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,6 +67,11 @@ export function AuthForm({
           {mode === "sign-up" ? "You start with 100 free credits." : "Sign in to keep building."}
         </p>
       </div>
+      {notice ? (
+        <p className="rounded-md border bg-muted/50 px-3 py-2 text-sm" role="status">
+          {notice}
+        </p>
+      ) : null}
       {social.length > 0 ? (
         <div className="grid gap-2">
           {social.map((provider) => (
@@ -89,7 +98,14 @@ export function AuthForm({
           <Input id="email" name="email" type="email" autoComplete="email" required />
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="password">Password</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password">Password</Label>
+            {mode === "sign-in" ? (
+              <Link href="/forgot-password" className="text-xs text-muted-foreground underline">
+                Forgot password?
+              </Link>
+            ) : null}
+          </div>
           <Input
             id="password"
             name="password"
@@ -104,7 +120,7 @@ export function AuthForm({
             {error}
           </p>
         ) : null}
-        <Button type="submit" disabled={busy}>
+        <Button type="submit" disabled={busy || !hydrated}>
           {busy ? <Loader2 className="animate-spin" /> : null}
           {mode === "sign-up" ? "Create account" : "Sign in"}
         </Button>

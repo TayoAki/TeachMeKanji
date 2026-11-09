@@ -25,7 +25,7 @@ export function getProvider(): Provider {
     return { createMessage: fakeCreateMessage, model: FAKE_MODEL, offline: true };
   return {
     createMessage: anthropicCreateMessage(),
-    model: process.env.GENERATION_MODEL ?? "claude-opus-5-5",
+    model: process.env.GENERATION_MODEL || "claude-opus-5-5",
     offline: false,
   };
 }

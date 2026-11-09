@@ -111,6 +111,6 @@ export function getStorage(): Storage {
           endpoint: S3_ENDPOINT,
           region: S3_REGION,
         })
-      : fileStorage(process.env.STORAGE_DIR ?? dataDir("storage"));
+      : fileStorage(process.env.STORAGE_DIR || dataDir("storage"));
   return shared;
 }

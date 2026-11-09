@@ -10,7 +10,7 @@ import {
   type ProjectFiles,
 } from "@appbuilder/contract/protocol";
 
-export const PREVIEW_ORIGIN = process.env.NEXT_PUBLIC_PREVIEW_ORIGIN ?? "http://localhost:3001";
+export const PREVIEW_ORIGIN = process.env.NEXT_PUBLIC_PREVIEW_ORIGIN || "http://localhost:3001";
 
 export interface PreviewFrameProps {
   frameId: string;
@@ -23,6 +23,10 @@ export interface PreviewFrameProps {
   height?: number;
   onMessage?: (message: FrameToParent) => void;
   title?: string;
+  /** Initial AsyncStorage contents for the app (e.g. the App Cloud session). */
+  storage?: Record<string, string>;
+  /** Report the app's storage writes through onMessage ("storage" messages). */
+  persistStorage?: boolean;
   /** Visual scale (the app still renders at full device size inside). */
   scale?: number;
   className?: string;
@@ -45,6 +49,8 @@ export function PreviewFrame({
   title,
   scale = 1,
   className,
+  storage,
+  persistStorage = false,
 }: PreviewFrameProps) {
   const iframe = useRef<HTMLIFrameElement>(null);
   const ready = useRef(false);
@@ -58,7 +64,7 @@ export function PreviewFrame({
   };
 
   const load = useEffectEvent(() => {
-    send({ type: "load", files, mode, href, themeId, selectMode });
+    send({ type: "load", files, mode, href, themeId, selectMode, storage, persistStorage });
   });
 
   const receive = useEffectEvent((message: FrameToParent) => {
@@ -88,7 +94,7 @@ export function PreviewFrame({
   // Reload when the project or entry route changes.
   useEffect(() => {
     if (ready.current) load();
-  }, [files, href, mode]);
+  }, [files, href, mode, storage]);
 
   useEffect(() => {
     if (ready.current && themeId) {

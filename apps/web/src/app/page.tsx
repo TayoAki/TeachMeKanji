@@ -35,6 +35,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         plan,
         limits: PLANS[plan],
         pendingPrompt: typeof prompt === "string" ? prompt.slice(0, 4000) : "",
+        emailVerified: viewer.emailVerified,
       }}
     />
   );
