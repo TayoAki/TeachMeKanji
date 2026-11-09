@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { schema, type Database } from "@appbuilder/db";
-import { PLANS, type PlanId } from "./billing";
+import { isPlanId, PLANS, type PlanId } from "./billing";
 
 const { creditLedger, subscription } = schema;
 
@@ -31,7 +31,8 @@ export async function creditBalance(db: Executor, userId: string): Promise<numbe
 
 export async function userPlan(db: Executor, userId: string): Promise<PlanId> {
   const [row] = await db.select().from(subscription).where(eq(subscription.userId, userId));
-  return row?.plan === "pro" && ["active", "trialing"].includes(row.status) ? "pro" : "free";
+  if (!row || !isPlanId(row.plan) || !["active", "trialing"].includes(row.status)) return "free";
+  return row.plan;
 }
 
 /** Give a new user their sign-up credits once (idempotent). */

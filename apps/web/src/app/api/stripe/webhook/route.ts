@@ -1,10 +1,10 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { grantCredits, PLANS } from "@appbuilder/core";
+import { grantCredits, isPlanId, PLANS, reportError, type PaidPlanId } from "@appbuilder/core";
 import { schema } from "@appbuilder/db";
 import { db, HttpError, route } from "@/lib/server";
-import { stripe } from "@/lib/stripe";
+import { planForPrice, stripe } from "@/lib/stripe";
 
 const { subscription } = schema;
 
@@ -13,6 +13,16 @@ async function setPlan(userId: string, patch: Partial<typeof subscription.$infer
     .insert(subscription)
     .values({ userId, plan: "free", status: "active", ...patch })
     .onConflictDoUpdate({ target: subscription.userId, set: patch });
+}
+
+/**
+ * A paid plan from a Stripe price. Metadata (the plan chosen at checkout) is trusted only for
+ * checkout.session.completed: later events must carry a price this server sells, so switching
+ * to some other price in the portal can't keep a higher plan.
+ */
+function paidPlan(priceId: string | null | undefined, metadata?: Record<string, string> | null) {
+  const plan = planForPrice(priceId) ?? metadata?.plan;
+  return isPlanId(plan) && plan !== "free" ? (plan as PaidPlanId) : null;
 }
 
 async function userForCustomer(customerId: string): Promise<string | null> {
@@ -40,9 +50,10 @@ export const POST = route(async (request: Request) => {
     case "checkout.session.completed": {
       const session = event.data.object;
       const userId = session.client_reference_id ?? session.metadata?.userId;
-      if (userId) {
+      const plan = paidPlan(null, session.metadata);
+      if (userId && plan) {
         await setPlan(userId, {
-          plan: "pro",
+          plan,
           status: "active",
           stripeCustomerId:
             typeof session.customer === "string" ? session.customer : session.customer?.id,
@@ -66,9 +77,18 @@ export const POST = route(async (request: Request) => {
         // Not ours yet: a 5xx makes Stripe retry later instead of dropping the grant.
         throw new HttpError(503, "Subscriber not known yet.");
       }
-      const periodEnd = invoice.lines?.data?.[0]?.period?.end;
+      const line = invoice.lines?.data?.[0];
+      const price = line?.pricing?.price_details?.price;
+      // Only a price this server sells decides the plan (never metadata from an old checkout).
+      const plan = paidPlan(typeof price === "string" ? price : price?.id);
+      if (!plan) {
+        // A price this server doesn't sell: retrying won't help, so acknowledge and report it.
+        reportError(new Error("invoice.paid for an unknown price"), { invoice: invoice.id });
+        break;
+      }
+      const periodEnd = line?.period?.end;
       await setPlan(userId, {
-        plan: "pro",
+        plan,
         status: "active",
         ...(customer ? { stripeCustomerId: customer } : {}),
         ...(periodEnd ? { currentPeriodEnd: new Date(periodEnd * 1000) } : {}),
@@ -76,16 +96,17 @@ export const POST = route(async (request: Request) => {
       // Monthly credits only for the first invoice and renewals (not prorations or manual
       // invoices); the invoice id makes the grant idempotent.
       if (
-        invoice.billing_reason === "subscription_create" ||
-        invoice.billing_reason === "subscription_cycle"
+        PLANS[plan].monthlyCredits > 0 &&
+        (invoice.billing_reason === "subscription_create" ||
+          invoice.billing_reason === "subscription_cycle")
       ) {
         await grantCredits(
           db(),
           userId,
-          PLANS.pro.monthlyCredits,
+          PLANS[plan].monthlyCredits,
           "monthly",
           `invoice:${invoice.id}`,
-          "Pro monthly credits",
+          `${PLANS[plan].name} monthly credits`,
         );
       }
       break;
@@ -99,7 +120,11 @@ export const POST = route(async (request: Request) => {
         const active =
           event.type === "customer.subscription.updated" &&
           ["active", "trialing"].includes(sub.status);
-        await setPlan(userId, { plan: active ? "pro" : "free", status: sub.status });
+        // Follows upgrades and downgrades made in the customer portal (a new price).
+        const plan = paidPlan(sub.items?.data?.[0]?.price?.id);
+        if (!active) await setPlan(userId, { plan: "free", status: sub.status });
+        // An unknown price shouldn't downgrade a paying user: keep their plan, update the status.
+        else await setPlan(userId, plan ? { plan, status: sub.status } : { status: sub.status });
       }
       break;
     }

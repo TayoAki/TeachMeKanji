@@ -2,7 +2,8 @@
 
 Every phase of the [build plan](03-build-plan.md) is implemented, on the wireframe layout.
 What remains needs your accounts and hosting: live runs against Anthropic, Stripe, GitHub,
-EAS, ImageKit and Resend, and a production deployment ([06-deploy.md](06-deploy.md) has the
+EAS, ImageKit and Resend, connecting a real Claude or ChatGPT account over MCP, and a
+production deployment ([06-deploy.md](06-deploy.md) has the
 steps). This page says exactly what was verified here and what wasn't.
 
 ![The workspace: left rail, chat sidebar, canvas of live screens, interactive preview, themes and status bar](images/workspace.png)
@@ -41,8 +42,9 @@ steps). This page says exactly what was verified here and what wasn't.
   agent add email sign-up and sign-in, and signing up keeps the device's data. The **Data** tab
   shows the app's users and records. The workspace preview acts as one stable "Preview" user,
   so its cloud data persists across reloads; published apps remember each visitor's data.
-- **AI images:** generated screens can use `<AiImage prompt="…" />`; with an ImageKit endpoint
-  set, ImageKit generates the image from the prompt. Without one, a themed placeholder.
+- **Images:** `<AiImage name="…" />` shows an image added to the app (assistants add them with
+  `add_image`); `<AiImage prompt="…" />` generates one through ImageKit when an endpoint is set
+  (each prompt gets its own cached path). Without either, a themed placeholder.
 - **History:** every build, AI edit, inspector edit, restore and App Cloud switch is a version;
   restore any of them.
 - **Phone preview:** a per-project Expo dev server and a QR code for Expo Go (SDK 58), with
@@ -50,14 +52,25 @@ steps). This page says exactly what was verified here and what wasn't.
 - **Export:** zip download (Expo project with README and `eas.json`); push to GitHub (new repo,
   or an existing repo via a branch and pull request); Android/iOS builds with EAS (Pro, uses
   your Expo token).
-- **Share:** invite by email as viewer or editor. Viewers can look and remix; editors can
-  change; only the owner can publish, change visibility, share, switch App Cloud or delete. In
-  production an invite works only for a verified email address.
+- **Share:** invite by email, or send an invite link (single-use, a week; works without any
+  email provider), as viewer or editor. Viewers can look and remix; editors can change; only the
+  owner can publish, change visibility, share, switch App Cloud or delete. In production an
+  email invite works only for a verified email address.
+- **Build from your own AI (MCP):** Studio and Pro users connect Claude, ChatGPT, Cursor or any
+  MCP client (Settings shows the URL and steps). The assistant signs in with OAuth, the user
+  approves it, and it builds through tools: create and list projects, read the app rules,
+  read and write files (validated exactly like the built-in agent's output; saved as a version
+  only when the whole project passes), add images (ChatGPT can pass images it generated),
+  App Cloud and publishing. The open workspace updates live. Disconnecting in Settings stops
+  an assistant at once.
 - **Publish:** a public web URL (`/p/<slug>`) serving the published version, and an option to
   list the app in the community gallery, where anyone can try it or remix a copy.
-- **Plans and credits:** Free (2 projects, 5 screens per app) and Pro (unlimited projects, 12
-  screens, native builds, 500 monthly credits) via Stripe Checkout, the customer portal and
-  webhooks. Each run reserves credits, which are also its spending cap: the worker stops a run
+- **Plans and credits:** Free ($0: 100 starting credits, 2 projects, 5 screens per app),
+  Studio ($49/month: bring your own AI over MCP, unlimited projects, 12 screens, native builds)
+  and Pro ($99/month: Studio plus 150 credits a month for the built-in agent), via Stripe
+  Checkout, the customer portal and webhooks; the plan follows the Stripe price. Each paid plan
+  keeps at least a 90% gross margin even if every included credit is spent (Studio ≈ 96%,
+  Pro ≈ 90%, assuming $2 of hosting per user per month; a test enforces it). Each run reserves credits, which are also its spending cap: the worker stops a run
   when its measured model cost reaches the reserve. A run is charged its measured cost (at
   least a small minimum when it succeeds, never more than its reserve). Failed or cancelled
   runs pay only for the model usage they consumed.
@@ -71,10 +84,10 @@ steps). This page says exactly what was verified here and what wasn't.
 
 | Check | Result |
 |-------|--------|
-| Unit and integration tests (Vitest, 64 tests) | ✅ contract rules, inline-edit write-back, route model, the agent pipeline, GitHub push sequence (mocked API), credits/versions/run-queue/permissions against real Postgres (including concurrent credit reservations, exactly-once run claiming and verified-email invites), App Cloud users/sessions/records (per-user caps under concurrent writes, the preview user, pruning, remixes), rate limiters, log redaction, the preview server's path handling, the AiImage component |
-| End-to-end (Playwright, 13 tests) | ✅ landing → sign-up → plan → revise → build → navigate → chat edit → theme → inspector edit → computed-text guard → restore → code → zip → publish → public page → community; sharing (stranger 404, editor edits, can't publish); free-plan limits; App Cloud (switch on, 401 without a session, the agent adds sign-in, an account is created inside the generated app, the owner sees it in the Data tab, oversized requests refused); password reset (the emailed link, every session signed out, the old password rejected, the link single-use); Stripe webhooks signed with a real webhook secret (forged signatures rejected, invoice before checkout, retries don't double-grant, prorations grant nothing, renewals, unknown customers retried, cancellation) |
-| Production mode | ✅ the same 13 tests against `next build` + `next start` and the preview's production server (`E2E_PROD=1 npm run test:e2e`) |
-| Docker | ✅ the image builds; `docker-compose.prod.yml` starts Postgres, runs migrations and serves web, preview and worker; 12 of the 13 tests pass against that stack (`E2E_BASE_URL=http://localhost:3000`). The password-reset test is skipped there because it reads the reset token from the database, which the stack doesn't expose |
+| Unit and integration tests (Vitest, 74 tests) | ✅ contract rules, inline-edit write-back, route model, the agent pipeline, GitHub push sequence (mocked API), credits/versions/run-queue/permissions against real Postgres (including concurrent credit reservations, exactly-once run claiming and verified-email invites), App Cloud users/sessions/records (per-user caps under concurrent writes, the preview user, pruning, remixes), invite links (single use, expiry, never inheriting an unverified address's role), disconnecting assistants, assistant file changes (writable paths, validation, screen limits), plan margins, rate limiters, log redaction, the preview server's path handling, the AiImage component |
+| End-to-end (Playwright, 17 tests) | ✅ landing → sign-up → plan → revise → build → navigate → chat edit → theme → inspector edit → computed-text guard → restore → code → zip → publish → public page → community; sharing (stranger 404, editor edits, can't publish); free-plan limits; App Cloud (switch on, 401 without a session, the agent adds sign-in, an account is created inside the generated app, the owner sees it in the Data tab, oversized requests refused); password reset (the emailed link, every session and connected assistant signed out, the old password rejected, the link single-use; hidden in production without email); invite links (sign up through one, join, single use); MCP (an assistant registers itself, the user approves it on a consent page that shows where approval goes, PKCE token, tools list, contract violations refused with the reasons, a valid app saved and running in the workspace, live updates, an image added and shown, private hosts refused, disconnect from Settings stops it at once, Free plan refused, connecting while signed out); Stripe webhooks signed with a real webhook secret (forged signatures rejected, invoice before checkout, retries don't double-grant, prorations grant nothing, renewals, unknown customers retried, cancellation, plan switches by price, unknown prices can't keep or raise a plan) |
+| Production mode | ✅ the same tests (16 run; the email-dependent reset test swaps for its production variant) against `next build` + `next start` and the preview's production server (`E2E_PROD=1 npm run test:e2e`) |
+| Docker | ✅ the image builds; `docker-compose.prod.yml` starts Postgres, runs migrations and serves web, preview and worker; 14 tests pass against that stack (`E2E_BASE_URL=http://localhost:3000`); 3 are skipped there because they set up data directly in the test database (a user's plan, a reset token), which the stack doesn't expose |
 | Phone preview through the UI | ✅ QR ready in 36 s on first use (one-time SDK install); the dev server serves an `exposdk:58.0.0` manifest and compiles the generated app (6.4 MB bundle) |
 | Lint, typecheck (all workspaces), production build | ✅ |
 
@@ -87,11 +100,12 @@ versions, credits, preview, App Cloud, export, publishing) ran for real. The Cla
 
 ## Security review
 
-Two independent reviews of the server code: first permissions on every route, credits,
+Three independent reviews of the server code: first permissions on every route, credits,
 billing, uploads and the worker's file and process handling; then App Cloud, preview storage
-and the hardening changes. Both found no cross-project or cross-user data access. Everything
-they found is fixed. Tests cover the fixes, except the published-app storage cap and the
-client-address setting:
+and the hardening changes; then the MCP server and OAuth, images, invite links and pricing.
+None found cross-project or cross-user data access. Everything they found is fixed. Tests
+cover the fixes, except the published-app storage cap, the client-address setting and the
+image-fetch DNS pinning:
 
 | Finding | Fix |
 |---------|-----|
@@ -114,23 +128,35 @@ client-address setting:
 | Rate limits trusted any `X-Forwarded-For`, and the compose file exposed the app port directly | One client-address setting shared by all rate limits; compose binds to localhost behind a proxy |
 | Database errors logged their query parameters (emails, password hashes, records) | Parameters are redacted in every error report; duplicate sign-ups return 409 |
 | The verification email carried the (attacker-chosen) name, and there was no password reset | Neutral email text; password reset by email signs out every session, so the owner of an address can always take it back |
+| An unverified account using someone's address could take over that address's email-invite role by accepting any invite link | Only a verified (or already bound) account keeps an email invite's role; others get exactly the link's role |
+| Connected AI assistants survived a password reset, so whoever registered an address first kept access after the owner reclaimed it | Resetting a password or verifying an email disconnects every assistant; approving one needs a verified email when email is set up |
+| The consent page showed the name and URL a self-registered client chose for itself | It shows where approval is sent (the registered redirect host) and labels self-chosen names; a client URL is shown only if it matches |
+| Image downloads checked DNS, then resolved again to connect (rebinding) | The connection uses the checked address (pinned lookup), with Better Auth's public-address rules |
+| App images had no storage cap and outlived deleted projects | 100 images / 100 MB per app; a deleted project's images stop being served |
+| A Stripe price the server doesn't sell fell back to the plan in the old checkout's metadata | Only checkout uses metadata; later events need a known price |
 
 ## What needs your accounts (not verified here)
 
 | Feature | What to provide | Status |
 |---------|-----------------|--------|
 | AI generation with Claude | `ANTHROPIC_API_KEY` | Built and unit-tested, never run live; quality untuned |
+| Building from Claude / ChatGPT / Cursor (MCP) | A deployed https URL, and a Claude or ChatGPT account | The full OAuth + MCP flow is tested with a scripted client; not yet connected from Claude.ai, ChatGPT or Cursor (custom connectors are beta, and passing ChatGPT-generated images to tools is reported to be unreliable) |
 | Production hosting | Two hostnames, Postgres, TLS ([06-deploy.md](06-deploy.md)) | Docker stack verified locally; not deployed |
 | Verification emails | `RESEND_API_KEY`, `EMAIL_FROM` | Built; sends never run against Resend |
 | AI images | `IMAGEKIT_URL_ENDPOINT` | URL format from ImageKit's docs; never run against ImageKit |
 | Google / GitHub sign-in | OAuth client IDs and secrets | Wired through Better Auth, untested |
-| Pro upgrades | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO` | Webhook verified with signed events; Checkout and the portal never run against Stripe |
+| Studio and Pro upgrades | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_STUDIO`, `STRIPE_PRICE_PRO` | Webhook verified with signed events; Checkout and the portal never run against Stripe |
 | Push to GitHub | A user's fine-grained token (Settings) | Request sequence unit-tested; never run against GitHub |
 | Android/iOS builds | A user's Expo token (Settings); Apple account for iOS | Built; never run against EAS |
 | Phone on another network | `DEVICE_PREVIEW_TUNNEL=1` or a public host | Untested (tunnels are blocked here) |
 | S3 / R2 storage | `S3_*` variables | Adapter written; local files used here |
 
 ## Known limits
+
+- **Don't set `IMAGEKIT_URL_ENDPOINT` in production yet.** ImageKit serves unsigned AI
+  generations by default, and the endpoint ships inside every generated app, so anyone could
+  generate images on your bill. Signed URLs (with "Restrict unsigned URLs" on) are the fix and
+  aren't built. Images added with `add_image` don't have this problem.
 
 - App Cloud stores records as JSON documents per collection, not normalized tables, and has
   no server-side queries beyond "this user's records in this collection".

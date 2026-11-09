@@ -112,15 +112,21 @@ export async function listProjectsFor(
     .innerJoin(user, eq(user.id, project.ownerId))
     .where(and(eq(project.ownerId, viewer.id), isNull(project.deletedAt)))
     .orderBy(desc(project.updatedAt));
-  const shared = !(viewer.emailVerified || !invitesNeedVerifiedEmail())
-    ? []
-    : await db
-        .select({ ...cardColumns, role: projectMember.role })
-        .from(projectMember)
-        .innerJoin(project, eq(project.id, projectMember.projectId))
-        .innerJoin(user, eq(user.id, project.ownerId))
-        .where(and(eq(projectMember.email, viewer.email.toLowerCase()), isNull(project.deletedAt)))
-        .orderBy(desc(project.updatedAt));
+  const emailTrusted = Boolean(viewer.emailVerified) || !invitesNeedVerifiedEmail();
+  const shared = await db
+    .select({ ...cardColumns, role: projectMember.role })
+    .from(projectMember)
+    .innerJoin(project, eq(project.id, projectMember.projectId))
+    .innerJoin(user, eq(user.id, project.ownerId))
+    .where(
+      and(
+        eq(projectMember.email, viewer.email.toLowerCase()),
+        isNull(project.deletedAt),
+        // Same rule as projectAccess: link-accepted memberships, or a trusted email.
+        emailTrusted ? undefined : eq(projectMember.userId, viewer.id),
+      ),
+    )
+    .orderBy(desc(project.updatedAt));
   return [
     ...own.map((p) => ({ ...p, role: "owner" as const })),
     ...shared.filter((s) => !own.some((o) => o.id === s.id)),

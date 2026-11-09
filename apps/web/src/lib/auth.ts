@@ -1,10 +1,19 @@
 import "server-only";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { ensureSignupGrant } from "@appbuilder/core";
+import { jwt } from "better-auth/plugins";
+import { cimd } from "@better-auth/cimd";
+import { fetchClientMetadataResource } from "@better-auth/cimd/node";
+import { mcp } from "@better-auth/mcp";
+import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
+import {
+  ensureSignupGrant,
+  invitesNeedVerifiedEmail,
+  revokeAssistantAccess,
+} from "@appbuilder/core";
 import { getDb, schema } from "@appbuilder/db";
 import { ipAddressOptions } from "./client-ip";
-import { sendEmail } from "./email";
+import { emailConfigured, sendEmail } from "./email";
 
 const socialProviders: Parameters<typeof betterAuth>[0]["socialProviders"] = {};
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
@@ -22,14 +31,29 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
 
 export const enabledSocialProviders = Object.keys(socialProviders) as Array<"google" | "github">;
 
+/** The app's public origin. The OAuth issuer and the MCP endpoint are derived from it. */
+export const appOrigin = (process.env.BETTER_AUTH_URL || "http://localhost:3000").replace(
+  /\/$/,
+  "",
+);
+
+/** The MCP server's resource identifier: access tokens are issued for exactly this URL. */
+export const MCP_RESOURCE = `${appOrigin}/api/mcp`;
+
 export const auth = betterAuth({
-  baseURL: process.env.BETTER_AUTH_URL,
+  baseURL: appOrigin,
+  // The JWT plugin's /token route would clash with OAuth; clients use /oauth2/token.
+  disabledPaths: ["/token"],
   database: drizzleAdapter(getDb(), { provider: "pg", schema }),
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 8,
-    // A reset signs out every session, so it also evicts anyone who registered the address first.
+    // A reset signs out every session and disconnects every AI assistant, so it also evicts
+    // anyone who registered the address first.
     revokeSessionsOnPasswordReset: true,
+    onPasswordReset: async ({ user }) => {
+      await revokeAssistantAccess(getDb(), user.id);
+    },
     sendResetPassword: async ({ user, url }) => {
       await sendEmail({
         to: user.email,
@@ -39,8 +63,13 @@ export const auth = betterAuth({
     },
   },
   emailVerification: {
-    sendOnSignUp: true,
+    // Without an email provider in production there's nothing to send; invite links still work.
+    sendOnSignUp: emailConfigured(),
     autoSignInAfterVerification: true,
+    // Verifying proves who owns the address now: drop assistants connected before that.
+    afterEmailVerification: async (user) => {
+      await revokeAssistantAccess(getDb(), user.id);
+    },
     sendVerificationEmail: async ({ user, url }) => {
       await sendEmail({
         to: user.email,
@@ -62,9 +91,43 @@ export const auth = betterAuth({
       "/sign-up/email": { window: 60, max: 5 },
       "/send-verification-email": { window: 60, max: 3 },
       "/request-password-reset": { window: 60, max: 3 },
+      "/oauth2/register": { window: 60, max: 10 },
     },
   },
   socialProviders,
+  plugins: [
+    // Signs OAuth access tokens; MCP clients verify nothing themselves, our /api/mcp does.
+    jwt({ disableSettingJwtHeader: true }),
+    // The platform is the OAuth server MCP clients (Claude, ChatGPT, Cursor) sign in through.
+    mcp({
+      loginPage: "/sign-in",
+      consentPage: "/oauth/consent",
+      resource: MCP_RESOURCE,
+      // MCP clients register themselves (RFC 7591) before asking the user to connect. A
+      // registered client can do nothing until a signed-in user approves it on the consent page.
+      allowDynamicClientRegistration: true,
+      allowUnauthenticatedClientRegistration: true,
+      // Desktop clients (Claude Code, Cursor) register loopback redirect URIs: treat those as
+      // native apps, and https redirect URIs (claude.ai, chatgpt.com) as web apps.
+      clientRegistrationDefaultApplicationType: "infer",
+    }),
+    // Newer MCP clients identify themselves with a metadata URL instead of registering.
+    cimd({ fetchClientMetadataResource, metadataProfile: "mcp-2026-07-28" }),
+  ],
+  hooks: {
+    // When email works and invites need it, only a verified account may approve an AI
+    // assistant (otherwise an account registered with someone else's address could).
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/oauth2/consent") return;
+      if (!emailConfigured() || !invitesNeedVerifiedEmail()) return;
+      const session = await getSessionFromCtx(ctx);
+      if (session && !session.user.emailVerified) {
+        throw new APIError("FORBIDDEN", {
+          message: "Verify your email address before connecting an AI assistant.",
+        });
+      }
+    }),
+  },
   databaseHooks: {
     user: {
       create: {

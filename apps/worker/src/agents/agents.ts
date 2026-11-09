@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import {
   APP_PLAN_JSON_SCHEMA,
+  applyAppName,
   BACKEND_CONFIG_FILE,
   backendConfigFile,
   type PlatformConfig,
@@ -100,21 +101,6 @@ export async function planApp(input: {
 }
 
 // --- Build ---------------------------------------------------------------------------------
-
-export function applyAppName(files: ProjectFiles, appName: string): ProjectFiles {
-  const appJson = files["app.json"];
-  if (!appJson) return files;
-  const parsed = JSON.parse(appJson) as { expo: Record<string, unknown> };
-  const slug =
-    appName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "") || "app";
-  parsed.expo.name = appName;
-  parsed.expo.slug = slug;
-  parsed.expo.scheme = slug.replace(/-/g, "");
-  return { ...files, "app.json": JSON.stringify(parsed, null, 2) + "\n" };
-}
 
 export async function buildApp(input: {
   createMessage: CreateMessage;

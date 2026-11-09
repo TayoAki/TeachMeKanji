@@ -170,6 +170,21 @@ succeeds for an account with Apple credentials.
   error reporting from web and worker (JSON logs plus an optional webhook, with query
   parameters redacted); two security review passes.
 
+## Phase 14 — Bring your own AI (MCP) and pricing for margin (M) · **done** (not yet tried with a live Claude/ChatGPT account)
+- The platform is an OAuth 2.1 server (Better Auth `mcp()`): AI assistants register
+  themselves, the user approves them on a consent page, and tokens are bound to `/api/mcp`.
+- MCP tools: list/create projects, get the app rules (the same contract text the built-in agent
+  gets), read and write files (validated like the agent's output; saved as versions only when
+  the project passes), add images (ChatGPT can pass generated images as files), preview link,
+  App Cloud, publish. The open workspace picks up each write live.
+- Plans: Free (built-in AI trial), Studio $49 (bring your own AI, no credits), Pro $99
+  (150 built-in credits plus MCP). Every paid plan keeps a 90% gross margin even if all
+  included credits are used (`planMargin`, tested). The plan follows the Stripe price.
+- Settings shows the connector URL, setup steps per assistant, and connected assistants with
+  Disconnect (which stops access immediately).
+- Invite links (single-use, a week) so sharing works without an email provider; password
+  reset by email when one is configured.
+
 ---
 
 ## Cross-cutting (every phase)

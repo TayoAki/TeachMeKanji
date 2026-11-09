@@ -29,6 +29,27 @@
       "when": 1794222591873,
       "tag": "0003_app_cloud_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794236432318,
+      "tag": "0004_oauth_mcp",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794237394527,
+      "tag": "0005_app_images",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794237697169,
+      "tag": "0006_invite_links",
+      "breakpoints": true
     }
   ]
 }

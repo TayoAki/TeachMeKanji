@@ -67,17 +67,22 @@ Required in production:
 | Variable | Why |
 |----------|-----|
 | `DATABASE_URL` | Postgres 16 |
-| `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` | Sessions; the URL is the app's public origin |
+| `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` | Sessions. The URL is the app's public `https://` origin; it is also the OAuth issuer, and AI assistants connect to `$BETTER_AUTH_URL/api/mcp` |
 | `ENCRYPTION_KEY` | Encrypts users' GitHub and Expo tokens (no fallback in production) |
 | `NEXT_PUBLIC_PREVIEW_ORIGIN` (build time), `PREVIEW_ALLOWED_PARENTS` | The preview origin, and the app origin it trusts |
 | `APP_PUBLIC_URL` | The origin generated apps call for App Cloud; phones must be able to reach it |
-| `ANTHROPIC_API_KEY` | AI generation (leave `LLM_PROVIDER` empty) |
-| `RESEND_API_KEY`, `EMAIL_FROM` | Verification and password-reset emails. Shared projects need a verified email in production, so without email, invites can't be accepted and nobody can reset a password |
+| `ANTHROPIC_API_KEY` | The built-in agent (Free and Pro). Studio users bring their own AI over MCP; leave `LLM_PROVIDER` empty |
 | `CLIENT_IP_HEADER` (and `TRUSTED_PROXIES` for a multi-hop chain) | The header your proxy sets with the client's address, for per-IP rate limits. Caddy overwrites `X-Forwarded-For` (the default works); with nginx, set `proxy_set_header X-Real-IP $remote_addr` and `CLIENT_IP_HEADER=x-real-ip` |
 
 Optional: `S3_*` (object storage), `GOOGLE_*`/`GITHUB_*` (social sign-in), `STRIPE_*`
-(billing), `IMAGEKIT_URL_ENDPOINT` (AI images in generated apps), `ERROR_WEBHOOK_URL`,
-`RATE_LIMIT_*`, `DEVICE_PREVIEW_*`. `.env.example` describes each one.
+(billing), `RESEND_API_KEY` + `EMAIL_FROM` (email), `IMAGEKIT_URL_ENDPOINT` (AI images in
+generated apps), `ERROR_WEBHOOK_URL`, `RATE_LIMIT_*`, `DEVICE_PREVIEW_*`. `.env.example`
+describes each one.
+
+Without email: sharing works through invite links (single-use, a week), sign-up skips the
+verification email, and "Forgot password" is hidden, so a locked-out user needs you to reset
+their password. Email invites (by address) need a verified email, so they wait until email is
+set up.
 
 ## Third-party setup
 
@@ -85,8 +90,13 @@ Optional: `S3_*` (object storage), `GOOGLE_*`/`GITHUB_*` (social sign-in), `STRI
   `.../callback/github`.
 - **Stripe:** a webhook to `https://app.example.com/api/stripe/webhook` with the events
   `checkout.session.completed`, `invoice.paid`, `customer.subscription.updated` and
-  `customer.subscription.deleted`; put its signing secret in `STRIPE_WEBHOOK_SECRET`.
-  `STRIPE_PRICE_PRO` is the monthly price's id.
+  `customer.subscription.deleted`; put its signing secret in `STRIPE_WEBHOOK_SECRET`. Create
+  two monthly prices, Studio ($49) and Pro ($99), in `STRIPE_PRICE_STUDIO` and
+  `STRIPE_PRICE_PRO`. The plan always follows the price, so upgrades and downgrades in the
+  customer portal just work.
+- **AI assistants (MCP):** nothing to register. Assistants discover everything from
+  `https://app.example.com/.well-known/oauth-protected-resource/api/mcp` and register
+  themselves. Users find the URL in Settings → Build from your AI assistant.
 - **Email:** verify the sending domain in Resend and use it in `EMAIL_FROM`.
 
 ## Operating it

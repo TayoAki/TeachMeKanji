@@ -1,7 +1,8 @@
 # App Builder (working title)
 
 A prompt-to-mobile-app platform. Describe an app; an AI agent plans its screens and builds an
-Expo / React Native app. Edit it by chat or by clicking elements, preview it in the browser and
+Expo / React Native app. Or build from the AI assistant you already pay for (Claude, ChatGPT,
+Cursor) through the built-in MCP server. Edit it by chat or by clicking elements, preview it in the browser and
 on your phone, export the source or push it to GitHub, build for Android and iOS, and publish it
 to the web.
 

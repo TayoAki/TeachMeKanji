@@ -1,11 +1,22 @@
 /**
  * Plans, limits and credit pricing. One credit is worth CREDIT_USD of model cost; a run is
- * charged its measured cost in credits, never less than its minimum. Tune these numbers with
- * real usage data before launch.
+ * charged its measured cost in credits, never less than its minimum.
+ *
+ * Paid plans are priced for at least a 90% gross margin (see planMargin): Studio has no model
+ * cost (users bring their own AI through MCP), and Pro's included credits are capped at 10% of
+ * its price minus hosting. Check HOSTING_USD_PER_USER_MONTH against real bills after launch.
  */
 export const CREDIT_USD = 0.05;
 
-export type PlanId = "free" | "pro";
+/** Estimated hosting cost of one active paying user per month (database, compute, bandwidth). */
+export const HOSTING_USD_PER_USER_MONTH = 2;
+
+/** The gross margin every paid plan must keep. */
+export const TARGET_MARGIN = 0.9;
+
+export type PlanId = "free" | "studio" | "pro";
+export type PaidPlanId = Exclude<PlanId, "free">;
+export const PAID_PLANS: readonly PaidPlanId[] = ["studio", "pro"];
 
 export interface PlanLimits {
   name: string;
@@ -15,6 +26,8 @@ export interface PlanLimits {
   maxProjects: number | null;
   maxScreensPerProject: number;
   nativeBuilds: boolean;
+  /** Use the builder from your own AI assistant (Claude, ChatGPT, Cursor…) through MCP. */
+  mcp: boolean;
 }
 
 export const PLANS: Record<PlanId, PlanLimits> = {
@@ -26,17 +39,43 @@ export const PLANS: Record<PlanId, PlanLimits> = {
     maxProjects: 2,
     maxScreensPerProject: 5,
     nativeBuilds: false,
+    mcp: false,
   },
-  pro: {
-    name: "Pro",
-    priceUsdPerMonth: 30,
+  studio: {
+    name: "Studio",
+    priceUsdPerMonth: 49,
     signupCredits: 0,
-    monthlyCredits: 500,
+    monthlyCredits: 0,
     maxProjects: null,
     maxScreensPerProject: 12,
     nativeBuilds: true,
+    mcp: true,
+  },
+  pro: {
+    name: "Pro",
+    priceUsdPerMonth: 99,
+    signupCredits: 0,
+    monthlyCredits: 150,
+    maxProjects: null,
+    maxScreensPerProject: 12,
+    nativeBuilds: true,
+    mcp: true,
   },
 };
+
+export function isPlanId(value: unknown): value is PlanId {
+  return typeof value === "string" && value in PLANS;
+}
+
+/**
+ * Worst-case gross margin of a plan: every included credit spent on model usage, plus hosting.
+ * (Credits aren't sold separately, so they can't exceed what plans include.)
+ */
+export function planMargin(plan: PaidPlanId): number {
+  const { priceUsdPerMonth, monthlyCredits } = PLANS[plan];
+  const cost = monthlyCredits * CREDIT_USD + HOSTING_USD_PER_USER_MONTH;
+  return (priceUsdPerMonth - cost) / priceUsdPerMonth;
+}
 
 /**
  * Credits reserved when a run starts (released when it settles) and the minimum charge for a

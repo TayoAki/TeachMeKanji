@@ -7,10 +7,14 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 
 export function UpgradeButton({
+  plan,
+  name,
   signedIn,
   enabled,
   current,
 }: {
+  plan: "studio" | "pro";
+  name: string;
   signedIn: boolean;
   enabled: boolean;
   current: boolean;
@@ -43,14 +47,17 @@ export function UpgradeButton({
       onClick={async () => {
         setBusy(true);
         try {
-          const { url } = await api<{ url: string }>("/api/billing/checkout", { method: "POST" });
+          const { url } = await api<{ url: string }>("/api/billing/checkout", {
+            method: "POST",
+            json: { plan },
+          });
           location.href = url;
         } catch {
           setBusy(false);
         }
       }}
     >
-      {busy ? <Loader2 className="animate-spin" /> : null} Upgrade to Pro
+      {busy ? <Loader2 className="animate-spin" /> : null} Choose {name}
     </Button>
   );
 }

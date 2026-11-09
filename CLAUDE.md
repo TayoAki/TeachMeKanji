@@ -30,8 +30,11 @@ the preview, or the agent work; `docs/03-build-plan.md` says what each phase del
   `apps/web/src/lib/server.ts`; permissions are decided only in `packages/core/src/authz.ts`.
   The exception is App Cloud (`/api/app/<projectId>/...`), the API generated apps call: it uses
   `appRoute()` in `apps/web/src/lib/app-cloud-http.ts`, bearer tokens only, never cookies.
-- `data/backend.ts` in generated apps is written only by the platform
-  (`packages/contract/src/platform-config.ts`), never by the model.
+- The MCP server (`/api/mcp`, tools in `apps/web/src/lib/mcp-tools.ts`) authenticates with
+  OAuth access tokens (Better Auth `mcp()`), never cookies. Tools act as the token's user via
+  `projectAccess()`, and file writes go through `applyChanges()` in the contract.
+- `data/backend.ts` and `data/images.ts` in generated apps are written only by the platform
+  (`packages/contract/src/platform-config.ts`), never by the model or an assistant.
 - Read env vars with `||`, not `??`: `.env` files set unused keys to empty strings.
 - Long work runs in the worker as an `agent_run`; the web app only enqueues and streams events.
 - One phase or feature per branch and PR.

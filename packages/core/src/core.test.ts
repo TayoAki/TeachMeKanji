@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Database } from "@appbuilder/db";
 import { canEdit, projectAccess } from "./authz";
+import { acceptInvite, createInvite, InviteInvalid, peekInvite } from "./invites";
+import { revokeAssistantAccess } from "./assistants";
 import { creditBalance, ensureSignupGrant, InsufficientCredits } from "./credits";
 import { decryptSecret, encryptSecret } from "./crypto";
 import {
@@ -9,6 +11,7 @@ import {
   duplicateProject,
   LimitReached,
   listMessages,
+  listProjectsFor,
   publishProject,
   shareProject,
 } from "./projects";
@@ -244,6 +247,102 @@ describe("core (Postgres)", () => {
     const { project: fresh } = (await projectAccess(db, p.id, owner))!;
     const slug = await publishProject(db, fresh);
     expect(slug).toMatch(/^x-/);
+  });
+
+  it("lets an invite link holder join once, without email verification", async () => {
+    const owner = await makeUser(db);
+    const guest = { ...(await makeUser(db)), emailVerified: false };
+    const other = { ...(await makeUser(db)), emailVerified: false };
+    const p = await createProject(db, { ownerId: owner.id, prompt: "x", platforms: "both" });
+    process.env.REQUIRE_VERIFIED_EMAIL = "1";
+    try {
+      const { token } = await createInvite(db, {
+        projectId: p.id,
+        role: "editor",
+        createdBy: owner.id,
+      });
+      expect((await peekInvite(db, token))?.projectId).toBe(p.id);
+      expect(await projectAccess(db, p.id, guest)).toBeNull();
+
+      await acceptInvite(db, token, guest);
+      expect((await projectAccess(db, p.id, guest))?.access).toBe("editor");
+      expect((await listProjectsFor(db, guest)).map((c) => c.id)).toContain(p.id);
+
+      // Single use: a forwarded link doesn't let anyone else in.
+      await expect(acceptInvite(db, token, other)).rejects.toBeInstanceOf(InviteInvalid);
+      expect(await projectAccess(db, p.id, other)).toBeNull();
+      expect(await peekInvite(db, token)).toBeNull();
+
+      // An email invite to an unverified address still grants nothing.
+      await shareProject(db, p.id, other.email, "viewer", owner.id);
+      expect(await projectAccess(db, p.id, other)).toBeNull();
+      expect((await listProjectsFor(db, other)).map((c) => c.id)).not.toContain(p.id);
+
+      // Expired links are refused.
+      const old = await createInvite(db, { projectId: p.id, role: "viewer", createdBy: owner.id });
+      await db
+        .update(schema.projectInvite)
+        .set({ expiresAt: new Date(Date.now() - 1000) })
+        .where(eq(schema.projectInvite.projectId, p.id));
+      await expect(acceptInvite(db, old.token, other)).rejects.toBeInstanceOf(InviteInvalid);
+    } finally {
+      delete process.env.REQUIRE_VERIFIED_EMAIL;
+    }
+  });
+
+  it("never hands an email invite's role to an unverified account using that address", async () => {
+    const owner = await makeUser(db);
+    const squatter = { ...(await makeUser(db)), emailVerified: false };
+    const p = await createProject(db, { ownerId: owner.id, prompt: "x", platforms: "both" });
+    process.env.REQUIRE_VERIFIED_EMAIL = "1";
+    try {
+      // The owner invited this address as an editor; the account holding it isn't verified.
+      await shareProject(db, p.id, squatter.email, "editor", owner.id);
+      const { token } = await createInvite(db, {
+        projectId: p.id,
+        role: "viewer",
+        createdBy: owner.id,
+      });
+      await acceptInvite(db, token, squatter);
+      expect((await projectAccess(db, p.id, squatter))?.access).toBe("viewer");
+    } finally {
+      delete process.env.REQUIRE_VERIFIED_EMAIL;
+    }
+  });
+
+  it("disconnects every AI assistant from an account", async () => {
+    const u = await makeUser(db);
+    const clientId = `client-${u.id}`;
+    const now = new Date();
+    await db
+      .insert(schema.oauthClient)
+      .values({ id: clientId, clientId, redirectUris: ["https://x.example/cb"] });
+    await db.insert(schema.oauthConsent).values({
+      id: `consent-${u.id}`,
+      clientId,
+      userId: u.id,
+      scopes: ["openid"],
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(schema.oauthRefreshToken).values({
+      id: `rt-${u.id}`,
+      token: `rt-${u.id}`,
+      clientId,
+      userId: u.id,
+      scopes: ["openid"],
+      expiresAt: new Date(Date.now() + 86_400_000),
+      createdAt: now,
+    });
+    await revokeAssistantAccess(db, u.id);
+    expect(
+      await db.select().from(schema.oauthConsent).where(eq(schema.oauthConsent.userId, u.id)),
+    ).toEqual([]);
+    const [token] = await db
+      .select()
+      .from(schema.oauthRefreshToken)
+      .where(eq(schema.oauthRefreshToken.userId, u.id));
+    expect(token?.revoked).toBeInstanceOf(Date);
   });
 
   it("keeps chat history in order", async () => {

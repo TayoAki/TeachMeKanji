@@ -13,12 +13,14 @@ import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import { TimeAgo } from "@/components/time-ago";
+import { AssistantsSection } from "@/components/assistants-section";
 
 export interface SettingsData {
   user: RailUser;
   credits: number;
-  plan: "free" | "pro";
+  plan: "free" | "studio" | "pro";
   limits: {
+    mcp: boolean;
     name: string;
     monthlyCredits: number;
     maxProjects: number | null;
@@ -33,7 +35,9 @@ export interface SettingsData {
     createdAt: string;
   }>;
   integrations: Array<{ provider: "github" | "expo"; label: string | null }>;
-  billingEnabled: boolean;
+  billing: { studio: boolean; pro: boolean };
+  /** The MCP endpoint assistants connect to. */
+  mcpUrl: string;
 }
 
 const REASONS: Record<string, string> = {
@@ -156,7 +160,7 @@ export function SettingsView({ initial }: { initial: SettingsData }) {
         <PanelSection title="Plan">
           <div className="flex items-center gap-2">
             <span className="text-2xl font-semibold">{data.limits.name}</span>
-            {data.plan === "pro" ? <Badge>Active</Badge> : null}
+            {data.plan !== "free" ? <Badge>Active</Badge> : null}
           </div>
           <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
             <li>
@@ -170,17 +174,18 @@ export function SettingsView({ initial }: { initial: SettingsData }) {
                 ? "Android & iOS builds"
                 : "Web publishing and source export"}
             </li>
+            {data.limits.mcp ? <li>Build from Claude and other AI assistants (MCP)</li> : null}
             {data.limits.monthlyCredits ? (
               <li>{data.limits.monthlyCredits} credits every month</li>
             ) : null}
           </ul>
-          {data.plan === "pro" ? (
+          {data.plan !== "free" ? (
             <Button variant="outline" size="sm" className="mt-4 w-full" onClick={portal}>
               Manage subscription
             </Button>
           ) : (
             <Button asChild size="sm" className="mt-4 w-full">
-              <Link href="/pricing">Upgrade to Pro</Link>
+              <Link href="/pricing">See plans</Link>
             </Button>
           )}
         </PanelSection>
@@ -221,6 +226,8 @@ export function SettingsView({ initial }: { initial: SettingsData }) {
             Runs are charged by what the AI actually used. Failed or cancelled runs are free.
           </p>
         </section>
+
+        <AssistantsSection mcpUrl={data.mcpUrl} allowed={data.limits.mcp} />
 
         <section id="integrations">
           <h2 className="mb-3 text-lg font-semibold">Integrations</h2>

@@ -60,6 +60,8 @@ export const projectAsset = pgTable(
     fileName: text("file_name").notNull(),
     mime: text("mime").notNull(),
     bytes: integer("bytes").notNull(),
+    /** "reference": private prompt images; "app_image": shipped in the app, served publicly. */
+    purpose: text("purpose").$type<"reference" | "app_image">().notNull().default("reference"),
     createdAt: createdAt(),
   },
   (t) => [index("project_asset_project_idx").on(t.projectId)],
@@ -74,12 +76,35 @@ export const projectMember = pgTable(
     email: text("email").notNull(),
     role: text("role").$type<"viewer" | "editor">().notNull().default("viewer"),
     invitedBy: text("invited_by").references(() => user.id, { onDelete: "set null" }),
+    /** Set when the member joined through an invite link: access then needs no email check. */
+    userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
     createdAt: createdAt(),
   },
   (t) => [
     primaryKey({ columns: [t.projectId, t.email] }),
     index("project_member_email_idx").on(t.email),
+    index("project_member_user_idx").on(t.userId),
   ],
+);
+
+/** Single-use invite links: whoever accepts one, signed in, joins with its role. */
+export const projectInvite = pgTable(
+  "project_invite",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => project.id, { onDelete: "cascade" }),
+    role: text("role").$type<"viewer" | "editor">().notNull(),
+    /** sha256 of the token in the link; the token itself is never stored. */
+    tokenHash: text("token_hash").notNull().unique(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    usedBy: text("used_by").references(() => user.id, { onDelete: "set null" }),
+  },
+  (t) => [index("project_invite_project_idx").on(t.projectId)],
 );
 
 export type MessageKind = "text" | "plan" | "run" | "error";
@@ -235,7 +260,7 @@ export const subscription = pgTable("subscription", {
   userId: text("user_id")
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
-  plan: text("plan").$type<"free" | "pro">().notNull().default("free"),
+  plan: text("plan").$type<"free" | "studio" | "pro">().notNull().default("free"),
   status: text("status").notNull().default("active"),
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),

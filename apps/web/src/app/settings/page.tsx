@@ -5,6 +5,8 @@ import { schema } from "@appbuilder/db";
 import { SettingsView, type SettingsData } from "@/components/settings-view";
 import { plain } from "@/lib/serialize";
 import { db, getViewer } from "@/lib/server";
+import { billingAvailability } from "@/lib/stripe";
+import { MCP_RESOURCE } from "@/lib/auth";
 
 export const metadata = { title: "Settings" };
 
@@ -35,7 +37,8 @@ export default async function SettingsPage() {
       createdAt: l.createdAt,
     })),
     integrations,
-    billingEnabled: Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PRICE_PRO),
+    billing: billingAvailability(),
+    mcpUrl: MCP_RESOURCE,
   }) as unknown as SettingsData;
   return <SettingsView initial={data} />;
 }

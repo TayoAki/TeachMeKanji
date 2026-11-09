@@ -11,7 +11,8 @@ export function securityHeaders(): Record<string, string> {
       // Generated modules are evaluated with new Function() inside the sandboxed frame.
       "script-src 'self' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https:",
+      // https: for ImageKit and the app's own images in production; the parents for local dev.
+      `img-src 'self' data: blob: https: ${allowedParents.join(" ")}`,
       "font-src 'self'",
       // Generated apps may only call App Cloud on the app's own origin; nothing else.
       `connect-src ${allowedParents.join(" ")}`,

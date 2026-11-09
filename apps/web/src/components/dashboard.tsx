@@ -22,7 +22,7 @@ export interface DashboardData {
   projects: ProjectCardData[];
   community: ProjectCardData[];
   credits: number;
-  plan: "free" | "pro";
+  plan: "free" | "studio" | "pro";
   limits: { name: string; maxProjects: number | null; maxScreensPerProject: number };
   /** A prompt typed on the landing page before signing up. */
   pendingPrompt: string;
@@ -196,7 +196,7 @@ export function Dashboard({ initial }: { initial: DashboardData }) {
             </p>
             {data.plan === "free" ? (
               <Button asChild size="sm" className="mt-3 w-full">
-                <Link href="/pricing">Upgrade to Pro</Link>
+                <Link href="/pricing">Upgrade</Link>
               </Button>
             ) : null}
           </PanelSection>

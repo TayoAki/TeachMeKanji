@@ -1,6 +1,7 @@
 import { TEMPLATE_FILES, type ProjectFiles } from "./layout";
 
 export const BACKEND_CONFIG_FILE = "data/backend.ts";
+export const IMAGES_FILE = "data/images.ts";
 
 export interface PlatformConfig {
   /** App Cloud base URL (the platform's origin) when the backend is enabled, else "". */
@@ -43,7 +44,7 @@ export function readPlatformConfig(files: ProjectFiles): PlatformConfig {
  * package.json (app name, pinned versions) and the platform config are kept if present.
  */
 export function refreshTemplate(files: ProjectFiles, template: ProjectFiles): ProjectFiles {
-  const keep = new Set(["app.json", "package.json", BACKEND_CONFIG_FILE]);
+  const keep = new Set(["app.json", "package.json", BACKEND_CONFIG_FILE, IMAGES_FILE]);
   const next: ProjectFiles = { ...files };
   for (const path of TEMPLATE_FILES) {
     const fromTemplate = template[path];
@@ -52,4 +53,26 @@ export function refreshTemplate(files: ProjectFiles, template: ProjectFiles): Pr
     next[path] = fromTemplate;
   }
   return next;
+}
+
+/** data/images.ts: the images added to an app, by name (written by the platform). */
+export function appImagesFile(images: Record<string, string>): string {
+  return `// PLATFORM FILE — written by the platform when images are added to the app.
+/** Images added to this app, by name: use them with <AiImage name="..." />. */
+export const appImages: Record<string, string> = ${JSON.stringify(images, null, 2)};
+`;
+}
+
+export function readAppImages(files: ProjectFiles): Record<string, string> {
+  const source = files[IMAGES_FILE] ?? "";
+  const json = /=\s*(\{[\s\S]*\});\s*$/.exec(source)?.[1];
+  if (!json) return {};
+  try {
+    const parsed = JSON.parse(json) as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.entries(parsed).filter((e): e is [string, string] => typeof e[1] === "string"),
+    );
+  } catch {
+    return {};
+  }
 }

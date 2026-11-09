@@ -34,3 +34,20 @@ describe("error report redaction", () => {
     expect(redact("plain message")).toBe("plain message");
   });
 });
+
+describe("plan pricing", () => {
+  it("keeps every paid plan at the target gross margin, even if all credits are used", async () => {
+    const { PAID_PLANS, planMargin, TARGET_MARGIN, PLANS } = await import("./billing");
+    for (const plan of PAID_PLANS) expect(planMargin(plan)).toBeGreaterThanOrEqual(TARGET_MARGIN);
+    expect(PLANS.studio.mcp && PLANS.pro.mcp && !PLANS.free.mcp).toBe(true);
+  });
+});
+
+describe("images", () => {
+  it("recognizes image types from their bytes, not their names", async () => {
+    const { sniffImage } = await import("./images");
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0]);
+    expect(sniffImage(png)).toBe("image/png");
+    expect(sniffImage(Buffer.from("<svg onload=alert(1)>"))).toBeNull();
+  });
+});

@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { creditBalance, PLANS, userPlan } from "@appbuilder/core";
 import { schema } from "@appbuilder/db";
 import { db, requireViewer, route } from "@/lib/server";
+import { billingAvailability } from "@/lib/stripe";
+import { MCP_RESOURCE } from "@/lib/auth";
 
 export const GET = route(async () => {
   const viewer = await requireViewer();
@@ -34,6 +36,7 @@ export const GET = route(async () => {
       createdAt: l.createdAt,
     })),
     integrations,
-    billingEnabled: Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PRICE_PRO),
+    billing: billingAvailability(),
+    mcpUrl: MCP_RESOURCE,
   });
 });

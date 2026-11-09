@@ -1,0 +1,1 @@
+ALTER TABLE "project_asset" ADD COLUMN "purpose" text DEFAULT 'reference' NOT NULL;

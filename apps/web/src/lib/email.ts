@@ -5,6 +5,14 @@ import { reportError } from "@appbuilder/core";
  * Transactional email. With RESEND_API_KEY and EMAIL_FROM set, sends through Resend's HTTP API;
  * otherwise development prints the message to the server log, and production reports an error.
  */
+/** Whether emails really go out (development prints them to the log instead). */
+export function emailConfigured(): boolean {
+  return (
+    Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM) ||
+    process.env.NODE_ENV !== "production"
+  );
+}
+
 export async function sendEmail(message: {
   to: string;
   subject: string;

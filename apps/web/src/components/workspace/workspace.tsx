@@ -85,6 +85,20 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
     return next;
   }, [project.id]);
 
+  // Changes can come from outside this tab (an AI assistant over MCP, another editor): poll the
+  // current version while idle and reload when it moves.
+  useEffect(() => {
+    if (runId) return;
+    const timer = setInterval(async () => {
+      if (document.visibilityState !== "visible") return;
+      const head = await api<{ versionId: string | null }>(`/api/projects/${project.id}/head`, {
+        quiet: true,
+      }).catch(() => null);
+      if (head && head.versionId !== state.versionId) void refresh();
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [project.id, runId, state.versionId, refresh]);
+
   // With App Cloud, every preview frame acts as the project's stable preview user.
   const [previewToken, setPreviewToken] = useState<{
     versionId: string | null;

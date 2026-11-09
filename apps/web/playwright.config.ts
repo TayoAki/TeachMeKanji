@@ -5,6 +5,7 @@ import {
   E2E_DATABASE_URL,
   E2E_PROD,
   E2E_STRIPE_KEY,
+  E2E_STRIPE_PRICES,
   E2E_STRIPE_WEBHOOK_SECRET,
 } from "./e2e/env";
 
@@ -73,8 +74,9 @@ export default defineConfig({
             NEXT_PUBLIC_PREVIEW_ORIGIN: "http://localhost:3001",
             STRIPE_SECRET_KEY: E2E_STRIPE_KEY,
             STRIPE_WEBHOOK_SECRET: E2E_STRIPE_WEBHOOK_SECRET,
-            // Billing UI stays off (no price); only the webhook is exercised.
-            STRIPE_PRICE_PRO: "",
+            // Placeholder prices: checkout itself needs a Stripe account; the webhook is exercised.
+            STRIPE_PRICE_STUDIO: E2E_STRIPE_PRICES.studio,
+            STRIPE_PRICE_PRO: E2E_STRIPE_PRICES.pro,
             // The suite signs up many users a minute and has no inbox. Production turns both on by
             // default; core.test.ts covers the verified-email rule.
             AUTH_RATE_LIMIT: "0",

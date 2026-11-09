@@ -336,6 +336,29 @@ SDK ≤ 55, while store Expo Go runs only the latest SDK (58). See
 - Never log or store prompts or assets anywhere that would share them for third-party
   training.
 
+## 9b. Bring your own AI (MCP)
+Users who already pay for Claude, ChatGPT or Cursor build here without credits: their
+assistant writes the code through our MCP server, and everything else (validation, versions,
+preview, App Cloud, publishing) stays ours.
+
+- **Auth:** Better Auth's `mcp()` plugin makes the app an OAuth 2.1 authorization server
+  (discovery at `/.well-known/oauth-authorization-server/api/auth` and
+  `/.well-known/oauth-protected-resource/api/mcp`, dynamic client registration and Client ID
+  Metadata Documents, PKCE, consent at `/oauth/consent`). Access tokens are JWTs bound to the
+  `/api/mcp` resource. `/api/mcp` also requires the user's consent to still exist, so
+  Disconnect in Settings stops a client at once.
+- **Server:** `apps/web/src/app/api/mcp/route.ts` (MCP SDK v2, both the 2026-07-28 protocol
+  and 2025-era clients, stateless). Tools live in `apps/web/src/lib/mcp-tools.ts`; each call
+  acts as the token's user through `projectAccess()`, and needs a plan with `mcp`.
+- **Writes:** `applyChanges()` in the contract applies a batch (only app/, components/,
+  theme/tokens.ts, data/schema.ts, data/seed.ts are writable), refreshes platform files from
+  the template, validates the whole project and enforces the screen limit. Nothing is saved
+  unless it passes; then it is one version, and the workspace picks it up by polling
+  `/api/projects/<id>/head`.
+- **Images:** `add_image` stores an image as a public project asset and records it in the
+  platform file `data/images.ts`; code shows it with `<AiImage name="…" />`. Images arrive as
+  ChatGPT file references, https URLs (fetched with private-address checks) or base64.
+
 ## 10. Environments and configuration
 
 **Local dev:** `docker compose` runs Postgres and MinIO, and the worker runs locally, so jobs

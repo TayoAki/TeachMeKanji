@@ -156,7 +156,7 @@ test("sharing and permissions", async ({ browser }) => {
   // Share with the editor, who then sees and can change it.
   await owner.getByTestId("open-share").click();
   await owner.getByLabel("Email to invite").fill(editorEmail);
-  await owner.getByRole("button", { name: "Invite" }).click();
+  await owner.getByRole("button", { name: "Invite", exact: true }).click();
   await expect(owner.getByTestId("member-list")).toContainText(editorEmail);
 
   await editor.goto("/");

@@ -15,14 +15,29 @@ export function AuthForm({
   social,
   prompt,
   notice,
+  oauthQuery,
+  next: nextPath,
+  canResetPassword = true,
 }: {
   mode: "sign-in" | "sign-up";
   social: Array<"google" | "github">;
   prompt?: string;
   notice?: string;
+  oauthQuery?: string;
+  /** Where to go after signing in (an invite link, say). */
+  next?: string;
+  /** False when the server can't send email: then there's no reset link to offer. */
+  canResetPassword?: boolean;
 }) {
   const router = useRouter();
-  const next = prompt ? `/?prompt=${encodeURIComponent(prompt)}` : "/";
+  const next = nextPath ?? (prompt ? `/?prompt=${encodeURIComponent(prompt)}` : "/");
+  const carry = oauthQuery
+    ? `?${oauthQuery}`
+    : nextPath
+      ? `?next=${encodeURIComponent(nextPath)}`
+      : prompt
+        ? `?prompt=${encodeURIComponent(prompt)}`
+        : "";
   const hydrated = useHydrated();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +60,12 @@ export function AuthForm({
     setBusy(false);
     if (result.error) {
       setError(result.error.message ?? "Something went wrong.");
+      return;
+    }
+    // Connecting an AI assistant: the OAuth server says where to go next (consent).
+    const continueTo = (result.data as { redirect?: boolean; url?: string } | null)?.url;
+    if (oauthQuery && continueTo) {
+      window.location.href = continueTo;
       return;
     }
     router.push(next);
@@ -100,7 +121,7 @@ export function AuthForm({
         <div className="grid gap-1.5">
           <div className="flex items-center justify-between">
             <Label htmlFor="password">Password</Label>
-            {mode === "sign-in" ? (
+            {mode === "sign-in" && canResetPassword ? (
               <Link href="/forgot-password" className="text-xs text-muted-foreground underline">
                 Forgot password?
               </Link>
@@ -129,17 +150,14 @@ export function AuthForm({
         {mode === "sign-up" ? (
           <>
             Already have an account?{" "}
-            <Link
-              href={prompt ? `/sign-in?prompt=${encodeURIComponent(prompt)}` : "/sign-in"}
-              className="text-foreground underline"
-            >
+            <Link href={`/sign-in${carry}`} className="text-foreground underline">
               Sign in
             </Link>
           </>
         ) : (
           <>
             New here?{" "}
-            <Link href="/sign-up" className="text-foreground underline">
+            <Link href={`/sign-up${carry}`} className="text-foreground underline">
               Create an account
             </Link>
           </>

@@ -34,7 +34,7 @@ export async function projectAccess(
     .where(and(eq(project.id, projectId), isNull(project.deletedAt)));
   if (!row) return null;
   if (viewer && row.ownerId === viewer.id) return { project: row, access: "owner" };
-  if (viewer && (viewer.emailVerified || !invitesNeedVerifiedEmail())) {
+  if (viewer) {
     const [member] = await db
       .select()
       .from(projectMember)
@@ -44,7 +44,12 @@ export async function projectAccess(
           eq(projectMember.email, viewer.email.toLowerCase()),
         ),
       );
-    if (member) return { project: row, access: member.role };
+    // An email invite needs a verified address (anyone can sign up with any email); a
+    // membership accepted through an invite link is bound to the account that accepted it.
+    const trusted =
+      member &&
+      (member.userId === viewer.id || viewer.emailVerified || !invitesNeedVerifiedEmail());
+    if (trusted) return { project: row, access: member.role };
   }
   if (row.visibility === "public") return { project: row, access: "public" };
   return null;

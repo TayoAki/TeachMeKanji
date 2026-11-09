@@ -4,6 +4,7 @@ import {
   listPublicProjects,
   PLANS,
   userPlan,
+  invitesNeedVerifiedEmail,
 } from "@appbuilder/core";
 import { Dashboard } from "@/components/dashboard";
 import { Landing } from "@/components/marketing/landing";
@@ -11,6 +12,7 @@ import { SiteHeader } from "@/components/marketing/site-header";
 import type { ProjectCardData } from "@/components/project-card";
 import { plain } from "@/lib/serialize";
 import { db, getViewer } from "@/lib/server";
+import { emailConfigured } from "@/lib/email";
 
 export default async function Home({ searchParams }: PageProps<"/">) {
   const prompt = (await searchParams).prompt;
@@ -35,7 +37,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         plan,
         limits: PLANS[plan],
         pendingPrompt: typeof prompt === "string" ? prompt.slice(0, 4000) : "",
-        emailVerified: viewer.emailVerified,
+        // The "verify your email" banner only matters when invites need it and email can be sent.
+        emailVerified: viewer.emailVerified || !emailConfigured() || !invitesNeedVerifiedEmail(),
       }}
     />
   );

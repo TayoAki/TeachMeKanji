@@ -15,6 +15,7 @@ export const TEMPLATE_FILES = [
   "data/remote.ts",
   "data/auth.ts",
   "data/backend.ts",
+  "data/images.ts",
   "components/AiImage.tsx",
 ] as const;
 

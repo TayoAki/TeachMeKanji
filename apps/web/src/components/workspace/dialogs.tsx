@@ -53,6 +53,7 @@ export function ShareDialog({
   const [members, setMembers] = useState<Array<{ email: string; role: string }>>([]);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"viewer" | "editor">("editor");
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const load = () =>
     api<{ members: typeof members }>(`/api/projects/${projectId}/members`, { quiet: true })
       .then((r) => setMembers(r.members))
@@ -68,6 +69,14 @@ export function ShareDialog({
     setEmail("");
     void load();
   };
+  const createLink = async () => {
+    const { url } = await api<{ url: string }>(`/api/projects/${projectId}/invites`, {
+      method: "POST",
+      json: { role },
+    });
+    setInviteUrl(url);
+    copy(url);
+  };
   const link = typeof window !== "undefined" ? `${location.origin}/projects/${projectId}` : "";
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -75,7 +84,8 @@ export function ShareDialog({
         <DialogHeader>
           <DialogTitle>Share project</DialogTitle>
           <DialogDescription>
-            People you invite see this project when they sign in with that email.
+            Invite by email (they sign in with that address), or send an invite link: it works once,
+            for a week, for whoever opens it.
           </DialogDescription>
         </DialogHeader>
         {canManage ? (
@@ -99,6 +109,21 @@ export function ShareDialog({
             <Button onClick={invite} disabled={!email.includes("@")}>
               Invite
             </Button>
+          </div>
+        ) : null}
+        {canManage ? (
+          <div className="space-y-2">
+            <Button variant="outline" size="sm" onClick={createLink} data-testid="create-invite">
+              <Copy /> Create invite link ({role === "editor" ? "can edit" : "can view"})
+            </Button>
+            {inviteUrl ? (
+              <div
+                className="truncate rounded-lg bg-muted px-3 py-2 font-mono text-xs"
+                data-testid="invite-url"
+              >
+                {inviteUrl}
+              </div>
+            ) : null}
           </div>
         ) : null}
         <ul className="space-y-2 text-sm" data-testid="member-list">
@@ -141,7 +166,8 @@ export function ShareDialog({
 // --- Export --------------------------------------------------------------------------------
 
 interface Me {
-  plan: "free" | "pro";
+  plan: "free" | "studio" | "pro";
+  limits: { nativeBuilds: boolean };
   integrations: Array<{ provider: "github" | "expo"; label: string | null }>;
 }
 
@@ -318,13 +344,13 @@ export function ExportDialog({
         <section className="space-y-2 border-t pt-4">
           <h3 className="flex items-center gap-2 text-sm font-medium">
             <Smartphone className="size-4" /> Android & iOS builds{" "}
-            <Badge variant="outline">Pro</Badge>
+            <Badge variant="outline">Studio & Pro</Badge>
           </h3>
-          {me?.plan !== "pro" ? (
+          {!me?.limits.nativeBuilds ? (
             <p className="text-sm text-muted-foreground">
-              Installable APK, AAB and IPA builds are part of{" "}
+              Installable APK, AAB and IPA builds are part of the{" "}
               <Link href="/pricing" className="underline">
-                Pro
+                paid plans
               </Link>
               .
             </p>
@@ -390,7 +416,7 @@ export function ExportDialog({
               </Button>
             </div>
           )}
-          {platform === "ios" && me?.plan === "pro" ? (
+          {platform === "ios" && me?.limits.nativeBuilds ? (
             <p className="text-xs text-muted-foreground">
               iOS device builds need an Apple Developer account connected to your Expo account.
             </p>

@@ -1,29 +1,52 @@
 // TEMPLATE FILE — owned by the platform, never written by the model.
-// AI-generated images through ImageKit (https://imagekit.io): the prompt is part of the URL
-// and ImageKit generates and caches the image. Without an endpoint, a themed placeholder.
+// Images: <AiImage name="hero" /> shows an image added to the project (data/images.ts);
+// <AiImage prompt="..." /> generates one through ImageKit (https://imagekit.io), which caches it
+// by URL. Without either, a themed placeholder.
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { View, type ImageStyle } from "react-native";
 import { images } from "../data/backend";
+import { appImages } from "../data/images";
 import { useTheme } from "../theme/ThemeProvider";
+
+/** FNV-1a: a short, stable id for a prompt (ImageKit caches each path forever). */
+function promptHash(prompt: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < prompt.length; i++) {
+    hash ^= prompt.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(36);
+}
 
 export function aiImageUrl(prompt: string, width = 800, height = 600): string | null {
   if (!images.endpoint) return null;
-  const name =
+  const slug =
     prompt
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .slice(0, 40) || "image";
-  return `${images.endpoint}/ik-genimg-prompt-${encodeURIComponent(prompt)}/${name}.jpg?tr=w-${width},h-${height}`;
+  return `${images.endpoint}/ik-genimg-prompt-${encodeURIComponent(prompt)}/${slug}-${promptHash(prompt)}.jpg?tr=w-${width},h-${height}`;
 }
 
-export function AiImage({ prompt, style }: { prompt: string; style?: ImageStyle }) {
+export function AiImage({
+  name,
+  prompt,
+  style,
+}: {
+  /** An image added to the project (see data/images.ts). */
+  name?: string;
+  /** Or a short visual description to generate one from. */
+  prompt?: string;
+  style?: ImageStyle;
+}) {
   const theme = useTheme();
-  const url = aiImageUrl(prompt);
+  const url = (name ? appImages[name] : undefined) ?? (prompt ? aiImageUrl(prompt) : null);
+  const label = prompt ?? name ?? "image";
   if (!url) {
     return (
       <View
-        accessibilityLabel={prompt}
+        accessibilityLabel={label}
         style={[
           {
             backgroundColor: theme.colors.surfaceAlt,
@@ -41,7 +64,7 @@ export function AiImage({ prompt, style }: { prompt: string; style?: ImageStyle 
   return (
     <Image
       source={{ uri: url }}
-      accessibilityLabel={prompt}
+      accessibilityLabel={label}
       contentFit="cover"
       style={[{ height: 160, backgroundColor: theme.colors.surfaceAlt }, style]}
     />
