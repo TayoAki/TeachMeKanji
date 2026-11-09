@@ -15,3 +15,4 @@ export * from "./report";
 export * from "./images";
 export * from "./invites";
 export * from "./assistants";
+export * from "./workers";

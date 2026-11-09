@@ -48,6 +48,8 @@ export default defineConfig({
             ...shared,
             LLM_PROVIDER: "fake",
             FAKE_LLM_DELAY_MS: "30",
+            // No Expo dev servers in tests; the phone dialog reports that they're off.
+            DEVICE_PREVIEW_ENABLED: "0",
             ...(E2E_PROD ? { NODE_ENV: "production" } : {}),
           },
         },

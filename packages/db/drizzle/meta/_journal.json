@@ -50,6 +50,13 @@
       "when": 1794237697169,
       "tag": "0006_invite_links",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794248312213,
+      "tag": "0007_worker_heartbeat",
+      "breakpoints": true
     }
   ]
 }

@@ -523,21 +523,37 @@ interface DeviceSession {
   error: string | null;
 }
 
+interface DeviceState {
+  session: DeviceSession | null;
+  /** False when no worker on this server runs phone previews. */
+  available: boolean;
+}
+
 export function DeviceDialog({ open, onOpenChange, projectId }: DialogProps) {
   const [session, setSession] = useState<DeviceSession | null>(null);
+  const [available, setAvailable] = useState(true);
   const [qrCode, setQrCode] = useState<{ url: string; data: string } | null>(null);
 
   useEffect(() => {
     if (!open) return;
     let alive = true;
-    api<{ session: DeviceSession }>(`/api/projects/${projectId}/device`, { method: "POST" })
-      .then((r) => alive && setSession(r.session))
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const show = (state: DeviceState) => {
+      if (!alive) return;
+      setSession(state.session);
+      setAvailable(state.available);
+    };
+    api<DeviceState>(`/api/projects/${projectId}/device`, { method: "POST" })
+      .then((state) => {
+        show(state);
+        if (!state.available || !alive) return;
+        timer = setInterval(() => {
+          api<DeviceState>(`/api/projects/${projectId}/device`, { quiet: true })
+            .then(show)
+            .catch(() => {});
+        }, 2000);
+      })
       .catch(() => {});
-    const timer = setInterval(() => {
-      api<{ session: DeviceSession | null }>(`/api/projects/${projectId}/device`, { quiet: true })
-        .then((r) => alive && setSession(r.session))
-        .catch(() => {});
-    }, 2000);
     return () => {
       alive = false;
       clearInterval(timer);
@@ -564,7 +580,13 @@ export function DeviceDialog({ open, onOpenChange, projectId }: DialogProps) {
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col items-center gap-3 py-2" data-testid="device-dialog">
-          {session?.status === "running" && qr ? (
+          {!available ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              Phone previews aren&apos;t turned on for this server. You can still run the app on
+              your phone: download the source from Export, then run{" "}
+              <code className="text-xs">npx expo start</code> and scan its QR code.
+            </p>
+          ) : session?.status === "running" && qr ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -579,6 +601,11 @@ export function DeviceDialog({ open, onOpenChange, projectId }: DialogProps) {
           ) : (
             <p className="flex items-center gap-2 py-16 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" /> Starting a dev server for your app…
+            </p>
+          )}
+          {available && session?.status === "starting" && (
+            <p className="text-center text-xs text-muted-foreground">
+              The first start on a server installs the Expo SDK and can take a few minutes.
             </p>
           )}
           <p className="text-center text-xs text-muted-foreground">

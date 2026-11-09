@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { devicePreviewsAvailable } from "@appbuilder/core";
 import { schema } from "@appbuilder/db";
 import { db, HttpError, requireProject, route } from "@/lib/server";
 
@@ -13,7 +14,10 @@ async function current(projectId: string) {
   return row ?? null;
 }
 
-/** Status of the project's on-device preview; polling it also keeps the dev server alive. */
+/**
+ * Status of the project's on-device preview; polling it also keeps the dev server alive.
+ * `available` is false when no worker runs phone previews (DEVICE_PREVIEW_ENABLED=0 everywhere).
+ */
 export const GET = route(
   async (_request: Request, ctx: RouteContext<"/api/projects/[id]/device">) => {
     const { id } = await ctx.params;
@@ -24,7 +28,7 @@ export const GET = route(
         .update(deviceSession)
         .set({ lastSeenAt: new Date() })
         .where(eq(deviceSession.projectId, id));
-    return NextResponse.json({ session: row });
+    return NextResponse.json({ session: row, available: await devicePreviewsAvailable(db()) });
   },
 );
 
@@ -33,6 +37,9 @@ export const POST = route(
     const { id } = await ctx.params;
     const { project } = await requireProject(id, "edit");
     if (!project.currentVersionId) throw new HttpError(400, "Build the app first.");
+    // Nothing would ever pick the session up: say so instead of spinning forever.
+    if (!(await devicePreviewsAvailable(db())))
+      return NextResponse.json({ session: null, available: false });
     const row = await current(id);
     if (!row || row.status === "error" || row.status === "stopped") {
       await db()
@@ -43,7 +50,7 @@ export const POST = route(
           set: { status: "starting", error: null, url: null, lastSeenAt: new Date() },
         });
     }
-    return NextResponse.json({ session: await current(id) });
+    return NextResponse.json({ session: await current(id), available: true });
   },
 );
 

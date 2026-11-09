@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { hostname } from "node:os";
 import { eq } from "drizzle-orm";
 import {
   addEvent,
@@ -9,6 +11,7 @@ import {
   latestPlan,
   pruneAppCloud,
   reapAbandonedRuns,
+  recordWorkerHeartbeat,
   reportError,
   runBudgetUsd,
   updateProject,
@@ -138,8 +141,10 @@ export async function runWorker(
   let lastDeviceTick = 0;
   let lastReap = 0;
   let lastPrune = 0;
+  let lastHeartbeat = 0;
   // Only one worker should manage phone-preview dev servers (they are local processes).
   const manageDevices = process.env.DEVICE_PREVIEW_ENABLED !== "0";
+  const workerId = `${hostname()}-${process.pid}-${randomUUID().slice(0, 8)}`;
   let active = 0;
   const concurrency = Number(process.env.WORKER_CONCURRENCY || 4);
 
@@ -157,6 +162,13 @@ export async function runWorker(
         lastDeviceTick = Date.now();
         // Starting a dev server can take minutes; never block the run queue on it.
         void devices.tick().catch((error) => console.error("worker: device preview error", error));
+      }
+      if (Date.now() - lastHeartbeat > 30_000) {
+        lastHeartbeat = Date.now();
+        // Tells the web app whether "Open on your phone" can work on this deployment.
+        void recordWorkerHeartbeat(db, workerId, { devicePreviews: manageDevices }).catch((error) =>
+          reportError(error, { where: "worker-heartbeat" }),
+        );
       }
       if (Date.now() - lastReap > 30_000) {
         lastReap = Date.now();

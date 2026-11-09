@@ -56,7 +56,7 @@ Postgres template and a Railway bucket:
 |---------|---------------|-------|
 | web | `npm run start -w @appbuilder/web` | Domain on port 3000; pre-deploy `npm run db:migrate`; health check `/api/health` |
 | preview | `npm run start -w @appbuilder/preview` | Its own domain on port 3001 (a separate site from the app) |
-| worker | `npm run start -w @appbuilder/worker` | No domain; `DEVICE_PREVIEW_ENABLED=0` |
+| worker | `npm run start -w @appbuilder/worker` | No domain; `DEVICE_PREVIEW_ENABLED=0` (Railway exposes HTTP domains, not the raw ports Metro needs) |
 
 Variables reference the database and bucket (`${{Postgres.DATABASE_URL}}`,
 `${{uploads.ENDPOINT}}` and so on, with `S3_FORCE_PATH_STYLE=0`). `CLIENT_IP_HEADER=x-real-ip`
@@ -131,4 +131,6 @@ set up.
   never saved anything (after 30 days) once an hour.
 - **Phone previews** run a Metro dev server per project on the worker (ports from 8100). Phones
   must reach those ports at `DEVICE_PREVIEW_HOST`; the compose file leaves them off
-  (`DEVICE_PREVIEW_ENABLED=0`) until you expose them.
+  (`DEVICE_PREVIEW_ENABLED=0`) until you expose them. Workers report what they run every 30
+  seconds (`worker_heartbeat`), so while no worker runs them "Open on your phone" says so and
+  points to Export instead of waiting.

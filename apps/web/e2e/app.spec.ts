@@ -116,6 +116,11 @@ test("from idea to published app", async ({ page, browser }) => {
   expect(download.suggestedFilename()).toBe("penny-wise.zip");
   await page.keyboard.press("Escape");
 
+  // Phone previews are off on the test server: the dialog says so instead of spinning.
+  await page.getByTestId("open-device").click();
+  await expect(page.getByTestId("device-dialog")).toContainText("aren't turned on");
+  await page.keyboard.press("Escape");
+
   // Publish to the web and show in the community gallery.
   await page.getByTestId("open-publish").click();
   await page.getByTestId("publish-button").click();

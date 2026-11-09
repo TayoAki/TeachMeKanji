@@ -1,5 +1,6 @@
 import {
   bigserial,
+  boolean,
   index,
   integer,
   jsonb,
@@ -293,4 +294,11 @@ export const deviceSession = pgTable("device_session", {
   error: text("error"),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: updatedAt(),
+});
+
+/** Each running worker and what it can do, refreshed every 30 seconds. */
+export const workerHeartbeat = pgTable("worker_heartbeat", {
+  id: text("id").primaryKey(),
+  devicePreviews: boolean("device_previews").notNull(),
+  seenAt: timestamp("seen_at", { withTimezone: true }).notNull().defaultNow(),
 });
