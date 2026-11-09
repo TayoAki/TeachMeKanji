@@ -5,7 +5,10 @@ import type { SelectedElement } from "@appbuilder/contract";
  * app sees it (so buttons don't fire), the element under the pointer with a `data-fid` is
  * outlined, and a click reports it to the parent.
  */
-export function createSelection(onSelect: (element: SelectedElement) => void) {
+export function createSelection(
+  onSelect: (element: SelectedElement) => void,
+  literalTextFor: (fid: string) => string | null = () => null,
+) {
   let enabled = false;
   const hover = makeOverlay("2px dashed #3b82f6", "rgba(59,130,246,0.08)");
   const selected = makeOverlay("2px solid #2563eb", "rgba(37,99,235,0.12)");
@@ -37,6 +40,7 @@ export function createSelection(onSelect: (element: SelectedElement) => void) {
     const style = getComputedStyle(el);
     onSelect({
       fid: el.dataset.fid!,
+      literalText: literalTextFor(el.dataset.fid!),
       text: (el.textContent ?? "").trim().slice(0, 80),
       rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
       style: {

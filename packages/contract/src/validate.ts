@@ -39,6 +39,13 @@ export function validateFile(path: string, source: string, context: FileContext 
   const add = (rule: string, message: string, line?: number, severity: Severity = "error") =>
     issues.push({ path, rule, severity, message, line });
 
+  if (!isSafePath(path)) {
+    add(
+      "layout/path",
+      `Unsafe file path "${path}". Use plain relative paths like app/(tabs)/index.tsx.`,
+    );
+    return issues;
+  }
   if (!/\.(tsx?|json)$/.test(path))
     add("layout/extension", "Only .ts, .tsx and .json files are allowed.");
   if (!isTemplateFile(path) && !GENERATED_ROOTS.some((root) => path.startsWith(root))) {
@@ -129,6 +136,8 @@ export function validateFile(path: string, source: string, context: FileContext 
     });
   }
 
+  if (path === TOKENS_FILE) issues.push(...checkThemePacks(path, ast));
+
   if (isScreenFile(path) || isLayoutFile(path)) {
     const hasDefault = ast.program.body.some((s) => s.type === "ExportDefaultDeclaration");
     if (!hasDefault)
@@ -174,6 +183,17 @@ export function validateProject(files: ProjectFiles): Issue[] {
   return issues;
 }
 
+/**
+ * Paths come from model output, so they are untrusted: no absolute paths, no "." or ".."
+ * segments, no backslashes or control characters, and only ordinary file-name characters.
+ */
+export function isSafePath(path: string): boolean {
+  if (path.length === 0 || path.length > 200) return false;
+  if (!/^[A-Za-z0-9_\-()[\]./+@]+$/.test(path)) return false;
+  const segments = path.split("/");
+  return segments.every((s) => s.length > 0 && s !== "." && s !== "..");
+}
+
 export function hasErrors(issues: readonly Issue[]): boolean {
   return issues.some((issue) => issue.severity === "error");
 }
@@ -211,4 +231,64 @@ function joinPath(dir: string, relative: string): string {
     else parts.push(segment);
   }
   return parts.join("/");
+}
+
+/** Keys every theme pack's `colors` must define (mirrors templates/expo-app/theme/types.ts). */
+export const THEME_COLOR_KEYS = [
+  "background",
+  "surface",
+  "surfaceAlt",
+  "border",
+  "text",
+  "textMuted",
+  "primary",
+  "onPrimary",
+  "accent",
+  "success",
+  "warning",
+  "danger",
+] as const;
+
+/**
+ * theme/tokens.ts: every literal `colors: { ... }` object must define every key, or switching
+ * to that pack would render undefined colors. Packs whose colors are not object literals
+ * can't be checked statically and are left to the type checker.
+ */
+function checkThemePacks(path: string, ast: import("@babel/types").File): Issue[] {
+  const issues: Issue[] = [];
+  let packs = 0;
+  walk(ast, (node) => {
+    if (
+      node.type !== "ObjectProperty" ||
+      node.key.type !== "Identifier" ||
+      node.key.name !== "colors"
+    )
+      return;
+    if (node.value.type !== "ObjectExpression") return;
+    packs += 1;
+    const keys = new Set(
+      node.value.properties.flatMap((p) =>
+        p.type === "ObjectProperty" && p.key.type === "Identifier" ? [p.key.name] : [],
+      ),
+    );
+    const missing = THEME_COLOR_KEYS.filter((k) => !keys.has(k));
+    if (missing.length > 0) {
+      issues.push({
+        path,
+        rule: "theme/missing-color-keys",
+        severity: "error",
+        message: `A theme pack's colors is missing: ${missing.join(", ")}.`,
+        line: node.loc?.start.line,
+      });
+    }
+  });
+  if (packs > 0 && packs !== 5) {
+    issues.push({
+      path,
+      rule: "theme/pack-count",
+      severity: "error",
+      message: `theme/tokens.ts must define exactly 5 theme packs (found ${packs}).`,
+    });
+  }
+  return issues;
 }

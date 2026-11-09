@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx scripts/build.ts --serve --port 3001",
-    "build": "tsx scripts/build.ts",
+    "dev": "tsx --env-file-if-exists=../../.env scripts/build.ts --serve --port 3001",
+    "build": "tsx --env-file-if-exists=../../.env scripts/build.ts",
     "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {

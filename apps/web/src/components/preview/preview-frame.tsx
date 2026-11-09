@@ -23,6 +23,9 @@ export interface PreviewFrameProps {
   height?: number;
   onMessage?: (message: FrameToParent) => void;
   title?: string;
+  /** Visual scale (the app still renders at full device size inside). */
+  scale?: number;
+  className?: string;
 }
 
 /**
@@ -40,6 +43,8 @@ export function PreviewFrame({
   height = 660,
   onMessage,
   title,
+  scale = 1,
+  className,
 }: PreviewFrameProps) {
   const iframe = useRef<HTMLIFrameElement>(null);
   const ready = useRef(false);
@@ -103,7 +108,7 @@ export function PreviewFrame({
     }
   }, [selectMode, frameId]);
 
-  return (
+  const frame = (
     <iframe
       ref={iframe}
       title={title ?? `Preview ${frameId}`}
@@ -113,7 +118,19 @@ export function PreviewFrame({
       onLoad={() => send({ type: "hello" })}
       width={width}
       height={height}
-      className="rounded-[2rem] border-8 border-neutral-900 bg-white shadow-xl"
+      style={
+        scale === 1 ? undefined : { transform: `scale(${scale})`, transformOrigin: "top left" }
+      }
+      className={className ?? "rounded-[2rem] border-8 border-neutral-900 bg-white shadow-xl"}
     />
+  );
+  if (scale === 1) return frame;
+  return (
+    <div
+      style={{ width: width * scale, height: height * scale }}
+      className="relative shrink-0 overflow-hidden"
+    >
+      <div className="absolute left-0 top-0">{frame}</div>
+    </div>
   );
 }

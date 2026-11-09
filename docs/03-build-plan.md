@@ -6,7 +6,7 @@ the video on purpose: **jobs, versions and the credits ledger come early**, and 
 connection and billing UI come late**. See [01-transcript-review.md](01-transcript-review.md)
 §4 for why.
 
-Sizes are relative (S < M < L < XL), not time estimates.
+Sizes are relative (S < M < L < XL), not time estimates. Current status: [05-v1-status.md](05-v1-status.md).
 
 ---
 
@@ -40,7 +40,7 @@ then validate it (transpile, import allow-list, no color literals).
 **Done when** all three spikes are demoed. If Spike A fails, fall back to Snack's web player
 for the canvas and record the trade-offs.
 
-## Phase 1 — Home, auth, projects (M) · *video ch. 3–5*
+## Phase 1 — Home, auth, projects (M) · *video ch. 3–5* · **done**
 - Home: header, hero, prompt box (attachments: up to 5 images, 10 MB each), platform toggle,
   suggestion chips, empty projects section.
 - Auth: email/password (with verification), Google, GitHub. A sign-in dialog opens when a
@@ -54,7 +54,7 @@ for the canvas and record the trade-offs.
 URL, and see the project and assets in the DB and storage. Another user gets a 404 on that
 URL.
 
-## Phase 2 — Workspace shell (M) · *video ch. 6*
+## Phase 2 — Workspace shell (M) · *video ch. 6* · **done**
 - Header: name, status, Share / Export / Publish (stubs), credits.
 - Left: chat panel with message history and attachments.
 - Center: canvas with pan, zoom, drag frames, select/hand tools, zoom-to-fit, fullscreen.
@@ -64,7 +64,7 @@ URL.
 **Done when** the fixture app renders on the canvas and in the preview, the code is
 browsable, and the layout survives a reload.
 
-## Phase 3 — Jobs and planning agent (L) · *video ch. 7*
+## Phase 3 — Jobs and planning agent (L) · *video ch. 7* · **done** (eval set still to do)
 - `agent_run` + `run_event`, the worker loop (claim → run → heartbeat → finish), an SSE
   endpoint, cancellation, and retry with backoff.
 - Plan and revise with structured output; plan card UI; **Confirm & build** enqueues a build
@@ -75,7 +75,7 @@ browsable, and the layout survives a reload.
 **Done when** prompt → plan in under a minute; "keep only 3 screens" revises the plan
 correctly; a reload mid-run resumes the progress stream; the ledger balances.
 
-## Phase 4 — Build pipeline (XL) · *video ch. 8*
+## Phase 4 — Build pipeline (XL) · *video ch. 8* · **done** (offline-verified; live Claude untested)
 - Template scaffold, shared layer call, per-screen calls with streamed progress, validate →
   repair, smoke render in headless Chromium, `project_version` commits.
 - Theme packs: 5 per app, an instant switcher in the header, persisted `active_theme_id`.
@@ -89,7 +89,7 @@ correctly; a reload mid-run resumes the progress stream; the ledger balances.
 finish; theme switching is instant; "add a welcome screen" works; undo works; the eval
 pass rate is ≥ 90 %.
 
-## Phase 5 — Inline editing (M) · *video ch. 10*
+## Phase 5 — Inline editing (M) · *video ch. 10* · **done**
 - Select mode in frames; hover outline; a quick editor (text, color via token picker,
   spacing, layout, border, effects).
 - AST write-back endpoint with version conflict detection; debounced edit sessions; hot
@@ -99,7 +99,7 @@ pass rate is ≥ 90 %.
 **Done when** changing a heading's text and color updates the source, the preview and the
 Code tab. Dynamic values are shown as read-only. Undo reverts the inline session.
 
-## Phase 6 — On-device preview (L, was M) · *video ch. 11*
+## Phase 6 — On-device preview (L, was M) · *video ch. 11* · **done** (LAN; tunnel untested)
 Snack does not support current SDKs (Phase 0 finding), so this phase runs Expo's own dev server
 per preview session ([02-architecture.md](02-architecture.md) §6).
 - A prebuilt worker image with the pinned template's `node_modules`.
@@ -111,7 +111,7 @@ per preview session ([02-architecture.md](02-architecture.md) §6).
 **Done when** scanning the QR opens the app in Expo Go, and a chat edit appears on the phone
 without rescanning.
 
-## Phase 7 — Export and sharing (M) · *video ch. 13*
+## Phase 7 — Export and sharing (M) · *video ch. 13* · **done** (GitHub untested live)
 - Download as zip (README, pinned dependencies, run instructions).
 - GitHub App install/connect, create or select a repo, first push to the default branch, then
   a branch + PR for each later push.
@@ -120,7 +120,7 @@ without rescanning.
 **Done when** the downloaded zip runs with `npm install && npx expo start`; a second push
 opens a PR; a viewer can see but not edit.
 
-## Phase 8 — Generated-app backend (L) · *video ch. 9* · **(decision: provider)**
+## Phase 8 — Generated-app backend (L) · *video ch. 9* · **not started (decision: provider)**
 - `BackendProvider` adapter; connect flow (OAuth or token); provisioning of DB + auth (+
   storage).
 - `data/remote.ts` implementation: normalized tables generated from `data/schema.ts`, with
@@ -131,11 +131,11 @@ opens a PR; a viewer can see but not edit.
 **Done when** connecting a backend switches an existing app to remote data without
 rewriting its screens; records show up as rows (not JSON blobs) owned by the signed-in user.
 
-## Phase 9 — Images (S) · *video ch. 12*
+## Phase 9 — Images (S) · *video ch. 12* · **not started**
 - An `ImageGen` adapter (ImageKit). The agent emits image prompts; images are generated at
   build time and stored in our storage; generated code references stored URLs.
 
-## Phase 10 — Native builds and web publish (L) · *video ch. 14–15*
+## Phase 10 — Native builds and web publish (L) · *video ch. 14–15* · **done** (EAS untested live)
 - Expo account connect (encrypted token).
 - Build dialog: Android APK/AAB and iOS IPA, with an Apple credentials onboarding step.
   Build status, artifact download, version/build number management.
@@ -144,19 +144,19 @@ rewriting its screens; records show up as rows (not JSON blobs) owned by the sig
 **Done when** an APK installs on a device, a web URL serves the app, and an IPA build
 succeeds for an account with Apple credentials.
 
-## Phase 11 — Gallery and public showcase (S) · *video ch. 16*
+## Phase 11 — Gallery and public showcase (S) · *video ch. 16* · **done**
 - My projects grid (open, new tab, rename, duplicate, share, make public, export, delete,
   last edited).
 - A public showcase for signed-out visitors, with live previews on seed data.
 
-## Phase 12 — Plans and billing (M) · *video ch. 17*
+## Phase 12 — Plans and billing (M) · *video ch. 17* · **done** (Stripe untested live)
 - Pricing page, Stripe Checkout and Customer Portal, webhooks (verified, idempotent), and the
   `subscription` table.
 - Enforced limits: free = 100 credits, 2 projects, 5 screens per project, no native builds;
   pro = higher limits and monthly credits. Final numbers come from the measured cost per
   run.
 
-## Phase 13 — Production deploy and hardening (M) · *video ch. 18*
+## Phase 13 — Production deploy and hardening (M) · *video ch. 18* · **partly** (see [05-v1-status.md](05-v1-status.md))
 - Web app on Vercel (or the chosen host); worker on a long-running host; preview origin on a
   separate domain.
 - Production OAuth callbacks, webhooks and domains; error tracking; DB backups; rate limits;

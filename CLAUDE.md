@@ -4,9 +4,10 @@ AI mobile app builder. Read `docs/02-architecture.md` before changing how genera
 the preview, or the agent work; `docs/03-build-plan.md` says what each phase delivers.
 
 ## Commands
-- Install: `npm install` (npm 11 required; npm 10 crashes on this tree)
+- Install: `npm install` (npm 11 required; npm 10 crashes on this tree). Config: one root `.env`.
+- Run: `npm run dev` (web :3000, preview runtime :3001, worker). `LLM_PROVIDER=fake` runs without AI.
 - Checks: `npm run format:check && npm run lint && npm run typecheck && npm test`
-- E2E: `npm run test:e2e` (starts the web app on :3000 and the preview runtime on :3001)
+- E2E: `npm run test:e2e` (starts web, preview runtime and worker with the offline generator)
 - DB: edit `packages/db/src/schema/`, then `npm run db:generate`, then `npm run db:migrate`
 
 ## Rules that keep the system working
@@ -21,5 +22,9 @@ the preview, or the agent work; `docs/03-build-plan.md` says what each phase del
 - `apps/web` uses Next.js 16 with Cache Components; read `apps/web/AGENTS.md` and the bundled
   docs in `node_modules/next/dist/docs/` before writing Next.js code.
 - LLM calls go through `apps/worker/src/generation/client.ts` (Anthropic SDK, streaming,
-  refusal fallback). Keep agent conversations append-only.
+  refusal fallback). Keep agent conversations append-only. The offline provider
+  (`fake-provider.ts`) must keep answering in the same wire formats as the real model.
+- Every API route goes through `route()` and `requireProject()`/`requireViewer()` in
+  `apps/web/src/lib/server.ts`; permissions are decided only in `packages/core/src/authz.ts`.
+- Long work runs in the worker as an `agent_run`; the web app only enqueues and streams events.
 - One phase or feature per branch and PR.

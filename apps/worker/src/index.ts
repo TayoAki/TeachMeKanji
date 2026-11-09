@@ -1,19 +1,17 @@
 /**
- * Worker entrypoint. Phase 3 adds the durable job loop (agent_run claim → run → heartbeat).
- * In Phase 0 it only verifies its configuration and stays up, so deploy plumbing can be
- * built against a real process.
+ * Worker entrypoint: claims queued runs (plans, builds, edits, exports, native builds) from
+ * Postgres and runs them, and manages on-device preview dev servers.
  */
 import { getDb } from "@appbuilder/db";
-import { sql } from "drizzle-orm";
+import { runWorker } from "./loop";
 
-const db = getDb();
-await db.execute(sql`select 1`);
-console.log("worker: database reachable; no job types registered yet (Phase 3)");
-
+const controller = new AbortController();
 const shutdown = () => {
   console.log("worker: shutting down");
-  process.exit(0);
+  controller.abort();
+  setTimeout(() => process.exit(0), 500).unref();
 };
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
-setInterval(() => {}, 60_000);
+
+await runWorker(getDb(), { signal: controller.signal });

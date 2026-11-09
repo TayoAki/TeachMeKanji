@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { cacheLife } from "next/cache";
+import { notFound } from "next/navigation";
 import { loadProject } from "@appbuilder/contract/node";
 import { PreviewSpike } from "./preview-spike";
 
@@ -9,8 +9,6 @@ export const metadata = { title: "Spike A · Preview runtime" };
 const repoRoot = join(process.cwd(), "../..");
 
 async function loadFixture() {
-  "use cache";
-  cacheLife("max");
   return loadProject(
     join(repoRoot, "templates/expo-app"),
     join(repoRoot, "fixtures/habit-tracker"),
@@ -18,6 +16,8 @@ async function loadFixture() {
 }
 
 export default async function PreviewSpikePage() {
+  // A development harness for the preview runtime (and its e2e tests), not a product page.
+  if (process.env.NODE_ENV === "production" && !process.env.ENABLE_SPIKES) notFound();
   const files = await loadFixture();
   const themes = [
     ...(files["theme/tokens.ts"] ?? "").matchAll(/id: "([^"]+)",\s*name: "([^"]+)"/g),

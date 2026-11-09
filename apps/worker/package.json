@@ -4,17 +4,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "start": "tsx src/index.ts",
+    "dev": "tsx watch --clear-screen=false --env-file-if-exists=../../.env src/index.ts",
+    "start": "tsx --env-file-if-exists=../../.env src/index.ts",
     "typecheck": "tsc --noEmit -p .",
-    "spike:snack-check": "tsx src/spikes/snack-runtime-check.ts",
-    "spike:device": "tsx src/spikes/device-preview.ts",
-    "spike:generate": "tsx src/spikes/generate-screen.ts"
+    "spike:snack-check": "tsx --env-file-if-exists=../../.env src/spikes/snack-runtime-check.ts",
+    "spike:device": "tsx --env-file-if-exists=../../.env src/spikes/device-preview.ts",
+    "spike:generate": "tsx --env-file-if-exists=../../.env src/spikes/generate-screen.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",
     "@appbuilder/contract": "*",
     "@appbuilder/db": "*",
-    "drizzle-orm": "^0.45.4"
+    "drizzle-orm": "^0.45.4",
+    "@appbuilder/core": "*"
   }
 }

@@ -2,3 +2,6 @@
 export * from "./preview-protocol";
 export { fid, parseFid } from "./fid";
 export type { ProjectFiles } from "./layout";
+export * from "./app-plan";
+export type { InlinePatch, StyleValue } from "./inline-edit";
+export * from "./routes";

@@ -1,5 +1,6 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
+import { isSafePath } from "@appbuilder/contract";
 import { fileURLToPath } from "node:url";
 import type { ProjectFiles } from "@appbuilder/contract";
 import { loadProject } from "@appbuilder/contract/node";
@@ -15,8 +16,13 @@ export async function materialize(files: ProjectFiles, dir: string): Promise<voi
   for (const sub of ["app", "components", "theme", "data"]) {
     await rm(join(dir, sub), { recursive: true, force: true });
   }
+  const root = resolve(dir);
   for (const [path, contents] of Object.entries(files)) {
-    const target = join(dir, path);
+    const target = resolve(root, path);
+    // Defense in depth: paths are validated before they're saved, but never write outside dir.
+    if (!isSafePath(path) || !target.startsWith(root + sep)) {
+      throw new Error(`Refusing to write unsafe path ${path}`);
+    }
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, contents);
   }

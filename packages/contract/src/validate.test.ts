@@ -82,8 +82,38 @@ describe("validateFile", () => {
     expect(issues[0]?.line).toBe(2);
   });
 
+  it("rejects path traversal and odd paths from model output", () => {
+    const ok = "export default function S() { return null; }";
+    for (const bad of [
+      "app/../../etc/x.tsx",
+      "/app/x.tsx",
+      "app//x.tsx",
+      "app/./x.tsx",
+      "app\\x.tsx",
+      "app/x .tsx",
+    ]) {
+      expect(rules(bad, ok), bad).toEqual(["layout/path"]);
+    }
+    expect(rules("app/habit/[id].tsx", ok)).toEqual([]);
+  });
+
   it("only rejects files under the generated roots", () => {
     expect(rules("scripts/hack.ts", "export const a = 1;")).toEqual(["layout/root"]);
+  });
+
+  it("checks every theme pack defines every color", () => {
+    const pack = (colors: string) => `{ id: "a", colors: { ${colors} } }`;
+    const full =
+      "background: '#000', surface: '#000', surfaceAlt: '#000', border: '#000', text: '#000', textMuted: '#000', primary: '#000', onPrimary: '#000', accent: '#000', success: '#000', warning: '#000', danger: '#000'";
+    const five = (first: string) =>
+      `export const themes = [${[first, full, full, full, full].map(pack).join(", ")}];`;
+    expect(rules("theme/tokens.ts", five(full))).toEqual([]);
+    expect(rules("theme/tokens.ts", five("background: '#000'"))).toEqual([
+      "theme/missing-color-keys",
+    ]);
+    expect(rules("theme/tokens.ts", `export const themes = [${pack(full)}];`)).toEqual([
+      "theme/pack-count",
+    ]);
   });
 
   it("warns (does not fail) on direct fetch in screens", () => {

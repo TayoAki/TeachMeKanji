@@ -7,10 +7,15 @@ import { createRoot, type Root } from "react-dom/client";
 import { Text, View } from "react-native";
 import {
   buildRouteTree,
+  findElement,
   isEnvelope,
+  literalText,
+  parseFid,
   PREVIEW_CHANNEL,
   type FrameToParent,
   type ParentToFrame,
+  type PreviewTheme,
+  type ProjectFiles,
 } from "@appbuilder/contract";
 import { createModuleSystem, ModuleError } from "./loader";
 import { createSelection } from "./selection";
@@ -30,7 +35,68 @@ function post(message: FrameToParent) {
 
 let root: Root | null = null;
 let setTheme: ((id: string) => void) | null = null;
-const selection = createSelection((element) => post({ type: "select", element }));
+let currentFiles: ProjectFiles = {};
+
+function literalTextFor(value: string): string | null {
+  const parsed = parseFid(value);
+  const source = parsed ? currentFiles[parsed.path] : undefined;
+  if (!parsed || source === undefined) return null;
+  try {
+    return literalText(findElement(source, parsed.start, parsed.end).element);
+  } catch {
+    return null;
+  }
+}
+
+const selection = createSelection((element) => post({ type: "select", element }), literalTextFor);
+
+/** Canvas frames for routes like /expense/[id] get a real record id from the seed data. */
+function resolveSampleHref(
+  href: string,
+  requireModule: (path: string) => Record<string, unknown>,
+): string {
+  if (!/\[[^\]]+\]/.test(href)) return href;
+  let seed: Record<string, Array<{ id?: string }>> = {};
+  try {
+    seed = (requireModule("data/seed.ts").seed ?? {}) as typeof seed;
+  } catch {
+    // no seed data
+  }
+  const segments = href.split("/").filter(Boolean);
+  return (
+    "/" +
+    segments
+      .map((segment, i) => {
+        if (!/^\[.+\]$/.test(segment)) return segment;
+        const owner = (segments[i - 1] ?? "").toLowerCase();
+        const key =
+          Object.keys(seed).find((k) =>
+            k.toLowerCase().startsWith(owner.slice(0, Math.max(3, owner.length - 1))),
+          ) ?? Object.keys(seed)[0];
+        return encodeURIComponent((key && seed[key]?.[0]?.id) || "1");
+      })
+      .join("/")
+  );
+}
+
+function postThemeInfo(requireModule: (path: string) => Record<string, unknown>) {
+  try {
+    const tokens = requireModule("theme/tokens.ts") as { themes?: PreviewTheme[] };
+    const active = requireModule("theme/active.ts") as { getActiveThemeId?: () => string };
+    post({
+      type: "theme-info",
+      activeThemeId: active.getActiveThemeId?.() ?? "",
+      themes: (tokens.themes ?? []).map((t) => ({
+        id: t.id,
+        name: t.name,
+        dark: t.dark,
+        colors: t.colors,
+      })),
+    });
+  } catch {
+    // project without theme tokens yet
+  }
+}
 
 window.addEventListener("error", (event) => post({ type: "error", message: event.message }));
 window.addEventListener("unhandledrejection", (event) =>
@@ -65,12 +131,19 @@ function load(message: Extract<ParentToFrame, { type: "load" }>) {
   root?.unmount();
   resetAsyncStorage();
 
+  currentFiles = message.files;
   const tree = buildRouteTree(Object.keys(message.files));
   const modules = createModuleSystem(message.files, vendorModules, { instrument: true });
+  let initialHref = message.href;
+  try {
+    initialHref = resolveSampleHref(message.href, modules.require);
+  } catch (error) {
+    report(error);
+  }
   configureNavigation({
     tree,
     mode: message.mode,
-    initialHref: message.href,
+    initialHref,
     onNavigated: (href) => post({ type: "navigated", href }),
     onRequest: (href, action) => post({ type: "navigate-request", href, action }),
   });
@@ -81,11 +154,13 @@ function load(message: Extract<ParentToFrame, { type: "load" }>) {
         setActiveThemeId?: (id: string) => void;
       };
       active.setActiveThemeId?.(id);
+      postThemeInfo(modules.require);
     } catch (error) {
       report(error);
     }
   };
   if (message.themeId) setTheme(message.themeId);
+  else postThemeInfo(modules.require);
   selection.setEnabled(message.selectMode ?? false);
 
   root = createRoot(document.getElementById("root")!);

@@ -20,6 +20,7 @@ import {
   fileRequest,
   projectContext,
   repairRequest,
+  SINGLE_FILE_OUTPUT,
   type FileSpec,
 } from "./prompt";
 
@@ -59,7 +60,7 @@ export async function generateFile(options: {
   const paths = new Set([...Object.keys(files), spec.path]);
 
   const system: Anthropic.Beta.Messages.BetaTextBlockParam[] = [
-    { type: "text", text: contractRules() },
+    { type: "text", text: `${contractRules()}\n\n${SINGLE_FILE_OUTPUT}` },
     {
       type: "text",
       text: projectContext(files, { exampleScreen: options.exampleScreen }),

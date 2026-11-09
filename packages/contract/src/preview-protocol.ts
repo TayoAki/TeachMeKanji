@@ -33,6 +33,8 @@ export interface SelectedElement {
   /** Text content of the element, trimmed and truncated. */
   text: string;
   rect: { x: number; y: number; width: number; height: number };
+  /** The element's literal text when the quick editor can change it, otherwise null. */
+  literalText: string | null;
   style: { color: string; backgroundColor: string; fontSize: string; padding: string };
 }
 
@@ -42,7 +44,15 @@ export type FrameToParent =
   | { type: "navigated"; href: string }
   | { type: "navigate-request"; href: string; action: "push" | "replace" | "back" | "navigate" }
   | { type: "select"; element: SelectedElement }
+  | { type: "theme-info"; activeThemeId: string; themes: PreviewTheme[] }
   | { type: "error"; message: string; file?: string };
+
+export interface PreviewTheme {
+  id: string;
+  name: string;
+  dark: boolean;
+  colors: Record<string, string>;
+}
 
 export type Envelope<T> = T & { channel: typeof PREVIEW_CHANNEL; frameId: string };
 

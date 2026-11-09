@@ -32,9 +32,18 @@ ${modules}
 5. Icons: Ionicons from @expo/vector-icons, using valid Ionicons names. Cast a tab bar icon color with \`color as string\`.
 6. Navigation: expo-router's Link (with asChild around a Pressable), router, and useLocalSearchParams. Routes come from file paths (listed below).
 7. TypeScript with function components and hooks. Reuse the project's existing components where they fit.
-
-Output: respond with only the complete contents of the requested file. No explanations and no markdown code fences.`;
+8. theme/tokens.ts is the only file that may contain color literals; it defines exactly 5 theme packs, each setting every key of the Theme type in theme/types.ts.
+9. Files you may write live under app/, components/, theme/ (tokens.ts only) and data/ (schema.ts and seed.ts only). Never write app/_layout.tsx, theme/types.ts, theme/ThemeProvider.tsx, theme/active.ts, data/repo.ts or data/local.ts: the platform owns them.`;
 }
+
+export const SINGLE_FILE_OUTPUT =
+  "Output: respond with only the complete contents of the requested file. No explanations and no markdown code fences.";
+
+export const FILE_BLOCKS_OUTPUT = `Output format: write each file as
+<file path="relative/path.tsx">
+complete file contents
+</file>
+with no markdown fences inside or around the blocks.`;
 
 /** Files the model always sees for context, in a fixed order (stable for caching). */
 const CONTEXT_FILES = [

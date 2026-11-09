@@ -1,0 +1,196 @@
+import { join } from "node:path";
+import { eq } from "drizzle-orm";
+import type { AppPlan } from "@appbuilder/contract";
+import { readTree } from "@appbuilder/contract/node";
+import {
+  addMessage,
+  commitVersion,
+  confirmPlan,
+  getCurrentFiles,
+  getStorage,
+  latestPlan,
+  listMessages,
+  PLANS,
+  repoRoot,
+  savePlan,
+  updateProject,
+  userPlan,
+} from "@appbuilder/core";
+import { schema } from "@appbuilder/db";
+import {
+  AgentError,
+  buildApp,
+  editApp,
+  planApp,
+  type AgentEvent,
+  type ImageInput,
+} from "../agents/agents";
+import type { HandlerContext, HandlerResult } from "./context";
+
+const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+
+async function loadProject(ctx: HandlerContext) {
+  const [project] = await ctx.db
+    .select()
+    .from(schema.project)
+    .where(eq(schema.project.id, ctx.run.projectId));
+  if (!project) throw new AgentError("Project not found");
+  return project;
+}
+
+async function loadImages(ctx: HandlerContext, assetIds: string[]): Promise<ImageInput[]> {
+  if (assetIds.length === 0) return [];
+  const rows = await ctx.db
+    .select()
+    .from(schema.projectAsset)
+    .where(eq(schema.projectAsset.projectId, ctx.run.projectId));
+  const images: ImageInput[] = [];
+  for (const asset of rows.filter((r) => assetIds.includes(r.id) && IMAGE_TYPES.has(r.mime))) {
+    const object = await getStorage().get(asset.storageKey);
+    if (object)
+      images.push({
+        mediaType: asset.mime as ImageInput["mediaType"],
+        base64: object.data.toString("base64"),
+      });
+  }
+  return images;
+}
+
+async function maxScreens(ctx: HandlerContext): Promise<number> {
+  return PLANS[await userPlan(ctx.db, ctx.run.userId)].maxScreensPerProject;
+}
+
+function forwardAgentEvent(ctx: HandlerContext) {
+  return async (event: AgentEvent) => {
+    if (event.type === "files") await ctx.emit("files", { files: event.files });
+    else if (event.type === "file")
+      await ctx.emit("file", { path: event.path, lines: event.lines });
+    else if (event.type === "step") await ctx.emit("step", { label: event.label });
+    else await ctx.emit("warning", { message: event.message });
+  };
+}
+
+export async function handlePlan(ctx: HandlerContext): Promise<HandlerResult> {
+  const project = await loadProject(ctx);
+  const input = ctx.run.input as { feedback?: string; assetIds?: string[] };
+  const previous = input.feedback ? await latestPlan(ctx.db, project.id) : null;
+  await updateProject(ctx.db, project.id, { status: "planning" });
+  await ctx.emit("step", {
+    label: previous ? "Revising the plan" : "Understanding your idea and drafting a plan",
+  });
+
+  const result = await planApp({
+    createMessage: ctx.createMessage,
+    model: ctx.model,
+    prompt: project.prompt,
+    platforms: project.platforms,
+    images: await loadImages(ctx, input.assetIds ?? []),
+    previous: previous ? (previous.data as unknown as AppPlan) : undefined,
+    feedback: input.feedback,
+    defaultScreens: Number(process.env.DEFAULT_SCREEN_COUNT ?? 3),
+    maxScreens: await maxScreens(ctx),
+  });
+
+  const saved = await savePlan(ctx.db, project.id, result.plan);
+  await addMessage(ctx.db, {
+    projectId: project.id,
+    role: "assistant",
+    kind: "plan",
+    runId: ctx.run.id,
+    content: { planId: saved.id, number: saved.number, plan: result.plan },
+  });
+  await updateProject(ctx.db, project.id, {
+    status: "awaiting_confirmation",
+    ...(previous ? {} : { name: result.plan.appName }),
+  });
+  return { output: { planId: saved.id }, usage: result.usage };
+}
+
+export async function handleBuild(ctx: HandlerContext): Promise<HandlerResult> {
+  const project = await loadProject(ctx);
+  const planRow = await latestPlan(ctx.db, project.id);
+  if (!planRow) throw new AgentError("There is no plan to build yet.");
+  const plan = planRow.data as unknown as AppPlan;
+  await confirmPlan(ctx.db, planRow.id);
+  await updateProject(ctx.db, project.id, { status: "building" });
+
+  const template = await readTree(join(repoRoot(), "templates/expo-app"));
+  const built = await buildApp({
+    createMessage: ctx.createMessage,
+    model: ctx.model,
+    plan,
+    template,
+    onEvent: forwardAgentEvent(ctx),
+  });
+
+  const version = await commitVersion(ctx.db, {
+    projectId: project.id,
+    files: built.files,
+    kind: "generate",
+    summary: `Built ${plan.screens.length} screens from plan ${planRow.number}`,
+    runId: ctx.run.id,
+    createdBy: ctx.run.userId,
+  });
+  await updateProject(ctx.db, project.id, {
+    status: "ready",
+    activeThemeId: project.activeThemeId ?? plan.themes[0]?.id,
+  });
+  const screenList = plan.screens.map((s) => s.title).join(", ");
+  await addMessage(ctx.db, {
+    projectId: project.id,
+    role: "assistant",
+    runId: ctx.run.id,
+    content: {
+      text: `${plan.appName} is ready: ${screenList}.${built.warnings.length ? ` ${built.warnings.length} screen(s) need another try; ask me to regenerate them.` : ""} Switch themes on the right, click any element to edit it, or tell me what to change.`,
+      versionId: version.id,
+    },
+  });
+  return { output: { versionId: version.id, warnings: built.warnings }, usage: built.usage };
+}
+
+export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
+  const project = await loadProject(ctx);
+  const input = ctx.run.input as {
+    request: string;
+    selection?: { path: string; snippet: string } | null;
+  };
+  const { files } = await getCurrentFiles(ctx.db, project.id);
+  if (Object.keys(files).length === 0) throw new AgentError("Build the app before editing it.");
+
+  const history = (await listMessages(ctx.db, project.id))
+    .filter((m) => m.kind === "text" && typeof m.content.text === "string")
+    .slice(-7, -1)
+    .map((m) => `${m.role}: ${String(m.content.text).slice(0, 300)}`);
+
+  const result = await editApp({
+    createMessage: ctx.createMessage,
+    model: ctx.model,
+    files,
+    request: input.request,
+    selection: input.selection ?? null,
+    history,
+    maxScreens: await maxScreens(ctx),
+    onEvent: forwardAgentEvent(ctx),
+  });
+
+  let versionId: string | null = null;
+  if (result.changed.length > 0) {
+    const version = await commitVersion(ctx.db, {
+      projectId: project.id,
+      files: result.files,
+      kind: "ai_edit",
+      summary: result.summary.slice(0, 200),
+      runId: ctx.run.id,
+      createdBy: ctx.run.userId,
+    });
+    versionId = version.id;
+    await ctx.emit("files", { files: result.files });
+  }
+  await addMessage(ctx.db, {
+    projectId: project.id,
+    role: "assistant",
+    runId: ctx.run.id,
+    content: { text: result.summary, changed: result.changed, versionId },
+  });
+  return { output: { versionId, changed: result.changed }, usage: result.usage };
+}

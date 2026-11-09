@@ -1,37 +1,18 @@
 # App Builder (working title)
 
-A prompt-to-mobile-app platform. A user describes an app; an AI agent plans its screens,
-generates an Expo / React Native app, and lets the user edit it by chat or by clicking
-elements, preview it in the browser and on a phone, export it, build it for Android and iOS,
-and publish it to the web.
+A prompt-to-mobile-app platform. Describe an app; an AI agent plans its screens and builds an
+Expo / React Native app. Edit it by chat or by clicking elements, preview it in the browser and
+on your phone, export the source or push it to GitHub, build for Android and iOS, and publish it
+to the web.
 
-**Status:** Phase 0 (foundations and spikes) is done. See the
-[Phase 0 results](docs/04-phase-0-results.md).
+![The workspace](docs/images/workspace.png)
 
-## Docs
-
-1. [Transcript review](docs/01-transcript-review.md): what the reference course builds, what
-   it skips, vendor assessment, open decisions.
-2. [Architecture](docs/02-architecture.md): system design, the generated-app contract, data
-   model, agent pipeline, preview runtime.
-3. [Build plan](docs/03-build-plan.md): phased milestones with acceptance criteria.
-4. [Phase 0 results](docs/04-phase-0-results.md): what the spikes proved and what changed.
-
-## Repository
-
-| Path | What it is |
-|------|------------|
-| `apps/web` | Next.js app: product UI, auth, API |
-| `apps/preview` | Preview runtime, served from its own origin; runs generated code in sandboxed iframes |
-| `apps/worker` | Long-running jobs (agent runs, builds); Phase 0 spikes in `src/spikes/` |
-| `packages/contract` | The generated-app contract: SDK pins, allowed imports, validator, route model |
-| `packages/db` | Drizzle schema, migrations, client |
-| `templates/expo-app` | Fixed files every generated app starts from |
-| `fixtures/habit-tracker` | A hand-written "generated" app used by tests and spikes |
+**Status:** the app works end to end. See [v1 status](docs/05-v1-status.md) for what's
+verified, what needs your accounts, and what's left.
 
 ## Getting started
 
-Requires Node 22 and **npm 11** (npm 10 can't install this dependency tree).
+Requires Node 22, **npm 11** (npm 10 can't install this dependency tree) and Postgres 16.
 
 ```bash
 npm install -g npm@11
@@ -42,6 +23,13 @@ docker compose up -d
 ```
 
 ```bash
+cp .env.example .env
+```
+
+Edit `.env`: set `ANTHROPIC_API_KEY` for AI generation, or `LLM_PROVIDER=fake` to try the app
+with the offline template generator. Then:
+
+```bash
 npm install
 ```
 
@@ -50,21 +38,38 @@ npm run db:migrate
 ```
 
 ```bash
-cp .env.example apps/web/.env.local
-```
-
-```bash
 npm run dev
 ```
 
-The app runs on http://localhost:3000 and the preview runtime on http://localhost:3001. The
-preview spike is at http://localhost:3000/spikes/preview.
+That starts three processes: the app on http://localhost:3000, the preview runtime on
+http://localhost:3001 (a separate origin, by design), and the worker that runs the agents.
 
 | Command | What it does |
 |---------|--------------|
-| `npm test` | Unit tests (Vitest) |
-| `npm run test:e2e` | Playwright end-to-end tests |
+| `npm test` | Unit and integration tests (Vitest; uses Postgres) |
+| `npm run test:e2e` | End-to-end tests (Playwright; starts everything with the offline generator) |
 | `npm run typecheck` / `npm run lint` / `npm run format:check` | Static checks |
-| `npm run spike:device` | Open the fixture app on your phone with Expo Go |
-| `npm run spike:generate` | Generate a screen with Claude (needs `ANTHROPIC_API_KEY`) |
+| `npm run build` | Production build of the preview runtime and the app |
+| `npm run spike:generate` | Generate one screen with Claude (needs `ANTHROPIC_API_KEY`) |
 | `npm run spike:snack-check` | Show which Expo SDKs Snack supports |
+
+## Repository
+
+| Path | What it is |
+|------|------------|
+| `apps/web` | Next.js app: pages, API routes, auth (Better Auth) |
+| `apps/preview` | Preview runtime: runs generated apps with react-native-web in sandboxed iframes |
+| `apps/worker` | Job runner: plan/build/edit agents, GitHub pushes, EAS builds, phone-preview dev servers |
+| `packages/contract` | The generated-app contract: SDK pins, allowed imports, validator, route model, inline-edit write-back |
+| `packages/core` | Server-side domain logic: projects, versions, runs, credits, permissions, storage |
+| `packages/db` | Drizzle schema and migrations |
+| `templates/expo-app` | Fixed files every generated app starts from |
+| `fixtures/habit-tracker` | A hand-written app used by the preview tests |
+
+## Docs
+
+1. [Transcript review](docs/01-transcript-review.md): the reference course, what it skips, and decisions.
+2. [Architecture](docs/02-architecture.md): system design, contract, data model, agents, preview.
+3. [Build plan](docs/03-build-plan.md): phases and their status.
+4. [Phase 0 results](docs/04-phase-0-results.md): what the spikes proved (including why Snack can't be used).
+5. [v1 status](docs/05-v1-status.md): what's built and verified.
