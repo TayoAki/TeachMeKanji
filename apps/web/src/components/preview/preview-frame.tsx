@@ -1,0 +1,119 @@
+"use client";
+
+import { useEffect, useEffectEvent, useRef } from "react";
+import {
+  isEnvelope,
+  PREVIEW_CHANNEL,
+  type FrameToParent,
+  type ParentToFrame,
+  type PreviewMode,
+  type ProjectFiles,
+} from "@appbuilder/contract/protocol";
+
+export const PREVIEW_ORIGIN = process.env.NEXT_PUBLIC_PREVIEW_ORIGIN ?? "http://localhost:3001";
+
+export interface PreviewFrameProps {
+  frameId: string;
+  files: ProjectFiles;
+  mode: PreviewMode;
+  href: string;
+  themeId?: string;
+  selectMode?: boolean;
+  width?: number;
+  height?: number;
+  onMessage?: (message: FrameToParent) => void;
+  title?: string;
+}
+
+/**
+ * One sandboxed preview frame. Generated code runs on the preview origin with an opaque
+ * origin (no allow-same-origin), so it can never touch this app's cookies or DOM.
+ */
+export function PreviewFrame({
+  frameId,
+  files,
+  mode,
+  href,
+  themeId,
+  selectMode = false,
+  width = 320,
+  height = 660,
+  onMessage,
+  title,
+}: PreviewFrameProps) {
+  const iframe = useRef<HTMLIFrameElement>(null);
+  const ready = useRef(false);
+
+  const send = (message: ParentToFrame) => {
+    // Opaque-origin frames can only be addressed with "*"; we verify replies by source.
+    iframe.current?.contentWindow?.postMessage(
+      { ...message, channel: PREVIEW_CHANNEL, frameId },
+      "*",
+    );
+  };
+
+  const load = useEffectEvent(() => {
+    send({ type: "load", files, mode, href, themeId, selectMode });
+  });
+
+  const receive = useEffectEvent((message: FrameToParent) => {
+    if (message.type === "ready") {
+      if (ready.current) return; // "ready" can arrive twice (startup + reply to hello)
+      ready.current = true;
+      load();
+    }
+    onMessage?.(message);
+  });
+
+  useEffect(() => {
+    const onWindowMessage = (event: MessageEvent) => {
+      if (event.source !== iframe.current?.contentWindow) return;
+      if (!isEnvelope(event.data) || event.data.frameId !== frameId) return;
+      receive(event.data as unknown as FrameToParent);
+    };
+    window.addEventListener("message", onWindowMessage);
+    // The frame may have loaded before this listener existed; ask it to announce itself.
+    iframe.current?.contentWindow?.postMessage(
+      { type: "hello", channel: PREVIEW_CHANNEL, frameId },
+      "*",
+    );
+    return () => window.removeEventListener("message", onWindowMessage);
+  }, [frameId]);
+
+  // Reload when the project or entry route changes.
+  useEffect(() => {
+    if (ready.current) load();
+  }, [files, href, mode]);
+
+  useEffect(() => {
+    if (ready.current && themeId) {
+      iframe.current?.contentWindow?.postMessage(
+        { type: "set-theme", themeId, channel: PREVIEW_CHANNEL, frameId },
+        "*",
+      );
+    }
+  }, [themeId, frameId]);
+
+  useEffect(() => {
+    if (ready.current) {
+      iframe.current?.contentWindow?.postMessage(
+        { type: "set-select-mode", enabled: selectMode, channel: PREVIEW_CHANNEL, frameId },
+        "*",
+      );
+    }
+  }, [selectMode, frameId]);
+
+  return (
+    <iframe
+      ref={iframe}
+      title={title ?? `Preview ${frameId}`}
+      data-frame-id={frameId}
+      src={`${PREVIEW_ORIGIN}/#frame=${encodeURIComponent(frameId)}`}
+      sandbox="allow-scripts"
+      onLoad={() => send({ type: "hello" })}
+      width={width}
+      height={height}
+      className="rounded-[2rem] border-8 border-neutral-900 bg-white shadow-xl"
+    />
+  );
+}

@@ -1,0 +1,20 @@
+{
+  "name": "@appbuilder/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit -p .",
+    "spike:snack-check": "tsx src/spikes/snack-runtime-check.ts",
+    "spike:device": "tsx src/spikes/device-preview.ts",
+    "spike:generate": "tsx src/spikes/generate-screen.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
+    "@appbuilder/contract": "*",
+    "@appbuilder/db": "*",
+    "drizzle-orm": "^0.45.4"
+  }
+}

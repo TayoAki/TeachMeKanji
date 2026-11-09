@@ -24,11 +24,11 @@ marked **(decision)** depend on the open decisions listed there.
  │ RN-web runtime +   │        │ ledger, builds …  │      │ • validate / repair  │
  │ vendor bundle      │        └───────────────────┘      │ • zip / GitHub push  │
  └────────────────────┘        ┌───────────────────┐      │ • EAS build / deploy │
-                               │ Object storage    │◄────►│ • Snack sessions     │
-                               │ (S3-compatible)   │      └──────────┬───────────┘
-                               │ assets, blobs,    │                 │
+                               │ Object storage    │◄────►│ • device-preview     │
+                               │ (S3-compatible)   │      │   dev servers (Metro)│
+                               │ assets, blobs,    │      └──────────┬───────────┘
                                │ zips, artifacts   │                 ▼
-                               └───────────────────┘   Anthropic API · Expo (Snack, EAS
+                               └───────────────────┘   Anthropic API · Expo (Expo Go, EAS
                                                        Build, EAS Hosting) · GitHub ·
                                                        ImageKit · Stripe · generated-app
                                                        backend provider (decision)
@@ -53,15 +53,17 @@ Every generated app follows this contract. The template provides the fixed files
 writes only the files marked *generated*. A validator enforces the contract on every write.
 
 ### 2.1 Runtime and dependencies
-- **Expo SDK:** pinned to the version Expo Go currently ships, since Snack and the QR flow
-  depend on it. It is recorded once in `templates/expo-app/package.json`.
+- **Expo SDK:** pinned to the version Expo Go currently ships (SDK 58 as of Phase 0), since
+  the QR flow depends on it. The single source of truth is `packages/contract/src/sdk.ts`,
+  mirrored in `templates/expo-app/package.json` (`expo install --check` passes on it).
 - **Router:** Expo Router (file-based).
-- **Allowed dependencies (initial list):** `react`, `react-native`, `expo`, `expo-router`,
-  `expo-status-bar`, `expo-image`, `expo-linear-gradient`, `@expo/vector-icons`,
-  `react-native-safe-area-context`, `react-native-screens`,
-  `@react-native-async-storage/async-storage`, `react-native-svg`.
-  The preview runtime's vendor bundle ships **exactly** this list, and the validator rejects
-  any other import.
+- **Importable modules (contract v0):** `react`, `react-native`, `expo-router` (named
+  exports listed), `expo-status-bar`, `expo-image`, `expo-linear-gradient`,
+  `@expo/vector-icons` (**Ionicons only**), `react-native-safe-area-context`,
+  `@react-native-async-storage/async-storage` (data layer only). `react-native-svg` was
+  dropped from v0 because the preview would need its web build. The list lives in
+  `packages/contract/src/allowed.ts`; the preview's vendor bundle ships exactly these modules
+  (a unit test keeps the two in sync) and the validator rejects any other import.
 - **SDK upgrades** are a scripted procedure: bump the template, re-pin dependencies, rebuild
   the vendor bundle, run codemods on existing projects, and re-run evals.
 
@@ -73,8 +75,10 @@ app/(tabs)/<screen>.tsx      generated — one file per tab screen
 app/<screen>.tsx             generated — stack screens (detail, add/edit forms …)
 components/*.tsx             generated — shared UI components
 theme/tokens.ts              generated — 5 theme packs (same keys, different values)
+theme/types.ts               template  — the Theme type every pack must satisfy
+theme/active.ts              template  — active theme id store (the preview switches it)
 theme/ThemeProvider.tsx      template  — context + useTheme(), active pack by id
-data/schema.ts               generated — entity types (zod) from the plan's data model
+data/schema.ts               generated — entity types from the plan's data model
 data/seed.ts                 generated — realistic seed data
 data/repo.ts                 template  — Repository<T> interface + useCollection hooks
 data/local.ts                template  — AsyncStorage implementation
@@ -215,8 +219,14 @@ reference (`path`, source span, snippet). Every run writes a new version, so use
   3. Evaluate CommonJS-style modules, with `require` resolving to the vendor bundle or
      sibling files.
 - **Router shim:** implements `Stack`, `Tabs`, `Link`, `router.push/back/replace`,
-  `useRouter`, `useLocalSearchParams` and `usePathname` over an in-memory history.
-  **This is the riskiest piece. Spike it in Phase 0.** Fallback: Snack's web player.
+  `useRouter`, `useLocalSearchParams` and `usePathname` over an in-memory history, using the
+  shared route model in `packages/contract/src/routes.ts`. Proven in Phase 0 (see
+  [04-phase-0-results.md](04-phase-0-results.md)). Known v0 limits: screens below the top of
+  a stack unmount (state resets on back), no transitions, no modals.
+- **Storage:** the frame has an opaque origin, so `localStorage` throws; AsyncStorage is an
+  in-memory shim, reset on every load.
+- **Handshake:** the frame posts `ready` at startup and again in reply to the parent's
+  `hello`, because the frame can finish loading before the parent page hydrates.
 - **Modes:**
   - **Screen mode** (canvas frames): render a single route with seed data. Navigation
     attempts are posted to the parent, which focuses that screen.
@@ -229,12 +239,25 @@ reference (`path`, source span, snippet). Every run writes a new version, so use
   "Fix with AI" action.
 
 ## 6. On-device preview (QR)
-- The worker or server uses `snack-sdk` to create a Snack from the current version's files
-  plus pinned dependencies, keeps it online, and returns its `exp://` URL. The client renders
-  the URL as a QR code.
-- When a new version lands, the worker pushes the changed files to the same Snack session,
-  and Expo Go reloads live.
-- This requires the contract's SDK to match the one Expo Go currently ships (§2.1).
+
+**Changed after Phase 0.** Snack cannot run current SDKs: its runtime is published only for
+SDK ≤ 55, while store Expo Go runs only the latest SDK (58). See
+[04-phase-0-results.md](04-phase-0-results.md) §Spike B.
+
+- **Design:** a per-session **Expo dev server (Metro)** in a worker sandbox. The worker writes
+  the version's files into a prepared project whose `node_modules` come from the pinned
+  template (installed once per SDK, shared), starts `expo start`, and exposes it at a public
+  URL. The client renders the `exp://` URL as a QR code; Expo Go loads the manifest
+  (`runtimeVersion: exposdk:58.0.0`) and bundle from it.
+- **Live updates:** the worker writes changed files into the same directory; Metro's fast
+  refresh pushes them to the phone.
+- **Lifecycle:** dev servers are started on demand when a user opens the QR dialog, and
+  stopped after an idle timeout. Measured cold start in Phase 0: about 20 s to install
+  dependencies (avoidable with a prebuilt image) plus about 9 s for the first bundle.
+- **Exposure:** each session needs a public HTTPS hostname routed to its dev server, either
+  through our own reverse proxy on a wildcard domain or a tunnel. This is Phase 6 work.
+- **Alternatives kept open:** publishing our own Expo Go-compatible runtime as an EAS Update
+  (the way Snack works, but under our control), or a custom preview app in the stores.
 
 ## 7. Inline editing write-back
 1. A click gives a `fid` (path + span in version N). The quick editor shows text (if it is a

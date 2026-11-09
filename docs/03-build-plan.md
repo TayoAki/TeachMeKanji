@@ -18,7 +18,7 @@ after that is v1.
 
 ---
 
-## Phase 0 — Foundations and spikes (L)
+## Phase 0 — Foundations and spikes (L) · **done**, see [04-phase-0-results.md](04-phase-0-results.md)
 
 **Build**
 - Repo scaffold: Next.js (App Router, TypeScript strict), shadcn/ui, Drizzle + Postgres,
@@ -99,9 +99,13 @@ pass rate is ≥ 90 %.
 **Done when** changing a heading's text and color updates the source, the preview and the
 Code tab. Dynamic values are shown as read-only. Undo reverts the inline session.
 
-## Phase 6 — On-device preview (M) · *video ch. 11*
-- A Snack session per project (worker-managed), a QR dialog in the header, and live updates
-  pushed on each new version.
+## Phase 6 — On-device preview (L, was M) · *video ch. 11*
+Snack does not support current SDKs (Phase 0 finding), so this phase runs Expo's own dev server
+per preview session ([02-architecture.md](02-architecture.md) §6).
+- A prebuilt worker image with the pinned template's `node_modules`.
+- Per-session dev servers: start on demand, idle timeout, public HTTPS hostname per session
+  (reverse proxy on a wildcard domain, or a tunnel).
+- QR dialog in the header; changed files written into the running session for fast refresh.
 - SDK-mismatch guard: show the pinned SDK and an "update Expo Go" hint.
 
 **Done when** scanning the QR opens the app in Expo Go, and a chat edit appears on the phone

@@ -143,6 +143,10 @@ Generated apps must therefore target the SDK that Expo Go currently ships. The p
 a repeatable **SDK upgrade procedure** (template, allowed dependencies, codemods), several
 times a year. The video ran into exactly this mismatch.
 
+**Phase 0 update:** it is worse than a lag. Snack's runtime is published only for SDK ≤ 55,
+while store Expo Go runs SDK 58, so a Snack QR code cannot open on a current phone at all. We
+use Expo's own dev server instead ([04-phase-0-results.md](04-phase-0-results.md)).
+
 ### 2.9 Native builds
 - **IPA for real devices needs the end user's Apple Developer Program membership and signing
   credentials** (an App Store Connect API key). The video skips this. An iOS onboarding flow
@@ -220,11 +224,10 @@ and model changes on this eval set.
 
 ---
 
-## 5. Open decisions (needed before Phase 0)
+## 5. Open decisions
 
-1. **Repo and product.** This repo is named `TeachMeKanji`. Is it meant to hold the app
-   builder platform, or a kanji-learning app (possibly the first app *made with* the
-   platform)? What is the product's name?
+1. ~~**Repo and product.**~~ **Decided:** this repo holds the app builder platform. The
+   product name is still open (working title "App Builder"; packages use `@appbuilder/*`).
 2. **Platform infrastructure:** CloudHike, or standard providers (managed Postgres such as
    Neon or Supabase, S3/R2, self-hosted Better Auth, Inngest/Trigger.dev or a worker
    process)?

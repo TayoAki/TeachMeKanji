@@ -1,0 +1,37 @@
+{
+  "name": "app-builder",
+  "version": "0.0.0",
+  "private": true,
+  "description": "AI mobile app builder (working title)",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22",
+    "npm": ">=11"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspace @appbuilder/preview & npm run dev --workspace @appbuilder/web",
+    "build": "npm run build --workspace @appbuilder/preview && npm run build --workspace @appbuilder/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:e2e": "npm run test:e2e --workspace @appbuilder/web",
+    "db:generate": "npm run generate --workspace @appbuilder/db",
+    "db:migrate": "npm run migrate --workspace @appbuilder/db",
+    "spike:generate": "npm run spike:generate --workspace @appbuilder/worker --",
+    "spike:snack-check": "npm run spike:snack-check --workspace @appbuilder/worker",
+    "spike:device": "npm run spike:device --workspace @appbuilder/worker --"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "prettier": "^3",
+    "tsx": "^4",
+    "typescript": "^5",
+    "vitest": "^5.1.0"
+  },
+  "packageManager": "npm@11.21.2"
+}

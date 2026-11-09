@@ -1,0 +1,8 @@
+node_modules
+.next
+dist
+coverage
+package-lock.json
+packages/db/drizzle
+apps/web/next-env.d.ts
+*.md

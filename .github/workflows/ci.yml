@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DATABASE_URL: postgres://appbuilder:appbuilder@localhost:5432/appbuilder
+  BETTER_AUTH_SECRET: ci-secret-ci-secret-ci-secret-0123456789
+  BETTER_AUTH_URL: http://localhost:3000
+  NEXT_PUBLIC_PREVIEW_ORIGIN: http://localhost:3001
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: appbuilder
+          POSTGRES_PASSWORD: appbuilder
+          POSTGRES_DB: appbuilder
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U appbuilder" --health-interval 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # npm 10's resolver crashes on better-auth's optional peer set; the repo pins npm 11.
+      - run: npm install -g npm@11.21.2
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run db:migrate
+      - run: npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: appbuilder
+          POSTGRES_PASSWORD: appbuilder
+          POSTGRES_DB: appbuilder
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U appbuilder" --health-interval 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install -g npm@11.21.2
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - run: npm run db:migrate
+      - run: npm run test:e2e

@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "Generated App",
+    "slug": "generated-app",
+    "scheme": "generatedapp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "plugins": ["expo-router"],
+    "experiments": { "typedRoutes": false }
+  }
+}
