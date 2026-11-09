@@ -51,7 +51,9 @@ test("from idea to published app", async ({ page, browser }) => {
   // Confirm -> build: every planned screen lands on the canvas and in the live preview.
   await page.getByTestId("confirm-build").click();
   await expect(page.getByTestId("status")).toHaveText("Ready", { timeout: 60_000 });
-  await expect(page.getByTestId("canvas-screen")).toHaveCount(4);
+  // Three main screens plus the four-part structure: onboarding, paywall and settings.
+  await expect(page.getByTestId("canvas-screen")).toHaveCount(6);
+  await expect(page.getByTestId("plan-card").last()).toContainText("paywall");
   const app = page.frameLocator('iframe[data-frame-id="app"]');
   await expect(app.getByText("Expenses", { exact: true }).first()).toBeVisible();
   await expect(page.getByTestId("bottom-bar")).toContainText("Version 1");

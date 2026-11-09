@@ -297,15 +297,21 @@ function useLevel(): LevelInfo {
   return level;
 }
 
-/** Collect `<X.Screen name options />` declarations from a navigator's children, in order. */
+/**
+ * Collect `<X.Screen name options />` declarations from a navigator's children, in order,
+ * including those grouped in `<X.Protected>` or fragments.
+ */
 function declaredScreens(children: ReactNode): Array<{ name: string; options: Options }> {
   const out: Array<{ name: string; options: Options }> = [];
-  Children.forEach(children, (child) => {
-    if (!isValidElement(child)) return;
-    const props = child.props as { name?: string; options?: Options };
-    if (typeof props.name === "string")
-      out.push({ name: props.name, options: props.options ?? {} });
-  });
+  const visit = (nodes: ReactNode) =>
+    Children.forEach(nodes, (child) => {
+      if (!isValidElement(child)) return;
+      const props = child.props as { name?: string; options?: Options; children?: ReactNode };
+      if (typeof props.name === "string")
+        out.push({ name: props.name, options: props.options ?? {} });
+      else if (props.children !== undefined) visit(props.children);
+    });
+  visit(children);
   return out;
 }
 
@@ -511,8 +517,16 @@ function ScreenOptions({ options }: { name?: string; options?: Options }) {
   return null;
 }
 
-export const Stack = Object.assign(StackNavigator, { Screen: ScreenOptions });
-export const Tabs = Object.assign(TabsNavigator, { Screen: ScreenOptions });
+/**
+ * `<Stack.Protected guard>` gates screens on a device (onboarding before the app). The preview
+ * shows every screen on the canvas, so here it only groups its declarations.
+ */
+function Protected({ children }: { guard: boolean; children?: ReactNode }) {
+  return <>{children}</>;
+}
+
+export const Stack = Object.assign(StackNavigator, { Screen: ScreenOptions, Protected });
+export const Tabs = Object.assign(TabsNavigator, { Screen: ScreenOptions, Protected });
 export const Slot = function Slot() {
   return <>{useLevel().renderChild()}</>;
 };

@@ -1,9 +1,10 @@
+import { isTemplateFile, REQUIRED_GENERATED_FILES, type ProjectFiles } from "./layout";
 import {
-  isScreenFile,
-  isTemplateFile,
-  REQUIRED_GENERATED_FILES,
-  type ProjectFiles,
-} from "./layout";
+  APP_INFO_FILE,
+  countLimitedScreens,
+  MONETIZATION_FILE,
+  withAppStructure,
+} from "./app-structure";
 import { BACKEND_CONFIG_FILE, refreshTemplate } from "./platform-config";
 import { hasErrors, isSafePath, validateProject, type Issue } from "./validate";
 
@@ -14,7 +15,13 @@ export const CHANGE_LIMITS = { files: 60, fileBytes: 200 * 1024 };
 export function isWritablePath(path: string): boolean {
   if (!isSafePath(path) || isTemplateFile(path)) return false;
   if (path.startsWith("app/") || path.startsWith("components/")) return /\.tsx?$/.test(path);
-  return ["theme/tokens.ts", "data/schema.ts", "data/seed.ts"].includes(path);
+  return [
+    "theme/tokens.ts",
+    "data/schema.ts",
+    "data/seed.ts",
+    MONETIZATION_FILE,
+    APP_INFO_FILE,
+  ].includes(path);
 }
 
 export interface ChangeResult {
@@ -39,7 +46,7 @@ export function applyChanges(
   changes: { write?: Record<string, string>; remove?: string[] },
   options: { maxScreens: number },
 ): ChangeResult {
-  const files = refreshTemplate(base, template);
+  let files = refreshTemplate(base, template);
   if (files[BACKEND_CONFIG_FILE] === undefined && template[BACKEND_CONFIG_FILE] !== undefined) {
     files[BACKEND_CONFIG_FILE] = template[BACKEND_CONFIG_FILE];
   }
@@ -72,8 +79,10 @@ export function applyChanges(
       changed.push(path);
     }
   }
-  const before = Object.keys(base).filter(isScreenFile).length;
-  const after = Object.keys(files).filter(isScreenFile).length;
+  files = withAppStructure(files);
+  // Onboarding, paywall and settings come with every app and don't count toward the limit.
+  const before = countLimitedScreens(base);
+  const after = countLimitedScreens(files);
   if (after > options.maxScreens && after > before) {
     rejected.push({
       path: "*",
@@ -87,7 +96,7 @@ export function applyChanges(
 function writableReason(path: string): string {
   if (!isSafePath(path)) return "Not a valid relative file path.";
   if (isTemplateFile(path)) return "This file belongs to the platform and can't be changed.";
-  return "Only app/ and components/ (.ts/.tsx), theme/tokens.ts, data/schema.ts and data/seed.ts can be written.";
+  return "Only app/ and components/ (.ts/.tsx), theme/tokens.ts, data/schema.ts, data/seed.ts, data/monetization.ts and data/app-info.ts can be written.";
 }
 
 /** Set the app's display name, slug and URL scheme in app.json. */

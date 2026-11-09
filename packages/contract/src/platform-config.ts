@@ -1,3 +1,4 @@
+import { APP_INFO_FILE, MONETIZATION_FILE, withAppStructure } from "./app-structure";
 import { TEMPLATE_FILES, type ProjectFiles } from "./layout";
 
 export const BACKEND_CONFIG_FILE = "data/backend.ts";
@@ -52,7 +53,11 @@ export function refreshTemplate(files: ProjectFiles, template: ProjectFiles): Pr
     if (keep.has(path) && next[path] !== undefined) continue;
     next[path] = fromTemplate;
   }
-  return next;
+  // Editable platform files apps made before them never had: seed the defaults.
+  for (const path of [MONETIZATION_FILE, APP_INFO_FILE]) {
+    if (next[path] === undefined && template[path] !== undefined) next[path] = template[path];
+  }
+  return withAppStructure(next);
 }
 
 /** data/images.ts: the images added to an app, by name (written by the platform). */

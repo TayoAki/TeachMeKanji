@@ -16,6 +16,9 @@ export const TEMPLATE_FILES = [
   "data/auth.ts",
   "data/backend.ts",
   "data/images.ts",
+  "data/app-state.ts",
+  "data/purchases.ts",
+  "data/app-structure.ts",
   "components/AiImage.tsx",
 ] as const;
 
@@ -26,6 +29,9 @@ export const REQUIRED_GENERATED_FILES = [
   "theme/tokens.ts",
   "data/schema.ts",
   "data/seed.ts",
+  // Seeded by the platform (from the plan) and editable afterwards.
+  "data/monetization.ts",
+  "data/app-info.ts",
 ] as const;
 
 export const GENERATED_ROOTS = ["app/", "components/", "theme/", "data/"] as const;

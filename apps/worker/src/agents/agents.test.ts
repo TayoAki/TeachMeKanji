@@ -20,7 +20,16 @@ describe("agent pipeline (offline provider)", () => {
       maxScreens: 5,
     });
     expect(first.plan.appName).toBe("Penny Wise");
-    expect(first.plan.screens[0]!.path).toBe("app/(tabs)/index.tsx");
+    // Every app has its four parts, in journey order: onboarding, paywall, main app, settings.
+    expect(first.plan.screens.map((s) => s.role)).toEqual([
+      "onboarding",
+      "paywall",
+      ...first.plan.screens.filter((s) => s.role === "main").map(() => "main"),
+      "settings",
+    ]);
+    expect(first.plan.screens.find((s) => s.role === "main")!.path).toBe("app/(tabs)/index.tsx");
+    expect(first.plan.monetization.offers.length).toBeGreaterThan(0);
+    expect(first.plan.onboarding.steps.length).toBeGreaterThan(0);
     expect(first.plan.themes).toHaveLength(5);
 
     const revised = await planApp({
@@ -44,6 +53,10 @@ describe("agent pipeline (offline provider)", () => {
     expect(formatIssues(validateProject(built.files))).toBe("");
     expect(built.warnings).toEqual([]);
     expect(JSON.parse(built.files["app.json"]!).expo.name).toBe("Penny Wise");
+    // The platform writes pricing and the structure flags from the plan.
+    expect(built.files["data/monetization.ts"]).toContain('"price": "$19.99"');
+    expect(built.files["data/app-structure.ts"]).toContain("onboarding: true");
+    expect(built.files["data/app-structure.ts"]).toContain("paywall: true");
     const routes = screens(buildRouteTree(Object.keys(built.files))).map((s) => s.screen.file);
     for (const s of revised.plan.screens) expect(routes).toContain(s.path);
     expect(events.filter((e) => e === "files").length).toBe(revised.plan.screens.length + 1);
@@ -67,14 +80,16 @@ describe("agent pipeline (offline provider)", () => {
     expect(added.files["app/(tabs)/_layout.tsx"]).toContain('name="goals"');
     expect(formatIssues(validateProject(added.files))).toBe("");
 
+    // Onboarding, paywall and settings don't count toward the limit; the main screens do.
+    const mainScreens = revised.plan.screens.filter((s) => s.role === "main").length;
     await expect(
       editApp({
         createMessage: fakeCreateMessage,
         files: built.files,
         request: "add a goals tab",
-        maxScreens: 4,
+        maxScreens: mainScreens,
       }),
-    ).rejects.toThrow(/allows 4 screens/);
+    ).rejects.toThrow(new RegExp(`allows ${mainScreens} screens`));
   });
 
   it("builds screens in parallel after the shared layer, reading one warmed cache", async () => {

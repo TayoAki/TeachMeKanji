@@ -200,6 +200,7 @@ function fakePlan(request: string): AppPlan {
       path: "app/(tabs)/index.tsx",
       purpose: `Lists your ${d.collection} with a summary card and a button to add one.`,
       icon: "home-outline",
+      role: "main",
     },
     {
       key: "insights",
@@ -208,6 +209,7 @@ function fakePlan(request: string): AppPlan {
       path: "app/(tabs)/insights.tsx",
       purpose: `Totals and a breakdown of your ${d.collection} by category.`,
       icon: "stats-chart-outline",
+      role: "main",
     },
     {
       key: "detail",
@@ -216,6 +218,7 @@ function fakePlan(request: string): AppPlan {
       path: `app/${d.singular}/[id].tsx`,
       purpose: `Shows one ${d.singular} and lets you delete it.`,
       icon: "document-text-outline",
+      role: "main",
     },
     {
       key: "add",
@@ -224,23 +227,91 @@ function fakePlan(request: string): AppPlan {
       path: `app/add-${d.singular}.tsx`,
       purpose: `A form to add a ${d.singular}.`,
       icon: "add-circle-outline",
-    },
-    {
-      key: "settings",
-      title: "Settings",
-      kind: "tab",
-      path: "app/(tabs)/settings.tsx",
-      purpose: "Preferences and a button to reset your data.",
-      icon: "settings-outline",
+      role: "main",
     },
   ];
   const count = Number(
     /(\d+)\s+screens?/.exec(idea)?.[1] ?? (process.env.DEFAULT_SCREEN_COUNT || 3),
   );
+  const structure: PlanScreen[] = [
+    {
+      key: "onboarding",
+      title: "Welcome",
+      kind: "stack",
+      path: "app/onboarding.tsx",
+      purpose: "Two quick steps: what you want to track, then into the app.",
+      icon: "sparkles-outline",
+      role: "onboarding",
+    },
+    {
+      key: "paywall",
+      title: "Premium",
+      kind: "stack",
+      path: "app/paywall.tsx",
+      purpose: "What premium unlocks, the plans, restore and close.",
+      icon: "star-outline",
+      role: "paywall",
+    },
+  ];
   return {
     appName: d.appName,
     summary: `${d.appName} helps you keep track of your ${d.collection}, with quick entry and clear insights.`,
-    screens: screens.slice(0, Math.max(2, Math.min(5, count))),
+    audience: `People who want a calm, quick way to keep track of their ${d.collection}`,
+    angle: `Built for logging in seconds, not managing a spreadsheet`,
+    coreLoop: `Add a ${d.singular} in two taps and see the running total`,
+    shareMoment: `A monthly summary card of your ${d.collection}`,
+    onboarding: {
+      steps: [
+        {
+          kind: "question",
+          title: `What matters most?`,
+          body: `We'll put it first on your home screen.`,
+          options: ["Staying on budget", "Seeing trends", "Just logging"],
+          answerKey: "focus",
+        },
+        {
+          kind: "demo",
+          title: `Add your first ${d.singular}`,
+          body: `One tap from the home screen, any time.`,
+          options: [],
+          answerKey: "",
+        },
+      ],
+    },
+    monetization: {
+      premiumFeatures: [`${d.insightsTitle} by category`, "Export to CSV"],
+      offers: [
+        {
+          id: "yearly",
+          label: "Yearly",
+          price: "$19.99",
+          period: "year",
+          trialDays: 7,
+          badge: "Save 44%",
+        },
+        {
+          id: "monthly",
+          label: "Monthly",
+          price: "$2.99",
+          period: "month",
+          trialDays: 0,
+          badge: "",
+        },
+      ],
+    },
+    screens: [
+      ...structure,
+      ...screens.slice(0, Math.max(2, Math.min(5, count))),
+      {
+        key: "settings",
+        title: "Settings",
+        kind: "stack",
+        path: "app/settings.tsx",
+        purpose: "Subscription, reminders, support and legal links.",
+        icon: "settings-outline",
+        role: "settings",
+      },
+    ],
     collections: [
       {
         name: d.collection,
@@ -268,14 +339,17 @@ function revisePlan(plan: AppPlan, feedback: string): AppPlan {
   if (add) {
     const title = add[1]!.trim().replace(/^\w/, (c) => c.toUpperCase());
     const key = slugify(title);
-    next.screens.push({
-      key,
-      title,
-      kind: "tab",
-      path: `app/(tabs)/${key}.tsx`,
-      purpose: `${title}.`,
-      icon: "sparkles-outline",
-    });
+    // Every plan already has its settings screen.
+    if (!next.screens.some((s) => s.key === key || (key === "settings" && s.role === "settings")))
+      next.screens.splice(next.screens.length - 1, 0, {
+        key,
+        title,
+        kind: "tab",
+        path: `app/(tabs)/${key}.tsx`,
+        purpose: `${title}.`,
+        icon: "sparkles-outline",
+        role: "main",
+      });
   }
   const rename = /(?:call it|name it|rename (?:it|the app) to)\s+"?([^".]+)"?/i.exec(feedback);
   if (rename) next.appName = rename[1]!.trim();
@@ -482,6 +556,9 @@ function screenFile(path: string, title: string, system: string): string {
     return listScreen(root, title, collection, noun, detailRoute, addRoute);
   if (path.includes("[id]")) return detailScreen(root, collection, noun);
   if (path.startsWith("app/add-")) return formScreen(root, title, collection, noun);
+  if (path === "app/onboarding.tsx") return onboardingScreen(root, collection);
+  if (path === "app/paywall.tsx") return paywallScreen(root);
+  if (path === "app/settings.tsx") return structureSettingsScreen(root);
   if (/settings/.test(path)) return settingsScreen(root, title, collection, noun);
   return statsScreen(root, title, collection, noun);
 }
@@ -776,6 +853,203 @@ export default function SettingsScreen() {
         <Text style={{ color: theme.colors.danger, fontWeight: theme.font.weight.bold }}>Reset all data</Text>
       </Pressable>
       <View style={{ height: theme.spacing.xl }} />
+    </ScrollView>
+  );
+}
+`;
+}
+
+function onboardingScreen(root: string, collection: string) {
+  return `import { Pressable, ScrollView, Text, View } from "react-native";
+import { useState } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppState } from "${root}data/app-state";
+import { useTheme } from "${root}theme/ThemeProvider";
+
+const OPTIONS = ["Staying on budget", "Seeing trends", "Just logging"];
+
+export default function OnboardingScreen() {
+  const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const { answers, setAnswer, completeOnboarding } = useAppState();
+  const [step, setStep] = useState(0);
+  const chosen = answers.focus;
+  const last = step === 1;
+
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.colors.background, paddingTop: insets.top + theme.spacing.lg, paddingBottom: insets.bottom + theme.spacing.md, paddingHorizontal: theme.spacing.lg }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+        <Text style={{ color: theme.colors.textMuted }}>{step + 1} of 2</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Skip" hitSlop={12} onPress={() => completeOnboarding()}>
+          <Text style={{ color: theme.colors.textMuted }}>Skip</Text>
+        </Pressable>
+      </View>
+      <ScrollView contentContainerStyle={{ paddingTop: theme.spacing.xl, gap: theme.spacing.md }}>
+        <Text style={{ color: theme.colors.text, fontSize: theme.font.size.display, fontWeight: theme.font.weight.bold }}>
+          {last ? "Add your first one" : "What matters most?"}
+        </Text>
+        <Text style={{ color: theme.colors.textMuted, fontSize: theme.font.size.body }}>
+          {last ? "One tap from the home screen, any time." : "We'll put it first on your home screen."}
+        </Text>
+        {last
+          ? null
+          : OPTIONS.map((option) => (
+              <Pressable
+                key={option}
+                accessibilityRole="button"
+                accessibilityState={{ selected: chosen === option }}
+                onPress={() => setAnswer("focus", option)}
+                style={({ pressed }) => ({ padding: theme.spacing.md, borderRadius: theme.radius.md, borderWidth: 1, borderColor: chosen === option ? theme.colors.primary : theme.colors.border, backgroundColor: pressed ? theme.colors.surfaceAlt : theme.colors.surface })}
+              >
+                <Text style={{ color: theme.colors.text, fontSize: theme.font.size.body }}>{option}</Text>
+              </Pressable>
+            ))}
+      </ScrollView>
+      <Pressable
+        accessibilityRole="button"
+        disabled={!last && !chosen}
+        onPress={() => (last ? completeOnboarding() : setStep(1))}
+        style={({ pressed }) => ({ opacity: !last && !chosen ? 0.5 : pressed ? 0.85 : 1, backgroundColor: theme.colors.primary, borderRadius: theme.radius.pill, padding: theme.spacing.md, alignItems: "center" })}
+      >
+        <Text style={{ color: theme.colors.onPrimary, fontWeight: theme.font.weight.bold }}>{last ? "Start tracking ${collection}" : "Continue"}</Text>
+      </Pressable>
+    </View>
+  );
+}
+`;
+}
+
+function paywallScreen(root: string) {
+  return `import { Linking, Pressable, ScrollView, Text, View } from "react-native";
+import { useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { appInfo } from "${root}data/app-info";
+import { usePurchases } from "${root}data/purchases";
+import { useTheme } from "${root}theme/ThemeProvider";
+
+export default function PaywallScreen() {
+  const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const { offers, defaultOfferId, premiumFeatures, isPremium, status, error, testMode, purchase, restorePurchases, dismissPaywall } = usePurchases();
+  const [selected, setSelected] = useState(defaultOfferId);
+  const offer = offers.find((o) => o.id === selected) ?? offers[0];
+
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.colors.background, paddingTop: insets.top + theme.spacing.sm }}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Close" hitSlop={12} onPress={dismissPaywall} style={{ alignSelf: "flex-end", padding: theme.spacing.md }}>
+        <Ionicons name="close" size={24} color={theme.colors.textMuted as string} />
+      </Pressable>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: theme.spacing.lg, paddingBottom: insets.bottom + theme.spacing.lg, gap: theme.spacing.md }}>
+        <Text style={{ color: theme.colors.text, fontSize: theme.font.size.display, fontWeight: theme.font.weight.bold }}>See where it all goes</Text>
+        {premiumFeatures.map((feature) => (
+          <View key={feature} style={{ flexDirection: "row", gap: theme.spacing.sm, alignItems: "center" }}>
+            <Ionicons name="checkmark-circle" size={20} color={theme.colors.success as string} />
+            <Text style={{ color: theme.colors.text, fontSize: theme.font.size.body }}>{feature}</Text>
+          </View>
+        ))}
+        {isPremium ? (
+          <Text style={{ color: theme.colors.text, fontSize: theme.font.size.title }}>You're premium. Thank you!</Text>
+        ) : (
+          offers.map((o) => (
+            <Pressable
+              key={o.id}
+              accessibilityRole="button"
+              accessibilityState={{ selected: o.id === selected }}
+              onPress={() => setSelected(o.id)}
+              style={{ padding: theme.spacing.md, borderRadius: theme.radius.md, borderWidth: 2, borderColor: o.id === selected ? theme.colors.primary : theme.colors.border, backgroundColor: theme.colors.surface }}
+            >
+              <Text style={{ color: theme.colors.text, fontWeight: theme.font.weight.bold }}>{o.label}{o.badge ? " · " + o.badge : ""}</Text>
+              <Text style={{ color: theme.colors.textMuted, fontVariant: ["tabular-nums"] }}>{o.price} / {o.period}{o.trialDays ? " · " + o.trialDays + "-day free trial" : ""}</Text>
+            </Pressable>
+          ))
+        )}
+        {isPremium || !offer ? null : (
+          <Pressable
+            accessibilityRole="button"
+            disabled={status !== "idle"}
+            onPress={async () => { if (await purchase(offer.id)) dismissPaywall(); }}
+            style={({ pressed }) => ({ opacity: pressed || status !== "idle" ? 0.8 : 1, backgroundColor: theme.colors.primary, borderRadius: theme.radius.pill, padding: theme.spacing.md, alignItems: "center" })}
+          >
+            <Text style={{ color: theme.colors.onPrimary, fontWeight: theme.font.weight.bold }}>{status === "purchasing" ? "Processing…" : offer.trialDays ? "Start free trial" : "Continue"}</Text>
+          </Pressable>
+        )}
+        <Pressable accessibilityRole="button" onPress={() => restorePurchases()} style={{ alignItems: "center", padding: theme.spacing.sm }}>
+          <Text style={{ color: theme.colors.textMuted }}>{status === "restoring" ? "Restoring…" : "Restore Purchases"}</Text>
+        </Pressable>
+        {error ? <Text style={{ color: theme.colors.danger, textAlign: "center" }}>{error}</Text> : null}
+        <Text style={{ color: theme.colors.textMuted, fontSize: theme.font.size.caption, textAlign: "center" }}>
+          {offer ? "Renews automatically at " + offer.price + "/" + offer.period + " unless canceled at least 24 hours before the end of the period. Cancel anytime in your App Store or Google Play settings." : ""}
+        </Text>
+        <View style={{ flexDirection: "row", justifyContent: "center", gap: theme.spacing.md }}>
+          {appInfo.termsUrl ? <Text onPress={() => Linking.openURL(appInfo.termsUrl)} style={{ color: theme.colors.textMuted, fontSize: theme.font.size.caption }}>Terms of Use</Text> : null}
+          {appInfo.privacyUrl ? <Text onPress={() => Linking.openURL(appInfo.privacyUrl)} style={{ color: theme.colors.textMuted, fontSize: theme.font.size.caption }}>Privacy Policy</Text> : null}
+        </View>
+        {testMode ? <Text style={{ color: theme.colors.textMuted, fontSize: theme.font.size.caption, textAlign: "center" }}>Test mode: purchases are simulated, nothing is charged.</Text> : null}
+      </ScrollView>
+    </View>
+  );
+}
+`;
+}
+
+function structureSettingsScreen(root: string) {
+  return `import { Linking, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { Stack } from "expo-router";
+import { appInfo } from "${root}data/app-info";
+import { useAppState } from "${root}data/app-state";
+import { usePurchases } from "${root}data/purchases";
+import { useTheme } from "${root}theme/ThemeProvider";
+
+const MANAGE_URL = Platform.OS === "ios" ? "https://apps.apple.com/account/subscriptions" : "https://play.google.com/store/account/subscriptions";
+
+export default function SettingsScreen() {
+  const theme = useTheme();
+  const { isPremium, activeOffer, status, error, restorePurchases, openPaywall } = usePurchases();
+  const { resetOnboarding } = useAppState();
+  const row = { paddingVertical: theme.spacing.md, borderBottomWidth: 1, borderBottomColor: theme.colors.border };
+  const label = { color: theme.colors.text, fontSize: theme.font.size.body };
+  const header = { color: theme.colors.textMuted, fontSize: theme.font.size.caption, marginTop: theme.spacing.lg };
+
+  return (
+    <ScrollView contentInsetAdjustmentBehavior="automatic" style={{ flex: 1, backgroundColor: theme.colors.background }} contentContainerStyle={{ padding: theme.spacing.md }}>
+      <Stack.Screen options={{ title: "Settings" }} />
+      <Text style={header}>SUBSCRIPTION</Text>
+      <View style={row}>
+        <Text style={label}>{isPremium ? "Premium · " + (activeOffer?.label ?? "") : "Free plan"}</Text>
+      </View>
+      {isPremium ? null : (
+        <Pressable accessibilityRole="button" onPress={openPaywall} style={row}>
+          <Text style={{ ...label, color: theme.colors.primary }}>Upgrade to Premium</Text>
+        </Pressable>
+      )}
+      <Pressable accessibilityRole="button" onPress={() => restorePurchases()} style={row}>
+        <Text style={label}>{status === "restoring" ? "Restoring…" : "Restore Purchases"}</Text>
+      </Pressable>
+      {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
+      <Pressable accessibilityRole="button" onPress={() => Linking.openURL(MANAGE_URL)} style={row}>
+        <Text style={label}>Manage subscription</Text>
+      </Pressable>
+      <Text style={header}>SUPPORT</Text>
+      {appInfo.supportEmail ? (
+        <Pressable accessibilityRole="button" onPress={() => Linking.openURL("mailto:" + appInfo.supportEmail)} style={row}>
+          <Text style={label}>Contact support</Text>
+        </Pressable>
+      ) : null}
+      {appInfo.privacyUrl ? (
+        <Pressable accessibilityRole="button" onPress={() => Linking.openURL(appInfo.privacyUrl)} style={row}>
+          <Text style={label}>Privacy Policy</Text>
+        </Pressable>
+      ) : null}
+      {appInfo.termsUrl ? (
+        <Pressable accessibilityRole="button" onPress={() => Linking.openURL(appInfo.termsUrl)} style={row}>
+          <Text style={label}>Terms of Use</Text>
+        </Pressable>
+      ) : null}
+      <Pressable accessibilityRole="button" onPress={() => resetOnboarding()} style={row}>
+        <Text style={label}>Replay onboarding</Text>
+      </Pressable>
+      <Text style={{ ...header, textAlign: "center" }}>{appInfo.name} · Version {appInfo.version}</Text>
     </ScrollView>
   );
 }

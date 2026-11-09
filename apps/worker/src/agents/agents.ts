@@ -1,16 +1,21 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import {
+  APP_INFO_FILE,
   APP_PLAN_JSON_SCHEMA,
+  appInfoFile,
   applyAppName,
   BACKEND_CONFIG_FILE,
   backendConfigFile,
   type PlatformConfig,
   buildRouteTree,
+  countLimitedScreens,
   formatIssues,
   hasErrors,
-  isScreenFile,
+  MONETIZATION_FILE,
+  monetizationFile,
   normalizePlan,
   validateProject,
+  withAppStructure,
   type AppPlan,
   type ProjectFiles,
 } from "@appbuilder/contract";
@@ -117,13 +122,27 @@ export async function buildApp(input: {
   onEvent?: (event: AgentEvent) => Promise<void> | void;
   model?: string;
 }): Promise<{ files: ProjectFiles; usage: UsageTotals; model: string; warnings: string[] }> {
-  const { createMessage, plan } = input;
+  const { createMessage } = input;
+  // Plans saved before the four-part structure get their onboarding, paywall and settings here.
+  const plan = normalizePlan(input.plan, { maxScreens: Number.MAX_SAFE_INTEGER }).plan;
   const emit = async (event: AgentEvent) => input.onEvent?.(event);
   const warnings: string[] = [];
   let usage = ZERO;
   let files = applyAppName(input.template, plan.appName);
   if (input.platform)
     files = { ...files, [BACKEND_CONFIG_FILE]: backendConfigFile(input.platform) };
+  // What premium unlocks and the app's info come straight from the plan, not from the model.
+  files = {
+    ...files,
+    [MONETIZATION_FILE]: monetizationFile(plan.monetization),
+    [APP_INFO_FILE]: appInfoFile({
+      name: plan.appName,
+      version: "1.0.0",
+      supportEmail: "",
+      privacyUrl: "",
+      termsUrl: "",
+    }),
+  };
 
   // 1. Shared layer: the theme and the data layer are independent, so they run in parallel.
   await emit({ type: "step", label: "Designing the theme, data and shared components" });
@@ -234,6 +253,7 @@ export async function buildApp(input: {
   });
 
   for (const warning of warnings) await emit({ type: "warning", message: warning });
+  files = withAppStructure(files);
   const issues = validateProject(files);
   if (hasErrors(issues))
     throw new AgentError(`The generated app fails validation:\n${formatIssues(issues)}`);
@@ -242,8 +262,9 @@ export async function buildApp(input: {
 
 // --- Edit ----------------------------------------------------------------------------------
 
+/** Screens that count toward the plan's limit (onboarding, paywall and settings don't). */
 export function countScreens(files: ProjectFiles): number {
-  return Object.keys(files).filter(isScreenFile).length;
+  return countLimitedScreens(files);
 }
 
 export async function editApp(input: {
@@ -276,8 +297,9 @@ export async function editApp(input: {
       `The change didn't pass the platform's checks:\n${formatIssues(result.issues)}`,
     );
   }
-  const next: ProjectFiles = { ...input.files, ...result.files };
+  let next: ProjectFiles = { ...input.files, ...result.files };
   for (const path of result.deletes) delete next[path];
+  next = withAppStructure(next);
 
   if (countScreens(next) > input.maxScreens && countScreens(next) > countScreens(input.files)) {
     throw new AgentError(

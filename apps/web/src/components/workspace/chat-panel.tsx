@@ -26,6 +26,19 @@ export interface ChatSelection {
   label: string;
 }
 
+/** Which of the app's four parts a screen is (plans made before roles show as tab/screen). */
+function partLabel(screen: AppPlan["screens"][number]): string {
+  if (screen.role === "onboarding") return "onboarding";
+  if (screen.role === "paywall") return "paywall";
+  if (screen.role === "settings") return "settings";
+  return screen.kind === "tab" ? "tab" : "screen";
+}
+
+function offerLabel(offer: AppPlan["monetization"]["offers"][number]): string {
+  const per = offer.period === "lifetime" ? " once" : ` / ${offer.period}`;
+  return `${offer.label} ${offer.price}${per}${offer.trialDays ? ` (${offer.trialDays}-day trial)` : ""}`;
+}
+
 function PlanCard({
   plan,
   number,
@@ -46,6 +59,22 @@ function PlanCard({
         {number ? <Badge variant="outline">Plan {number}</Badge> : null}
       </div>
       <p className="mt-1 text-muted-foreground">{plan.summary}</p>
+      {plan.audience || plan.coreLoop ? (
+        <dl className="mt-2 space-y-0.5 text-xs" data-testid="plan-product">
+          {plan.audience ? (
+            <div>
+              <dt className="inline font-medium">For: </dt>
+              <dd className="inline text-muted-foreground">{plan.audience}</dd>
+            </div>
+          ) : null}
+          {plan.coreLoop ? (
+            <div>
+              <dt className="inline font-medium">Core loop: </dt>
+              <dd className="inline text-muted-foreground">{plan.coreLoop}</dd>
+            </div>
+          ) : null}
+        </dl>
+      ) : null}
       <ol className="mt-3 space-y-2">
         {plan.screens.map((s, i) => (
           <li key={s.key} className="flex gap-2">
@@ -54,10 +83,16 @@ function PlanCard({
             </span>
             <span className="min-w-0">
               <span className="font-medium">{s.title}</span>{" "}
-              <span className="text-xs text-muted-foreground">
-                {s.kind === "tab" ? "tab" : "screen"}
-              </span>
+              <span className="text-xs text-muted-foreground">{partLabel(s)}</span>
               <span className="block text-xs text-muted-foreground">{s.purpose}</span>
+              {s.role === "paywall" && plan.monetization ? (
+                <span className="block text-xs text-muted-foreground">
+                  {plan.monetization.offers.map(offerLabel).join(" · ")}
+                  {plan.monetization.premiumFeatures.length
+                    ? `. Unlocks: ${plan.monetization.premiumFeatures.join(", ")}`
+                    : ""}
+                </span>
+              ) : null}
             </span>
           </li>
         ))}

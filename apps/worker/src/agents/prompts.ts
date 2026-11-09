@@ -2,15 +2,24 @@ import type { AppPlan, PlanScreen, ProjectFiles } from "@appbuilder/contract";
 import { contractRules, FILE_BLOCKS_OUTPUT } from "../generation/prompt";
 
 export function planSystem(defaultScreens: number, maxScreens: number): string {
-  return `You are the product planner of an AI mobile app builder. From the user's idea (and any reference images), propose a focused first version of a mobile app built with Expo Router and React Native.
+  return `You are the product planner of an AI mobile app builder. From the user's idea (and any reference images), propose a focused first version of a mobile app built with Expo Router and React Native: one that feels made by a person for specific people, not a generic AI app.
+
+Decide the product first:
+- audience: who it is for, specifically, in one line.
+- angle: what makes this app distinct: the personal story, frustration or point of view behind it. Use the user's own words and context when they give any; otherwise choose a specific, believable angle rather than a generic one.
+- coreLoop: the one action people come back to repeat. The first version nails this loop; leave everything else out.
+- shareMoment: one result in the app worth screenshotting or sharing (a streak card, a finished plan, a score), shown in a main screen.
+
+Every app has four parts, in this order in "screens":
+1. Onboarding: role "onboarding", path app/onboarding.tsx, kind "stack". onboarding.steps holds 2 to 4 steps that get people to their first win fast. Prefer steps that do work: a "question" that personalizes the app (2 to 5 short options, an answerKey the main app reads), a "demo" that lets them try the core action once, or a "permission" explained before it is asked (only if the app truly needs one). At most one "value" step; no generic promotional slides.
+2. Paywall: role "paywall", path app/paywall.tsx, kind "stack". monetization.premiumFeatures lists 2 to 4 concrete things premium unlocks, each of which a main screen will show (locked for free users). monetization.offers lists 1 to 3 plans: id, label, price (e.g. "$4.99"), period (week, month, year or lifetime), trialDays (0 for none) and a short badge such as "Save 40%" or "". Price for this audience. The free app must still deliver the core loop.
+3. Main app: role "main". ${defaultScreens} screens by default, or the number the user asks for, never more than ${maxScreens}. 2 to 5 of them are tabs: the first tab is the home screen at exactly app/(tabs)/index.tsx, the other tabs at app/(tabs)/<key>.tsx. Screens opened from a tab (detail, add/edit forms) are "stack" screens at app/<key>.tsx; a detail screen for one record uses a route parameter: app/<collection-singular>/[id].tsx. The home tab puts the core loop one tap away.
+4. Settings: role "settings", path app/settings.tsx, kind "stack". Its purpose names the preferences that matter for this app.
 
 Rules for the plan:
-- ${defaultScreens} screens by default, or the number the user asks for, never more than ${maxScreens}.
-- 2 to 5 tab screens. The first tab is the home screen and its path is exactly app/(tabs)/index.tsx. Other tabs live at app/(tabs)/<key>.tsx.
-- Screens opened from a tab (detail, add/edit forms, settings) are "stack" screens at app/<key>.tsx. A detail screen for one record uses a route parameter: app/<collection-singular>/[id].tsx.
-- Every screen must be useful with local data. Define 1–3 collections (snake_case names, plural) with realistic fields; "id" is implicit, don't list it.
+- Every screen must be useful with local data. Define 1 to 3 collections (snake_case names, plural) with realistic fields; "id" is implicit, don't list it.
 - Give every screen a concise purpose that says what it shows and what the user can do there, and an Ionicons icon name.
-- Propose exactly 5 distinct visual themes (at least 2 dark), each with a short id, a name, a one-line mood and a primary color as #RRGGBB.
+- Propose exactly 5 distinct visual themes (at least 2 dark), each with a short id, a name, a one-line mood and a primary color as #RRGGBB. Avoid the generic purple-to-blue look unless the idea calls for it.
 - appName: short and brandable. summary: one or two sentences.
 If the user gives feedback on a previous plan, return the full revised plan that applies it and keeps everything else.`;
 }
@@ -92,6 +101,74 @@ export function screenComponentDir(screen: PlanScreen): string {
   return `components/${screen.key.replace(/[^A-Za-z0-9_-]/g, "-") || "screen"}/`;
 }
 
+function bullet(items: string[]): string {
+  return items.length ? items.map((item) => `   - ${item}`).join("\n") : "   (none)";
+}
+
+/** What each of the four parts must do; the rubric (docs/08-app-quality-rubric.md) checks it. */
+export function roleGuidance(plan: AppPlan, screen: PlanScreen): string {
+  const audience = plan.audience || "the people this app is for";
+  const features = plan.monetization?.premiumFeatures ?? [];
+  const steps = plan.onboarding?.steps ?? [];
+  const answerKeys = steps
+    .filter((s) => s.kind === "question" && s.answerKey)
+    .map((s) => s.answerKey);
+  if (screen.role === "onboarding") {
+    return `This is the onboarding flow, shown on first launch. Build every step in this one screen (keep the current step in state; no new routes), in this order:
+${bullet(
+  steps.map((s) =>
+    s.kind === "question"
+      ? `question: "${s.title}" ${s.body} Options: ${s.options.join(" / ")}. Save with setAnswer("${s.answerKey}", option).`
+      : `${s.kind}: "${s.title}" ${s.body}`,
+  ),
+)}
+- A progress indicator, a primary button pinned at the bottom (inside the safe area), Back on steps after the first, and Skip in the top corner that finishes onboarding.
+- Question options are large tappable rows with the selected one clearly marked; the button stays disabled until one is chosen.
+- The last step's button calls completeOnboarding() from useAppState(): it opens the app (and the paywall) by itself.
+- Speak to ${audience}: specific, warm and short. No "Welcome to ${plan.appName}" heading and no fake app screenshots.`;
+  }
+  if (screen.role === "paywall") {
+    return `This is the paywall, shown as a modal right after onboarding and when someone taps a locked premium feature.
+- A close button in the top corner (Ionicons "close", accessibilityLabel "Close") that calls dismissPaywall(). Always visible.
+- A headline about the outcome for ${audience}, then what premium unlocks as a short checklist:
+${bullet(features)}
+- usePurchases().offers as selectable cards, with defaultOfferId selected at first: label, price per period ("$29.99 / year"), the free trial if trialDays > 0 ("7-day free trial") and the badge. What is billed, and when, must be obvious.
+- One primary button: "Start free trial" when the selected offer has a trial, otherwise "Continue". It calls purchase(selectedId), shows progress while status is "purchasing", and calls dismissPaywall() when it resolves true.
+- "Restore Purchases" calling restorePurchases(), showing the outcome (or usePurchases().error) on screen.
+- Small print: "Renews automatically at <price>/<period> unless canceled at least 24 hours before the end of the period. Cancel anytime in your App Store or Google Play settings." (lifetime offers: "One-time purchase."), then Terms of Use and Privacy Policy links from appInfo.termsUrl / appInfo.privacyUrl (hide an empty one).
+- When testMode is true, a small note: "Test mode: purchases are simulated, nothing is charged."
+- When isPremium is already true, show that they're premium (with activeOffer) instead of the offers.
+- Honest design: no fake countdowns or scarcity, no hidden or delayed close button, no pre-selected extras.`;
+  }
+  if (screen.role === "settings") {
+    return `This is Settings, a stack screen: set the title with <Stack.Screen options={{ title: "Settings" }} /> and use the navigator's header (no custom title text). Grouped sections with small uppercase headers and rows separated by hairlines, in a ScrollView:
+- Subscription: the status from usePurchases() (premium with activeOffer, or an "Upgrade to Premium" row calling openPaywall()), "Restore Purchases" (restorePurchases(), showing the outcome) and "Manage subscription" opening https://apps.apple.com/account/subscriptions on iOS or https://play.google.com/store/account/subscriptions on Android (Platform.OS, Linking.openURL).
+- Preferences that matter for this app (${screen.purpose}). Show onboarding answers (useAppState().answers${answerKeys.length ? `: ${answerKeys.join(", ")}` : ""}) with a "Change" action that calls resetOnboarding(). Use a Switch only for something that really changes the app.
+- Support and legal: Contact support (mailto:appInfo.supportEmail), Privacy Policy and Terms of Use (appInfo), each hidden when empty.
+- About: the app name and "Version " + appInfo.version.
+- "Replay onboarding" calling resetOnboarding().`;
+  }
+  const isHome = screen.path === "app/(tabs)/index.tsx";
+  const lines = [`Core loop of this app: ${plan.coreLoop || plan.summary}`];
+  if (isHome)
+    lines.push(
+      'This is the home screen: put the core action one tap away near the top, and a settings button in the top-right corner (Ionicons "settings-outline", accessibilityLabel "Settings") that opens /settings.',
+    );
+  if (features.length)
+    lines.push(
+      `Premium features (from the plan): ${features.join("; ")}. If one belongs on this screen, show it to free users with a lock badge and call openPaywall() when tapped; only usePurchases().isPremium unlocks it.`,
+    );
+  if (plan.shareMoment)
+    lines.push(
+      `Share moment: ${plan.shareMoment}. If it belongs on this screen, make it a polished card worth a screenshot with a Share button (Share.share from react-native).`,
+    );
+  if (answerKeys.length)
+    lines.push(
+      `Onboarding answers you can use to personalize this screen: useAppState().answers (${answerKeys.join(", ")}).`,
+    );
+  return lines.join("\n");
+}
+
 export function screenRequest(plan: AppPlan, screen: PlanScreen): string {
   const others = plan.screens
     .filter((s) => s.key !== screen.key)
@@ -99,6 +176,7 @@ export function screenRequest(plan: AppPlan, screen: PlanScreen): string {
     .join("\n");
   const dir = screenComponentDir(screen);
   return `App: ${plan.appName} — ${plan.summary}
+For: ${plan.audience || "(not specified)"}. Angle: ${plan.angle || "(not specified)"}
 
 Write the screen \`${screen.path}\` ("${screen.title}", ${screen.kind} screen).
 What it is for: ${screen.purpose}
@@ -106,7 +184,10 @@ What it is for: ${screen.purpose}
 Other screens in the app (link to them by their routes when it helps the user; they are being written at the same time, so don't import from them):
 ${others || "   (none)"}
 
-Write exactly one <file> block for ${screen.path}. You may add one more <file> block for a new component this screen needs, in ${dir} (for example ${dir}Row.tsx); reuse the shared components in components/ where they fit, and don't change them. Make it look polished: clear hierarchy, generous spacing, cards, and empty states.`;
+${roleGuidance(plan, screen)}
+
+Write exactly one <file> block for ${screen.path}. You may add one more <file> block for a new component this screen needs, in ${dir} (for example ${dir}Row.tsx); reuse the shared components in components/ where they fit, and don't change them.
+Craft: one clear primary action, hierarchy through size and weight rather than more cards, spacing from theme.spacing (tight inside a group, wider between groups), loading, empty and content states, and specific copy for ${plan.audience || "this audience"}.`;
 }
 
 export function editRequest(input: {

@@ -1,5 +1,6 @@
 import type { Node } from "@babel/types";
 import { DATA_LAYER_ONLY_MODULES, IMPORTABLE_MODULES } from "./allowed";
+import { STRUCTURE_SCREENS } from "./app-structure";
 import {
   GENERATED_ROOTS,
   REQUIRED_GENERATED_FILES,
@@ -195,6 +196,72 @@ export function validateProject(files: ProjectFiles): Issue[] {
   for (const [path, source] of Object.entries(files)) {
     issues.push(...validateFile(path, source, { paths }));
   }
+  issues.push(...validateStructureScreens(files));
+  return issues;
+}
+
+/**
+ * The structure screens must do their job when they exist (an app may drop one): onboarding
+ * finishes through completeOnboarding(), and the paywall can buy, restore and be closed.
+ */
+export function validateStructureScreens(files: ProjectFiles): Issue[] {
+  const issues: Issue[] = [];
+  const need = (
+    path: string,
+    pattern: RegExp,
+    rule: string,
+    message: string,
+    severity: Severity = "error",
+  ) => {
+    const source = files[path];
+    if (source !== undefined && !pattern.test(source))
+      issues.push({ path, rule, severity, message });
+  };
+  need(
+    STRUCTURE_SCREENS.onboarding,
+    /\bcompleteOnboarding\b/,
+    "structure/onboarding-complete",
+    "Onboarding must finish by calling completeOnboarding() from useAppState() (data/app-state).",
+  );
+  need(
+    STRUCTURE_SCREENS.paywall,
+    /\bpurchase\b/,
+    "structure/paywall-purchase",
+    "The paywall must let people buy: call purchase(offerId) from usePurchases() (data/purchases).",
+  );
+  need(
+    STRUCTURE_SCREENS.paywall,
+    /\brestorePurchases\b/,
+    "structure/paywall-restore",
+    "The paywall must have a Restore Purchases action: restorePurchases() from usePurchases().",
+  );
+  need(
+    STRUCTURE_SCREENS.paywall,
+    /\bdismissPaywall\b/,
+    "structure/paywall-close",
+    "The paywall must be closable: a close button that calls dismissPaywall() from usePurchases().",
+  );
+  need(
+    STRUCTURE_SCREENS.paywall,
+    /\b(privacyUrl|termsUrl)\b/,
+    "structure/paywall-legal",
+    "Show Terms and Privacy links on the paywall (appInfo.termsUrl and appInfo.privacyUrl).",
+    "warning",
+  );
+  need(
+    STRUCTURE_SCREENS.settings,
+    /\brestorePurchases\b/,
+    "structure/settings-restore",
+    "Settings should show the subscription status with a Restore Purchases action.",
+    "warning",
+  );
+  need(
+    STRUCTURE_SCREENS.settings,
+    /\bappInfo\b/,
+    "structure/settings-info",
+    "Settings should link support, privacy and terms and show the version (appInfo).",
+    "warning",
+  );
   return issues;
 }
 
