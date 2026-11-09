@@ -143,7 +143,7 @@ image-fetch DNS pinning:
 |---------|-----------------|--------|
 | AI generation with Claude | `ANTHROPIC_API_KEY` | Built and unit-tested, never run live; quality untuned |
 | Building from Claude / ChatGPT / Cursor (MCP) | A deployed https URL, and a Claude or ChatGPT account | The full OAuth + MCP flow is tested with a scripted client; not yet connected from Claude.ai, ChatGPT or Cursor (custom connectors are beta, and passing ChatGPT-generated images to tools is reported to be unreliable) |
-| Production hosting | Two hostnames, Postgres, TLS ([06-deploy.md](06-deploy.md)) | Docker stack verified locally; not deployed |
+| Production hosting | A Railway account ([06-deploy.md](06-deploy.md)) | Deployed on Railway (web, preview, worker, Postgres, bucket) and checked in a real browser: sign-up, build, live preview on its own domain, OAuth discovery and the MCP sign-in challenge over https |
 | Verification emails | `RESEND_API_KEY`, `EMAIL_FROM` | Built; sends never run against Resend |
 | AI images | `IMAGEKIT_URL_ENDPOINT` | URL format from ImageKit's docs; never run against ImageKit |
 | Google / GitHub sign-in | OAuth client IDs and secrets | Wired through Better Auth, untested |

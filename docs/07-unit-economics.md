@@ -51,9 +51,18 @@ Railway bills per second: $20 per vCPU-month, $10 per GB of RAM per month, $0.05
 egress, $0.15 per GB-month of volume and $0.015 per GB-month of bucket storage. The plan fee
 ($5 Hobby, $20 Pro) is credited against usage.
 
-**Fixed:** four services always on (web, preview, worker, Postgres) at idle use about 1 GB of
-RAM and little CPU. That is roughly $10 to $15 a month, inside the Pro plan's $20 of included
-usage. One Studio subscriber covers it.
+**Fixed:** measured on the Railway deployment at idle (November 2026):
+
+| Service | RAM | CPU |
+|---|---:|---:|
+| web | 0.16 GB | ~0.01 vCPU |
+| worker | 0.12 GB | <0.01 vCPU |
+| Postgres | 0.06 to 0.09 GB | <0.01 vCPU |
+| preview | 0.08 GB | <0.01 vCPU |
+
+Total: about 0.42 GB of RAM ($4.20), a few cents of CPU, and a 0.9 GB volume ($0.13).
+That is about $4.50 a month, inside the Hobby plan's $5 of included usage. Under real traffic,
+expect $10 to $20 a month (Next.js grows to 0.3 to 0.5 GB). One Studio subscriber covers it.
 
 **Per active user:** storage and egress are small:
 - Database rows and images cost under $0.01.
