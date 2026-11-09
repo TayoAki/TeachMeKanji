@@ -7,6 +7,8 @@ import {
   InsufficientCredits,
   LimitReached,
   projectAccess,
+  RunInProgress,
+  VersionConflict,
   type Access,
   type Viewer,
 } from "@appbuilder/core";
@@ -79,6 +81,9 @@ export function route<Args extends unknown[]>(handler: (...args: Args) => Promis
           },
           { status: 402 },
         );
+      }
+      if (error instanceof RunInProgress || error instanceof VersionConflict) {
+        return NextResponse.json({ error: error.message, code: "conflict" }, { status: 409 });
       }
       if (error instanceof LimitReached)
         return NextResponse.json({ error: error.message, code: "limit" }, { status: 403 });

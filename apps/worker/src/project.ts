@@ -27,3 +27,31 @@ export async function materialize(files: ProjectFiles, dir: string): Promise<voi
     await writeFile(target, contents);
   }
 }
+
+/**
+ * Environment for child processes (npm, Expo CLI, EAS CLI): what they need to run and reach
+ * the network, never the worker's secrets (database URL, encryption key, API keys).
+ */
+export function childEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
+  const keep = [
+    "PATH",
+    "HOME",
+    "USER",
+    "LANG",
+    "TMPDIR",
+    "SHELL",
+    "TERM",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "NO_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "no_proxy",
+    "NODE_EXTRA_CA_CERTS",
+    "SSL_CERT_FILE",
+    "npm_config_cache",
+  ];
+  const env: NodeJS.ProcessEnv = {};
+  for (const key of keep) if (process.env[key] !== undefined) env[key] = process.env[key];
+  return { ...env, ...extra };
+}

@@ -47,13 +47,16 @@ This page says exactly what was verified here and what still needs real credenti
   list the app in the community gallery, where anyone can try it or remix a copy.
 - **Plans and credits:** Free (2 projects, 5 screens per app) and Pro (unlimited projects, 12
   screens, native builds, monthly credits) via Stripe Checkout, the customer portal and webhooks.
-  Runs reserve credits, are charged by measured token usage, and are refunded if they fail.
+  Each run reserves credits, which are also its spending cap: the worker stops a run when its
+  measured model cost reaches the reserve. A run is charged its measured cost (at least a small
+  minimum when it succeeds, never more than its reserve). Failed or cancelled runs pay only for
+  the model usage they consumed, and nothing if they never reached the model.
 
 ## How it's verified
 
 | Check | Result |
 |-------|--------|
-| Unit and integration tests (Vitest, 44 tests) | ✅ contract rules, inline-edit write-back, route model, the agent pipeline, GitHub push sequence (mocked API), credits/versions/run-queue/permissions against real Postgres (including concurrent credit reservations and exactly-once run claiming) |
+| Unit and integration tests (Vitest, 48 tests) | ✅ contract rules, inline-edit write-back, route model, the agent pipeline, GitHub push sequence (mocked API), credits/versions/run-queue/permissions against real Postgres (including concurrent credit reservations and exactly-once run claiming) |
 | End-to-end (Playwright, 10 tests) | ✅ landing → sign-up → plan → revise → build → navigate → chat edit → theme → inspector edit → computed-text guard → restore → code → zip → publish → public page → community; sharing (stranger 404, editor edits, can't publish); free-plan limits |
 | Phone preview through the UI | ✅ QR ready in 36 s on first use (one-time SDK install); the dev server serves an `exposdk:58.0.0` manifest and compiles the generated app (6.4 MB bundle) |
 | Lint, typecheck (all workspaces), production build | ✅ |
@@ -64,6 +67,31 @@ requests in the same formats, so everything except the model itself (jobs, valid
 versions, credits, preview, export, publishing) ran for real. The Claude path
 (`apps/worker/src/generation/client.ts`) is covered by unit tests with a fake client but has
 **not been run live**.
+
+## Security review
+
+An independent review of the server code (permissions on every route, credits, billing,
+uploads, the worker's file and process handling) found these issues. All are fixed and covered
+by tests:
+
+| Finding | Fix |
+|---------|-----|
+| A generated file path like `components/../app.config.ts` could escape the project folder when the worker writes files for phone previews or builds (and `app.config.ts` runs on the worker) | The validator rejects unsafe paths, and the worker refuses to write outside its folder; `require()` and dynamic `import()` are rejected too |
+| Runs could cost more than they reserved, pushing balances negative | Charges are capped at the reserve, and the worker stops a run when its cost reaches it |
+| Cancelling a build after its screens streamed back refunded everything | Failed and cancelled runs pay their measured usage |
+| Stripe `invoice.paid` arriving before checkout completion dropped the first month's credits | The user is found from the subscription's metadata, and Stripe retries otherwise; credits are granted only for new and renewal invoices |
+| A run that crashed the worker 3 times stayed "running" forever, locking the project | A reaper fails abandoned runs and releases their credits |
+| Remixing a public app copied its private prompt and plan | Public remixes copy only the files |
+| Child processes inherited the worker's secrets, and `eas-cli@latest` ran unpinned | Child processes get a minimal environment; eas-cli is pinned |
+| Phone-preview startup blocked the job queue | It runs in the background |
+| Two concurrent chat messages could start two edits; concurrent inspector edits could overwrite each other | One agent run per project is enforced in the database; inspector edits fail with a conflict instead of overwriting |
+
+**Still open (by design until Phase 13):**
+
+- Sharing is keyed on email, and email verification isn't required yet. Someone who signs up
+  first with an invited address gets that project. Turn on email verification before launch.
+- Phone-preview dev servers are local processes, so run them on one worker
+  (`DEVICE_PREVIEW_ENABLED=0` on the others).
 
 ## What needs your accounts (not verified here)
 

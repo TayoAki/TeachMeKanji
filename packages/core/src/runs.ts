@@ -1,6 +1,6 @@
-import { and, asc, desc, eq, gt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, lt, sql } from "drizzle-orm";
 import { schema, type Database } from "@appbuilder/db";
-import { creditsForCost, costUsd, RUN_CREDITS, type TokenUsage } from "./billing";
+import { chargeForRun, costUsd, RUN_CREDITS, type TokenUsage } from "./billing";
 import { reserveCredits, settleCredits } from "./credits";
 import { newId } from "./ids";
 
@@ -13,13 +13,41 @@ export type RunEvent = typeof runEvent.$inferSelect;
 const STALE_AFTER = "2 minutes";
 const MAX_ATTEMPTS = 3;
 
-/** Create a queued run and reserve its credits in one transaction. */
+/** Agent runs change the project's files, so a project has at most one at a time. */
+export const AGENT_RUN_KINDS: ReadonlyArray<Run["kind"]> = ["plan", "build", "edit"];
+
+export class RunInProgress extends Error {
+  constructor() {
+    super("Wait for the current step to finish.");
+  }
+}
+
+/**
+ * Create a queued run and reserve its credits in one transaction. For agent runs, the
+ * "one active run per project" rule is checked under a per-project lock, so two concurrent
+ * requests can't both start one.
+ */
 export async function enqueueRun(
   db: Database,
   input: { projectId: string; userId: string; kind: Run["kind"]; input?: Record<string, unknown> },
 ): Promise<Run> {
   const reserve = RUN_CREDITS[input.kind]?.reserve ?? 0;
   return db.transaction(async (tx) => {
+    if (AGENT_RUN_KINDS.includes(input.kind)) {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"runs:" + input.projectId}))`);
+      const [busy] = await tx
+        .select({ id: agentRun.id })
+        .from(agentRun)
+        .where(
+          and(
+            eq(agentRun.projectId, input.projectId),
+            inArray(agentRun.status, ["queued", "running"]),
+            inArray(agentRun.kind, [...AGENT_RUN_KINDS]),
+          ),
+        )
+        .limit(1);
+      if (busy) throw new RunInProgress();
+    }
     const id = newId("run");
     await reserveCredits(tx, input.userId, id, reserve);
     const [run] = await tx
@@ -56,6 +84,7 @@ export async function claimNextRun(db: Database, kinds?: Run["kind"][]): Promise
       select id from agent_run
       where (status = 'queued' or (status = 'running' and heartbeat_at < now() - ${sql.raw(`interval '${STALE_AFTER}'`)}))
         and attempts < ${MAX_ATTEMPTS}
+        and cancel_requested = 0
         ${kindFilter}
       order by created_at
       limit 1
@@ -66,6 +95,34 @@ export async function claimNextRun(db: Database, kinds?: Run["kind"][]): Promise
   if (!id) return null;
   const [run] = await db.select().from(agentRun).where(eq(agentRun.id, id));
   return run ?? null;
+}
+
+/**
+ * Fail runs nobody will pick up again: abandoned after the last allowed attempt, or
+ * abandoned while a cancel was pending. Releases their credits and unblocks the project.
+ */
+export async function reapAbandonedRuns(db: Database): Promise<Run[]> {
+  const stale = await db
+    .select()
+    .from(agentRun)
+    .where(
+      and(
+        eq(agentRun.status, "running"),
+        lt(agentRun.heartbeatAt, sql`now() - ${sql.raw(`interval '${STALE_AFTER}'`)}`),
+        sql`(${agentRun.attempts} >= ${MAX_ATTEMPTS} or ${agentRun.cancelRequested} > 0)`,
+      ),
+    );
+  for (const run of stale) {
+    await failRun(
+      db,
+      run,
+      run.cancelRequested > 0
+        ? "Cancelled"
+        : "The worker stopped during this step. Please try again.",
+      run.cancelRequested > 0 ? "cancelled" : "failed",
+    );
+  }
+  return stale;
 }
 
 export async function heartbeat(
@@ -118,8 +175,8 @@ export async function activeRun(db: Database, projectId: string): Promise<Run | 
     .where(
       and(
         eq(agentRun.projectId, projectId),
-        sql`${agentRun.status} in ('queued', 'running')`,
-        sql`${agentRun.kind} in ('plan', 'build', 'edit')`,
+        inArray(agentRun.status, ["queued", "running"]),
+        inArray(agentRun.kind, [...AGENT_RUN_KINDS]),
       ),
     )
     .orderBy(desc(agentRun.createdAt))
@@ -127,17 +184,26 @@ export async function activeRun(db: Database, projectId: string): Promise<Run | 
   return run ?? null;
 }
 
-export interface RunResult {
-  output?: Record<string, unknown>;
+export interface RunUsage {
   model?: string;
   usage?: TokenUsage;
 }
 
-/** Mark a run succeeded and settle its credits from measured usage. */
-export async function completeRun(db: Database, run: Run, result: RunResult): Promise<Run> {
-  const usage = result.usage ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
-  const cost = result.model ? costUsd(result.model, usage) : null;
-  const charge = creditsForCost(run.kind, cost);
+const NO_USAGE: TokenUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+
+/** Mark a run succeeded and settle its credits from measured usage (never above the reserve). */
+export async function completeRun(
+  db: Database,
+  run: Run,
+  result: RunUsage & { output?: Record<string, unknown> },
+): Promise<Run> {
+  const usage = result.usage ?? NO_USAGE;
+  const charge = chargeForRun(
+    run.kind,
+    run.creditsReserved,
+    result.model ? costUsd(result.model, usage) : null,
+    "succeeded",
+  );
   await settleCredits(db, run.userId, run.id, run.creditsReserved, charge);
   const [updated] = await db
     .update(agentRun)
@@ -158,27 +224,43 @@ export async function completeRun(db: Database, run: Run, result: RunResult): Pr
   return updated!;
 }
 
-/** Mark a run failed (or cancelled) and give back its reservation: failures are free. */
+/**
+ * Mark a run failed or cancelled. It pays only for the model usage it actually consumed (no
+ * minimum, never above the reserve); a run that never reached the model is free.
+ */
 export async function failRun(
   db: Database,
   run: Run,
   error: string,
   status: "failed" | "cancelled" = "failed",
-  usage?: { model?: string; usage?: TokenUsage },
+  result: RunUsage = {},
 ): Promise<void> {
-  await settleCredits(db, run.userId, run.id, run.creditsReserved, 0);
+  const usage = result.usage ?? NO_USAGE;
+  const charge = chargeForRun(
+    run.kind,
+    run.creditsReserved,
+    result.model ? costUsd(result.model, usage) : null,
+    "failed",
+  );
+  await settleCredits(db, run.userId, run.id, run.creditsReserved, charge);
   await db
     .update(agentRun)
     .set({
       status,
       error,
       finishedAt: new Date(),
-      model: usage?.model,
-      tokensIn: usage?.usage?.input ?? 0,
-      tokensOut: usage?.usage?.output ?? 0,
+      model: result.model,
+      tokensIn: usage.input,
+      tokensOut: usage.output,
+      cacheReadTokens: usage.cacheRead,
+      cacheWriteTokens: usage.cacheWrite,
+      creditsCharged: charge,
     })
     .where(eq(agentRun.id, run.id));
-  await addEvent(db, run.id, status === "cancelled" ? "cancelled" : "error", { message: error });
+  await addEvent(db, run.id, status === "cancelled" ? "cancelled" : "error", {
+    message: error,
+    credits: charge,
+  });
 }
 
 export async function requestCancel(db: Database, runId: string): Promise<void> {

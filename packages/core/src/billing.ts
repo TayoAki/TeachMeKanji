@@ -38,20 +38,43 @@ export const PLANS: Record<PlanId, PlanLimits> = {
   },
 };
 
-/** Credits reserved when a run starts (released when it settles) and the minimum charge. */
+/**
+ * Credits reserved when a run starts (released when it settles) and the minimum charge for a
+ * successful run. The reserve is also the run's budget: the worker stops a run whose measured
+ * cost reaches it, and a run is never charged more than it reserved.
+ */
 export const RUN_CREDITS: Record<string, { reserve: number; minimum: number }> = {
   plan: { reserve: 6, minimum: 1 },
-  build: { reserve: 40, minimum: 8 },
+  build: { reserve: 60, minimum: 8 },
   edit: { reserve: 12, minimum: 2 },
   device_preview: { reserve: 0, minimum: 0 },
   github_push: { reserve: 0, minimum: 0 },
   native_build: { reserve: 0, minimum: 0 },
 };
 
-export function creditsForCost(kind: string, costUsd: number | null): number {
-  const rule = RUN_CREDITS[kind] ?? { reserve: 0, minimum: 0 };
-  const measured = costUsd === null ? 0 : Math.ceil(costUsd / CREDIT_USD);
-  return Math.max(rule.minimum, measured);
+/** Credits for a measured cost, before minimums and caps. */
+export function creditsForCost(costUsd: number | null): number {
+  return costUsd === null ? 0 : Math.ceil(costUsd / CREDIT_USD);
+}
+
+/**
+ * What a finished run pays: its measured cost in credits, at least the kind's minimum when it
+ * succeeded (failures pay only what they used), and never more than it reserved.
+ */
+export function chargeForRun(
+  kind: string,
+  reserved: number,
+  costUsd: number | null,
+  outcome: "succeeded" | "failed",
+): number {
+  const minimum = outcome === "succeeded" ? (RUN_CREDITS[kind]?.minimum ?? 0) : 0;
+  const cap = Math.max(reserved, minimum);
+  return Math.min(cap, Math.max(minimum, creditsForCost(costUsd)));
+}
+
+/** The model-cost budget (USD) for a run: its reserve. */
+export function runBudgetUsd(reserved: number): number {
+  return reserved * CREDIT_USD;
 }
 
 /** List prices per million tokens (USD), as of 2026-10. Verify before billing on them. */

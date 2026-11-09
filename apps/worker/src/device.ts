@@ -15,7 +15,7 @@ import { join } from "node:path";
 import { eq, lt, or } from "drizzle-orm";
 import { dataDir, exportBundle, getCurrentFiles } from "@appbuilder/core";
 import { schema, type Database } from "@appbuilder/db";
-import { materialize } from "./project";
+import { childEnv, materialize } from "./project";
 
 const IDLE_MINUTES = Number(process.env.DEVICE_PREVIEW_IDLE_MINUTES ?? 15);
 
@@ -48,7 +48,7 @@ function run(
   command: string,
   args: string[],
   cwd: string,
-  env: NodeJS.ProcessEnv = process.env,
+  env: NodeJS.ProcessEnv = childEnv(),
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd, env });
@@ -143,7 +143,7 @@ export class DeviceManager {
         ["expo", "start", "--port", String(port), tunnel ? "--tunnel" : "--lan"],
         {
           cwd: dir,
-          env: { ...process.env, EXPO_NO_TELEMETRY: "1", BROWSER: "none", CI: undefined },
+          env: childEnv({ EXPO_NO_TELEMETRY: "1", BROWSER: "none" }),
           stdio: ["ignore", "pipe", "pipe"],
         },
       );

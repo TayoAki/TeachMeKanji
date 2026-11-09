@@ -13,15 +13,18 @@ import { dataDir, exportBundle, getCurrentFiles, PLANS, userPlan } from "@appbui
 import { schema } from "@appbuilder/db";
 import { AgentError } from "../agents/agents";
 import { ensureRuntime } from "../device";
-import { materialize } from "../project";
+import { childEnv, materialize } from "../project";
 import type { HandlerContext, HandlerResult } from "./context";
 import { integrationToken } from "./github";
 
+/** Pinned so a compromised or breaking "latest" release can't run with the user's token. */
+const EAS_CLI = "eas-cli@27.5.0";
+
 function eas(args: string[], cwd: string, token: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = spawn("npx", ["--yes", "eas-cli@latest", ...args], {
+    const child = spawn("npx", ["--yes", EAS_CLI, ...args], {
       cwd,
-      env: { ...process.env, EXPO_TOKEN: token, EAS_NO_VCS: "1", CI: "1" },
+      env: childEnv({ EXPO_TOKEN: token, EAS_NO_VCS: "1", CI: "1" }),
     });
     let out = "";
     child.stdout.on("data", (d) => (out += d));

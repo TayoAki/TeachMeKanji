@@ -42,6 +42,8 @@ export const POST = route(
       kind: "inline_edit",
       summary: `Edited ${target.path.replace(/^app\//, "")} in the inspector`,
       createdBy: viewer!.id,
+      // Two people editing at once: the second commit fails instead of overwriting the first.
+      expectedParentId: versionId,
     });
     return NextResponse.json({ versionId: version.id, number: version.number });
   },

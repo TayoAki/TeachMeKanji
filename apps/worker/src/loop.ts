@@ -7,6 +7,8 @@ import {
   failRun,
   heartbeat,
   latestPlan,
+  reapAbandonedRuns,
+  runBudgetUsd,
   updateProject,
   type Run,
 } from "@appbuilder/core";
@@ -18,7 +20,7 @@ import { handleBuild, handleEdit, handlePlan } from "./handlers/agent-runs";
 import type { HandlerContext, HandlerResult } from "./handlers/context";
 import { handleGitHubPush } from "./handlers/github";
 import { handleNativeBuild } from "./handlers/native-build";
-import { Cancelled, cancellable, getProvider, type Provider } from "./llm";
+import { Cancelled, cancellable, getProvider, metered, type Provider } from "./llm";
 
 const HANDLERS: Record<Run["kind"], (ctx: HandlerContext) => Promise<HandlerResult>> = {
   plan: handlePlan,
@@ -65,10 +67,15 @@ export async function processRun(db: Database, run: Run, provider: Provider): Pr
       .catch(() => {});
   }, 5_000);
 
+  const meter = metered(
+    cancellable(provider.createMessage, () => cancelled),
+    provider.model,
+    runBudgetUsd(run.creditsReserved),
+  );
   const ctx: HandlerContext = {
     db,
     run,
-    createMessage: cancellable(provider.createMessage, () => cancelled),
+    createMessage: meter.createMessage,
     model: provider.model,
     offline: provider.offline,
     emit: (type, payload) => addEvent(db, run.id, type, payload),
@@ -80,7 +87,7 @@ export async function processRun(db: Database, run: Run, provider: Provider): Pr
     await completeRun(db, run, {
       output: result.output,
       model: provider.model,
-      usage: result.usage,
+      usage: meter.usage(),
     });
   } catch (error) {
     if (!(
@@ -91,11 +98,16 @@ export async function processRun(db: Database, run: Run, provider: Provider): Pr
       console.error(`run ${run.id} (${run.kind}) failed`, error);
     }
     const message = userMessage(error);
+    // Failed and cancelled runs pay for the model usage they consumed (never above the reserve).
     await failRun(
       db,
       run,
       error instanceof AgentError ? error.message : message,
       cancelled ? "cancelled" : "failed",
+      {
+        model: provider.model,
+        usage: meter.usage(),
+      },
     );
     if (AGENT_KINDS.has(run.kind)) {
       await restoreStatus(db, run);
@@ -122,6 +134,9 @@ export async function runWorker(
     `worker: started (${provider.offline ? "OFFLINE template generator" : `model ${provider.model}`})`,
   );
   let lastDeviceTick = 0;
+  let lastReap = 0;
+  // Only one worker should manage phone-preview dev servers (they are local processes).
+  const manageDevices = process.env.DEVICE_PREVIEW_ENABLED !== "0";
   let active = 0;
   const concurrency = Number(process.env.WORKER_CONCURRENCY ?? 4);
 
@@ -135,9 +150,14 @@ export async function runWorker(
         // Runs are independent; don't let one slow build block the queue.
         void processRun(db, run, provider).finally(() => (active -= 1));
       }
-      if (Date.now() - lastDeviceTick > 2_000) {
+      if (manageDevices && Date.now() - lastDeviceTick > 2_000) {
         lastDeviceTick = Date.now();
-        await devices.tick();
+        // Starting a dev server can take minutes; never block the run queue on it.
+        void devices.tick().catch((error) => console.error("worker: device preview error", error));
+      }
+      if (Date.now() - lastReap > 30_000) {
+        lastReap = Date.now();
+        await reapAbandonedRuns(db);
       }
     } catch (error) {
       console.error("worker: loop error", error);

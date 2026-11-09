@@ -99,6 +99,21 @@ export function validateFile(path: string, source: string, context: FileContext 
     }
   }
 
+  // require() and import() would bypass the import allow-list.
+  walk(ast, (node) => {
+    const isRequire =
+      node.type === "CallExpression" &&
+      ((node.callee.type === "Identifier" && node.callee.name === "require") ||
+        node.callee.type === "Import");
+    if (isRequire || (node.type as string) === "ImportExpression") {
+      add(
+        "imports/dynamic",
+        "Use static import statements only (no require() or import()).",
+        node.loc?.start.line,
+      );
+    }
+  });
+
   if (path !== TOKENS_FILE) {
     walk(ast, (node) => {
       if (node.type === "StringLiteral") {

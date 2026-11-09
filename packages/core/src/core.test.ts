@@ -12,9 +12,26 @@ import {
   publishProject,
   shareProject,
 } from "./projects";
-import { claimNextRun, completeRun, enqueueRun, failRun, listEvents } from "./runs";
+import { eq } from "drizzle-orm";
+import { schema } from "@appbuilder/db";
+import {
+  activeRun,
+  claimNextRun,
+  completeRun,
+  enqueueRun,
+  failRun,
+  listEvents,
+  reapAbandonedRuns,
+  RunInProgress,
+} from "./runs";
 import { makeUser, testDb } from "./test-db";
-import { commitVersion, getCurrentFiles, listVersions, restoreVersion } from "./versions";
+import {
+  commitVersion,
+  getCurrentFiles,
+  listVersions,
+  restoreVersion,
+  VersionConflict,
+} from "./versions";
 
 let handle: Awaited<ReturnType<typeof testDb>>;
 let db: Database;
@@ -36,39 +53,83 @@ describe("core (Postgres)", () => {
     await ensureSignupGrant(db, u.id);
     expect(await creditBalance(db, u.id)).toBe(100);
 
-    const p = await createProject(db, {
-      ownerId: u.id,
-      prompt: "Build me a habit tracker",
-      platforms: "both",
-    });
-    // build reserves 40: two fit, the third doesn't (100 - 80 = 20 < 40)
+    const a = await createProject(db, { ownerId: u.id, prompt: "a", platforms: "both" });
+    const b = await createProject(db, { ownerId: u.id, prompt: "b", platforms: "both" });
+    // A build reserves 60: the first fits, the second (on another project) doesn't.
     const runs = await Promise.allSettled(
-      [1, 2, 3].map(() => enqueueRun(db, { projectId: p.id, userId: u.id, kind: "build" })),
+      [a, b].map((p) => enqueueRun(db, { projectId: p.id, userId: u.id, kind: "build" })),
     );
-    expect(runs.filter((r) => r.status === "fulfilled")).toHaveLength(2);
+    expect(runs.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     const rejected = runs.find((r) => r.status === "rejected") as PromiseRejectedResult;
     expect(rejected.reason).toBeInstanceOf(InsufficientCredits);
-    expect(await creditBalance(db, u.id)).toBe(20);
+    expect(await creditBalance(db, u.id)).toBe(40);
   });
 
-  it("settles a run at its measured cost and refunds failures", async () => {
+  it("allows one agent run per project, even under concurrent requests", async () => {
     const u = await makeUser(db);
     await ensureSignupGrant(db, u.id);
     const p = await createProject(db, { ownerId: u.id, prompt: "x", platforms: "both" });
-
-    const ok = await enqueueRun(db, { projectId: p.id, userId: u.id, kind: "edit" });
+    const runs = await Promise.allSettled(
+      [1, 2, 3].map(() => enqueueRun(db, { projectId: p.id, userId: u.id, kind: "edit" })),
+    );
+    expect(runs.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    for (const r of runs.filter((r) => r.status === "rejected")) {
+      expect((r as PromiseRejectedResult).reason).toBeInstanceOf(RunInProgress);
+    }
     expect(await creditBalance(db, u.id)).toBe(88);
-    // 50k in, 10k out on Opus-tier pricing = $0.40 = 8 credits
+  });
+
+  it("charges measured usage, capped at the reserve, including for failed runs", async () => {
+    const u = await makeUser(db);
+    await ensureSignupGrant(db, u.id);
+    const p = await createProject(db, { ownerId: u.id, prompt: "x", platforms: "both" });
+    const opus = "claude-opus-5-5";
+
+    // 50k in + 10k out on Opus-tier pricing = $0.40 = 8 credits.
+    const ok = await enqueueRun(db, { projectId: p.id, userId: u.id, kind: "edit" });
     await completeRun(db, ok, {
-      model: "claude-opus-5-5",
+      model: opus,
       usage: { input: 50_000, output: 10_000, cacheRead: 0, cacheWrite: 0 },
     });
     expect(await creditBalance(db, u.id)).toBe(92);
 
-    const bad = await enqueueRun(db, { projectId: p.id, userId: u.id, kind: "edit" });
-    await failRun(db, bad, "boom");
+    // A failure before any model call is free.
+    const early = await enqueueRun(db, { projectId: p.id, userId: u.id, kind: "edit" });
+    await failRun(db, early, "boom");
     expect(await creditBalance(db, u.id)).toBe(92);
-    expect((await listEvents(db, bad.id)).map((e) => e.type)).toEqual(["queued", "error"]);
+    expect((await listEvents(db, early.id)).map((e) => e.type)).toEqual(["queued", "error"]);
+
+    // A cancelled run pays for what it used: 10k output = $0.20 = 4 credits.
+    const cancelled = await enqueueRun(db, { projectId: p.id, userId: u.id, kind: "edit" });
+    await failRun(db, cancelled, "Cancelled", "cancelled", {
+      model: opus,
+      usage: { input: 0, output: 10_000, cacheRead: 0, cacheWrite: 0 },
+    });
+    expect(await creditBalance(db, u.id)).toBe(88);
+
+    // Never more than the reserve (12 for an edit), however expensive the run was.
+    const huge = await enqueueRun(db, { projectId: p.id, userId: u.id, kind: "edit" });
+    await completeRun(db, huge, {
+      model: opus,
+      usage: { input: 0, output: 5_000_000, cacheRead: 0, cacheWrite: 0 },
+    });
+    expect(await creditBalance(db, u.id)).toBe(76);
+  });
+
+  it("reaps runs abandoned after the last attempt and unblocks the project", async () => {
+    const u = await makeUser(db);
+    await ensureSignupGrant(db, u.id);
+    const p = await createProject(db, { ownerId: u.id, prompt: "x", platforms: "both" });
+    const run = await enqueueRun(db, { projectId: p.id, userId: u.id, kind: "edit" });
+    await db
+      .update(schema.agentRun)
+      .set({ status: "running", attempts: 3, heartbeatAt: new Date(Date.now() - 10 * 60_000) })
+      .where(eq(schema.agentRun.id, run.id));
+    expect(await activeRun(db, p.id)).not.toBeNull();
+    const reaped = await reapAbandonedRuns(db);
+    expect(reaped.map((r) => r.id)).toContain(run.id);
+    expect(await activeRun(db, p.id)).toBeNull();
+    expect(await creditBalance(db, u.id)).toBe(100);
   });
 
   it("claims each queued run exactly once across concurrent workers", async () => {
@@ -118,10 +179,28 @@ describe("core (Postgres)", () => {
       "generate",
     ]);
 
+    await expect(
+      commitVersion(db, {
+        projectId: p.id,
+        files: {},
+        kind: "inline_edit",
+        summary: "stale",
+        expectedParentId: v1.id,
+      }),
+    ).rejects.toBeInstanceOf(VersionConflict);
+
     const { project: fresh } = (await projectAccess(db, p.id, { id: u.id, email: u.email }))!;
     const copy = await duplicateProject(db, fresh, other.id);
     expect(copy.ownerId).toBe(other.id);
     expect((await getCurrentFiles(db, copy.id)).files).toEqual({ "a.ts": "1", "b.ts": "same" });
+    expect(copy.prompt).toBe("x");
+
+    // A public visitor's remix gets the files but not the private prompt.
+    const remix = await duplicateProject(db, fresh, (await makeUser(db)).id, {
+      includePrivate: false,
+    });
+    expect(remix.prompt).toBe(`Remix of “${fresh.name}”`);
+    expect((await getCurrentFiles(db, remix.id)).files).toEqual({ "a.ts": "1", "b.ts": "same" });
   });
 
   it("decides access for owner, members, public visitors and strangers", async () => {

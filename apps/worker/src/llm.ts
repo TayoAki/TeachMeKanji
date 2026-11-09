@@ -1,4 +1,6 @@
-import { anthropicCreateMessage, type CreateMessage } from "./generation/client";
+import { costUsd, type TokenUsage } from "@appbuilder/core";
+import { AgentError } from "./agents/agents";
+import { addUsage, anthropicCreateMessage, type CreateMessage } from "./generation/client";
 import { FAKE_MODEL, fakeCreateMessage } from "./generation/fake-provider";
 
 export class Cancelled extends Error {
@@ -39,4 +41,26 @@ export function cancellable(
     if (isCancelled()) throw new Cancelled();
     return result;
   };
+}
+
+export class BudgetExceeded extends AgentError {
+  constructor() {
+    super("This step reached its credit limit and was stopped. Try a smaller change.");
+  }
+}
+
+/**
+ * Meter every model call of a run (the source of truth for what the run is charged, whether
+ * it succeeds, fails or is cancelled) and stop the run once its cost reaches its budget.
+ */
+export function metered(createMessage: CreateMessage, model: string, budgetUsd: number) {
+  let usage: TokenUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+  const wrapped: CreateMessage = async (params) => {
+    const spent = costUsd(model, usage);
+    if (spent !== null && spent >= budgetUsd) throw new BudgetExceeded();
+    const response = await createMessage(params);
+    usage = addUsage(usage, response);
+    return response;
+  };
+  return { createMessage: wrapped, usage: () => usage };
 }

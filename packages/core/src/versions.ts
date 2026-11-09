@@ -8,6 +8,12 @@ const { blob, project, projectVersion, versionFile } = schema;
 
 export type Version = typeof projectVersion.$inferSelect;
 
+export class VersionConflict extends Error {
+  constructor() {
+    super("The app changed since you started this edit. Select the element again.");
+  }
+}
+
 /**
  * Commit a full snapshot of a project's files as a new immutable version and make it current.
  * Files are stored content-addressed, so unchanged files cost nothing.
@@ -21,6 +27,8 @@ export async function commitVersion(
     summary: string;
     runId?: string;
     createdBy?: string;
+    /** If set, commit only if this is still the project's current version. */
+    expectedParentId?: string;
   },
 ): Promise<Version> {
   return db.transaction(async (tx) => {
@@ -48,6 +56,12 @@ export async function commitVersion(
       .select({ currentVersionId: project.currentVersionId })
       .from(project)
       .where(eq(project.id, input.projectId));
+    if (
+      input.expectedParentId !== undefined &&
+      current?.currentVersionId !== input.expectedParentId
+    ) {
+      throw new VersionConflict();
+    }
     const [last] = await tx
       .select({ number: projectVersion.number })
       .from(projectVersion)

@@ -58,8 +58,27 @@ export const POST = route(async (request: Request) => {
       const invoice = event.data.object;
       const customer =
         typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
-      const userId = customer ? await userForCustomer(customer) : null;
-      if (userId) {
+      // Stripe doesn't order events: this can arrive before checkout.session.completed, so
+      // find the user from the subscription's metadata first.
+      const fromMetadata = invoice.parent?.subscription_details?.metadata?.userId;
+      const userId = fromMetadata ?? (customer ? await userForCustomer(customer) : null);
+      if (!userId) {
+        // Not ours yet: a 5xx makes Stripe retry later instead of dropping the grant.
+        throw new HttpError(503, "Subscriber not known yet.");
+      }
+      const periodEnd = invoice.lines?.data?.[0]?.period?.end;
+      await setPlan(userId, {
+        plan: "pro",
+        status: "active",
+        ...(customer ? { stripeCustomerId: customer } : {}),
+        ...(periodEnd ? { currentPeriodEnd: new Date(periodEnd * 1000) } : {}),
+      });
+      // Monthly credits only for the first invoice and renewals (not prorations or manual
+      // invoices); the invoice id makes the grant idempotent.
+      if (
+        invoice.billing_reason === "subscription_create" ||
+        invoice.billing_reason === "subscription_cycle"
+      ) {
         await grantCredits(
           db(),
           userId,
@@ -68,13 +87,6 @@ export const POST = route(async (request: Request) => {
           `invoice:${invoice.id}`,
           "Pro monthly credits",
         );
-        const periodEnd = invoice.lines?.data?.[0]?.period?.end;
-        if (periodEnd)
-          await setPlan(userId, {
-            currentPeriodEnd: new Date(periodEnd * 1000),
-            status: "active",
-            plan: "pro",
-          });
       }
       break;
     }

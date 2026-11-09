@@ -6,7 +6,9 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
  * Format: v1.<iv>.<tag>.<ciphertext> (base64url).
  */
 function key(): Buffer {
-  const secret = process.env.ENCRYPTION_KEY ?? process.env.BETTER_AUTH_SECRET;
+  const secret =
+    process.env.ENCRYPTION_KEY ??
+    (process.env.NODE_ENV === "production" ? undefined : process.env.BETTER_AUTH_SECRET);
   if (!secret) throw new Error("ENCRYPTION_KEY is not set");
   return createHash("sha256").update(`appbuilder:tokens:${secret}`).digest();
 }

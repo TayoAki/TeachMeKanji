@@ -53,6 +53,12 @@ describe("validateFile", () => {
     expect(rules("app/x.tsx", source)).toEqual(["imports/module", "imports/named"]);
   });
 
+  it("rejects require() and dynamic import()", () => {
+    const source = `const cp = require("child_process");
+      export default function S() { import("fs"); return null; }`;
+    expect(rules("app/x.tsx", source)).toEqual(["imports/dynamic", "imports/dynamic"]);
+  });
+
   it("keeps AsyncStorage inside the data layer", () => {
     const source = `import AsyncStorage from "@react-native-async-storage/async-storage";
       export default function S() { return null; }`;

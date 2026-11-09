@@ -138,16 +138,22 @@ export async function listPublicProjects(db: Database, limit = 24): Promise<Proj
 }
 
 /** Copy a project's current files into a new project owned by `ownerId` ("remix"). */
+/**
+ * Copy a project's current files into a new project for `ownerId`. A remix of someone else's
+ * public app (`includePrivate: false`) copies only what a visitor can already see: the files,
+ * not the original prompt or plan.
+ */
 export async function duplicateProject(
   db: Database,
   source: Project,
   ownerId: string,
+  options: { includePrivate: boolean } = { includePrivate: true },
 ): Promise<Project> {
   const copy = await createProject(db, {
     ownerId,
-    prompt: source.prompt,
+    prompt: options.includePrivate ? source.prompt : `Remix of “${source.name}”`,
     platforms: source.platforms,
-    name: `${source.name} (copy)`,
+    name: `${source.name} (${options.includePrivate ? "copy" : "remix"})`,
   });
   const { files } = await getCurrentFiles(db, source.id);
   if (Object.keys(files).length > 0) {
@@ -160,7 +166,7 @@ export async function duplicateProject(
     });
     await updateProject(db, copy.id, { status: "ready", activeThemeId: source.activeThemeId });
   }
-  const sourcePlan = await latestPlan(db, source.id);
+  const sourcePlan = options.includePrivate ? await latestPlan(db, source.id) : null;
   if (sourcePlan) {
     await db.insert(plan).values({
       id: newId("pl"),
