@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  ANALYTICS_CONFIG_FILE,
+  analyticsConfigFile,
   appIdentifier,
   DEFAULT_PAYMENTS,
   paymentsConfigFile,
   readAppIdentifiers,
+  readAnalyticsConfig,
   readPaymentsConfig,
   refreshTemplate,
   withAppIdentifiers,
@@ -24,6 +27,17 @@ const template = {
 };
 
 describe("platform files", () => {
+  it("writes and reads the analytics switch, and a template refresh keeps it", () => {
+    const on = { url: "https://app.example.com", projectId: "p_abc" };
+    const files = { [ANALYTICS_CONFIG_FILE]: analyticsConfigFile(on) };
+    expect(readAnalyticsConfig(files)).toEqual(on);
+    expect(readAnalyticsConfig({})).toEqual({ url: "", projectId: "" });
+    const refreshed = refreshTemplate(files, {
+      [ANALYTICS_CONFIG_FILE]: analyticsConfigFile({ url: "", projectId: "" }),
+    });
+    expect(readAnalyticsConfig(refreshed)).toEqual(on);
+  });
+
   it("older apps get the template's new dependencies and plugins, keeping their own name", () => {
     const old = {
       "package.json": JSON.stringify({

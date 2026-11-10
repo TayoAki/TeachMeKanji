@@ -9,6 +9,7 @@ import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Platform } from "react-native";
 import Purchases, { type CustomerInfo, type PurchasesPackage } from "react-native-purchases";
+import { trackSystem } from "./analytics";
 import { monetization } from "./monetization";
 import { payments } from "./payments";
 
@@ -153,6 +154,7 @@ export async function purchase(offerId: string): Promise<boolean> {
       const { customerInfo } = await Purchases.purchasePackage(pkg);
       const entitlement = entitlementFrom(customerInfo);
       update({ status: "idle", entitlement });
+      if (entitlement) trackPurchase(offer, false);
       return entitlement !== null;
     } catch (error) {
       const cancelled = (error as { userCancelled?: boolean }).userCancelled;
@@ -167,7 +169,17 @@ export async function purchase(offerId: string): Promise<boolean> {
   const entitlement = { offerId, since: new Date().toISOString() };
   await AsyncStorage.setItem(ENTITLEMENT_KEY, JSON.stringify(entitlement));
   update({ status: "idle", entitlement });
+  trackPurchase(offer, true);
   return true;
+}
+
+/** Purchases for the owner's analytics; simulated ones are marked as tests. */
+function trackPurchase(offer: Offer, simulated: boolean): void {
+  trackSystem(
+    "purchase",
+    { offer: offer.id, period: offer.period, trial: offer.trialDays > 0 },
+    simulated,
+  );
 }
 
 /** Restore earlier purchases. Resolves true when premium is active afterwards. */
@@ -191,6 +203,7 @@ export async function restorePurchases(): Promise<boolean> {
     entitlement,
     error: entitlement ? null : "No purchases to restore on this account.",
   });
+  if (entitlement) trackSystem("restore", {}, !live);
   return Boolean(entitlement);
 }
 

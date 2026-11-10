@@ -83,6 +83,18 @@ steps). This page says exactly what was verified here and what wasn't.
   charged in whole credits as it crosses each one (an answer costs about $0.0004), with 60
   answers per app user an hour, 2,000 per app a day, and a pause when the owner is out of
   credits. The Data tab shows this month's answers and credits.
+- **Analytics in the apps:** a switch in the **Analytics** tab writes the platform file
+  `data/analytics-config.ts`; the template's `data/analytics.ts` then counts app opens, screen
+  views, finished onboarding, purchases and restores by itself, and `track("name", props)` counts
+  anything the owner asks for in the chat. Events carry a random install id (no names, emails
+  or advertising ids), are batched every few seconds to `/api/app/<id>/events` (no sign-in, so it
+  works with or without App Cloud) and kept 90 days, with 50,000 events per app a day. The tab
+  shows users, new users, next-day and 7-day return, daily users, the funnel from first open
+  through onboarding and the paywall to a purchase, top screens and the app's own events. The
+  preview, Expo Go, development builds and simulated purchases are marked as test events: the
+  tab says how many arrived (proof tracking works) but doesn't count them. It's free, and the
+  tab reminds the owner to declare usage data in the stores' privacy forms. Revenue in money
+  (from RevenueCat) isn't shown yet.
 - **Light and dark in the apps:** each app follows the phone's appearance, using the chosen
   theme's light or dark partner (the nearest theme of the other kind), and Settings has an
   Appearance row (System, Light, Dark) saved on the device. The workspace's Light / Night

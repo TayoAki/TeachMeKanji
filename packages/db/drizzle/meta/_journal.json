@@ -85,6 +85,13 @@
       "when": 1794287389366,
       "tag": "0011_app_ai_usage",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794293375874,
+      "tag": "0012_app_analytics",
+      "breakpoints": true
     }
   ]
 }

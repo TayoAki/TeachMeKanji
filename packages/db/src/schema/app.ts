@@ -40,6 +40,8 @@ export const project = pgTable(
     publishedVersionId: text("published_version_id"),
     /** Where the generated app keeps its data: on the device, or in App Cloud. */
     backend: text("backend").$type<"local" | "cloud">().notNull().default("local"),
+    /** Whether the generated app sends usage events (the Analytics tab's switch). */
+    analytics: boolean("analytics").notNull().default(false),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),

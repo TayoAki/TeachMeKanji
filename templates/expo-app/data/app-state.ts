@@ -4,6 +4,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
+import { trackSystem } from "./analytics";
 import { appStructure } from "./app-structure";
 
 const ONBOARDED_KEY = "app:onboarded";
@@ -58,6 +59,7 @@ export async function setAnswer(key: string, value: string): Promise<void> {
 export async function completeOnboarding(): Promise<void> {
   await AsyncStorage.setItem(ONBOARDED_KEY, "1");
   update({ onboarded: true });
+  trackSystem("onboarding_complete");
   router.replace("/");
   if (appStructure.paywall) setTimeout(() => router.push("/paywall"), 350);
 }

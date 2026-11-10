@@ -582,3 +582,59 @@ test("App Cloud: accounts and per-user data for the generated app", async ({ pag
   await expect(page.getByTestId("data-collection-habits")).not.toHaveText("0");
   await expect(page.getByTestId("data-records")).toContainText("Drink water");
 });
+
+test("analytics: preview taps are test events, phones count, and the funnel adds up", async ({
+  page,
+  request,
+}) => {
+  await signUp(page, "Counter");
+  await createAndBuild(page, "A habit tracker with streaks");
+  const projectId = page.url().split("/projects/")[1]!;
+  const phone = (install: string, events: Array<Record<string, unknown>>, test = false) =>
+    request.post(`/api/app/${projectId}/events`, {
+      data: { install, platform: "ios", test, events },
+    });
+
+  // Off: there's nowhere to send events.
+  expect((await phone("e2e-phone-0001", [{ name: "app_open" }])).status()).toBe(404);
+
+  await page.getByTestId("tab-analytics").click();
+  await expect(page.getByTestId("analytics-view")).toContainText("Free · no credits");
+  await page.getByTestId("analytics-switch").click();
+  await expect(page.getByTestId("bottom-bar")).toContainText("Version 2", { timeout: 15_000 });
+  await expect(page.getByTestId("analytics-view")).toContainText("No real users yet");
+
+  // The canvas runs the app: its screens send events, marked as tests.
+  await expect(async () => {
+    await page.getByRole("tab", { name: "Canvas" }).click();
+    await expect(page.locator('iframe[data-frame-id="app"]')).toBeVisible();
+    await page.waitForTimeout(5_000);
+    await page.getByTestId("tab-analytics").click();
+    await expect(page.getByTestId("analytics-test-events")).toContainText(
+      "test events in the last 24 hours",
+      { timeout: 2_000 },
+    );
+  }).toPass({ timeout: 45_000 });
+
+  // A real phone: opened, onboarded, saw the paywall, subscribed. Another only opened it.
+  expect((await phone("x", [{ name: "app_open" }])).status()).toBe(400);
+  const first = await phone("e2e-phone-0002", [
+    { name: "app_open" },
+    { name: "onboarding_complete" },
+    { name: "screen_view", screen: "/paywall" },
+    { name: "purchase", props: { offer: "yearly", trial: true } },
+    { name: "streak_kept", props: { days: 3 } },
+  ]);
+  expect(await first.json()).toEqual({ accepted: 5, dropped: 0 });
+  await phone("e2e-phone-0003", [{ name: "app_open" }, { name: "screen_view", screen: "/" }]);
+
+  await page.getByRole("tab", { name: "Canvas" }).click();
+  await page.getByTestId("tab-analytics").click();
+  const view = page.getByTestId("analytics-view");
+  await expect(view).toContainText("Users · last 30 days");
+  await expect(page.getByTestId("analytics-daily")).toBeVisible();
+  const funnel = page.getByTestId("analytics-funnel");
+  await expect(funnel).toContainText("Opened the app2 · 100%");
+  await expect(funnel).toContainText("Started a trial or subscribed1 · 50%");
+  await expect(view).toContainText("streak_kept");
+});

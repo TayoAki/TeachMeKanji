@@ -4,6 +4,31 @@ import { TEMPLATE_FILES, type ProjectFiles } from "./layout";
 export const BACKEND_CONFIG_FILE = "data/backend.ts";
 export const IMAGES_FILE = "data/images.ts";
 export const PAYMENTS_FILE = "data/payments.ts";
+export const ANALYTICS_CONFIG_FILE = "data/analytics-config.ts";
+
+export interface AnalyticsConfig {
+  /** The platform's origin when analytics is on, else "" (track() does nothing). */
+  url: string;
+  projectId: string;
+}
+
+/** data/analytics-config.ts is written by the platform (the Analytics tab), never by the model. */
+export function analyticsConfigFile(config: AnalyticsConfig): string {
+  return `// PLATFORM FILE — written by the platform when you turn analytics on or off in the builder.
+/** Where usage events go; an empty url means analytics is off and track() does nothing. */
+export const analyticsConfig = ${JSON.stringify(config, null, 2)};
+`;
+}
+
+export function readAnalyticsConfig(files: ProjectFiles): AnalyticsConfig {
+  const json = /=\s*(\{[\s\S]*\});\s*$/.exec(files[ANALYTICS_CONFIG_FILE] ?? "")?.[1];
+  try {
+    const parsed = json ? (JSON.parse(json) as Partial<AnalyticsConfig>) : {};
+    return { url: String(parsed.url ?? ""), projectId: String(parsed.projectId ?? "") };
+  } catch {
+    return { url: "", projectId: "" };
+  }
+}
 
 export interface PaymentsConfig {
   /** RevenueCat public SDK keys (meant to ship inside the app); "" keeps purchases simulated. */
@@ -82,7 +107,13 @@ export function readPlatformConfig(files: ProjectFiles): PlatformConfig {
  * package.json (app name, pinned versions) and the platform config are kept if present.
  */
 export function refreshTemplate(files: ProjectFiles, template: ProjectFiles): ProjectFiles {
-  const keep = new Set(["app.json", BACKEND_CONFIG_FILE, IMAGES_FILE, PAYMENTS_FILE]);
+  const keep = new Set([
+    "app.json",
+    BACKEND_CONFIG_FILE,
+    IMAGES_FILE,
+    PAYMENTS_FILE,
+    ANALYTICS_CONFIG_FILE,
+  ]);
   const next: ProjectFiles = { ...files };
   for (const path of TEMPLATE_FILES) {
     const fromTemplate = template[path];

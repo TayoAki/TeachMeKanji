@@ -1,5 +1,7 @@
 import {
   bigint,
+  bigserial,
+  boolean,
   index,
   integer,
   jsonb,
@@ -122,6 +124,49 @@ export const appAiUsage = pgTable(
     /** Measured model cost in millionths of a dollar. */
     costMicroUsd: bigint("cost_micro_usd", { mode: "number" }).notNull().default(0),
     creditsCharged: integer("credits_charged").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.projectId, t.day] })],
+);
+
+/**
+ * Usage events from generated apps with analytics on (data/analytics.ts). `install` is a random
+ * id the app makes on first launch; events carry no names, emails or advertising ids. Kept for
+ * ANALYTICS.retentionDays.
+ */
+export const appEvent = pgTable(
+  "app_event",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => project.id, { onDelete: "cascade" }),
+    install: text("install").notNull(),
+    name: text("name").notNull(),
+    screen: text("screen"),
+    props: jsonb("props").$type<Record<string, string | number | boolean>>(),
+    platform: text("platform").notNull(),
+    /** The preview, Expo Go, development builds and simulated purchases. */
+    test: boolean("test").notNull().default(false),
+    /** When it happened on the phone (clamped to a sane window on arrival). */
+    at: timestamp("at", { withTimezone: true }).notNull(),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("app_event_project_at_idx").on(t.projectId, t.at),
+    index("app_event_received_idx").on(t.receivedAt),
+  ],
+);
+
+/** Events accepted per app per day: the daily limit. */
+export const appAnalyticsDay = pgTable(
+  "app_analytics_day",
+  {
+    projectId: text("project_id")
+      .notNull()
+      .references(() => project.id, { onDelete: "cascade" }),
+    /** UTC date, YYYY-MM-DD. */
+    day: text("day").notNull(),
+    events: integer("events").notNull().default(0),
   },
   (t) => [primaryKey({ columns: [t.projectId, t.day] })],
 );

@@ -71,6 +71,13 @@ export function AppCloudPanel({
           ? "Data is saved in the cloud for each user of your app, and the app can have sign-in. Ask the agent to “add a sign in screen”."
           : "Data is stored on each device. Connect App Cloud to sync data per user and add accounts, with no setup."}
       </p>
+      <p className="mt-2 text-xs text-muted-foreground" data-testid="app-cloud-ai-note">
+        <Sparkles className="mr-1 inline size-3 align-[-1px]" />
+        To add AI, describe the feature in the chat: the builder connects it, with no API keys or
+        backend setup. Your app can answer questions and understand photos. AI uses your credits,
+        measured by what each answer actually costs, and only when someone uses it. Accounts, data
+        and push notifications are free.
+      </p>
       <div className="mt-3 flex items-center gap-2">
         {canManage ? (
           <label className="flex items-center gap-2 text-sm">

@@ -9,6 +9,7 @@ import {
   failRun,
   heartbeat,
   latestPlan,
+  pruneAnalytics,
   pruneAppCloud,
   reapAbandonedRuns,
   recordWorkerHeartbeat,
@@ -188,6 +189,8 @@ export async function runWorker(
         lastPrune = Date.now();
         // Expired App Cloud sessions and anonymous users who never saved anything.
         await pruneAppCloud(db);
+        // Analytics events past their retention window.
+        await pruneAnalytics(db);
       }
     } catch (error) {
       reportError(error, { where: "worker-loop" });

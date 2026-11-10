@@ -137,6 +137,23 @@ and accounts with one switch and no setup.
   (`ik-genimg-prompt-…`); ImageKit generates and caches the image on first request. Without
   `IMAGEKIT_URL_ENDPOINT` it renders a themed placeholder.
 
+### 2.6 Analytics in generated apps
+- **Switch:** the Analytics tab sets `project.analytics` and rewrites the platform file
+  `data/analytics-config.ts` (the platform origin and project id, or empty) as a new version.
+  A remix starts with it off.
+- **Client:** template `data/analytics.ts` queues events and posts batches of up to 50 every
+  4 seconds (and when the app goes to the background) to `/api/app/<projectId>/events`. The
+  root layout reports screen views (`usePathname()`); `app-state.ts` and `purchases.ts` report
+  onboarding, purchases and restores. Events from the preview, Expo Go and development builds,
+  and simulated purchases, carry `test: true`.
+- **Server:** `appRoute(..., { requires: "analytics" })` accepts events whether or not App Cloud
+  holds the app's data; no bearer token, because every install sends them. Limits: 50 events a
+  request, 30 requests per install and 600 per network address a minute, 50,000 events per app a day (`app_analytics_day`).
+  Events (`app_event`) are pruned after 90 days by the worker's hourly housekeeping.
+- **Summary:** `analyticsSummary()` (packages/core/src/app-analytics.ts) computes everything from
+  non-test events with SQL: daily active and new installs, next-day and day-7 return of new
+  installs, the funnel (`app_open` → `onboarding_complete` → `screen_view /paywall` →
+  `purchase`), top screens, custom events, platforms.
 ---
 
 ## 3. Data model (Drizzle, Postgres)

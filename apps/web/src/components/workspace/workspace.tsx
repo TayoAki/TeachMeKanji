@@ -51,6 +51,7 @@ import { AppCloudPanel, DataView } from "./app-cloud";
 import { CodeView, HistoryView } from "./code-and-history";
 import { DeviceDialog, ExportDialog, PublishDialog, ShareDialog } from "./dialogs";
 import { Inspector, ThemeList } from "./inspector";
+import { AnalyticsView } from "./analytics-view";
 import { PaymentsPanel } from "./payments-panel";
 import { StoreListingDialog } from "./store-listing-dialog";
 import type { ProjectState } from "./types";
@@ -68,7 +69,7 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
   const router = useRouter();
   const [state, setState] = useState(initial);
   const [runId, setRunId] = useState<string | null>(initial.activeRun?.id ?? null);
-  const [tab, setTab] = useState<"canvas" | "code" | "data" | "history">("canvas");
+  const [tab, setTab] = useState<"canvas" | "code" | "data" | "analytics" | "history">("canvas");
   const [chosenThemeId, setThemeId] = useState<string | undefined>(undefined);
   const [themes, setThemes] = useState<PreviewTheme[]>([]);
   // Preview the app in light or night mode (null: the picked theme as it is).
@@ -413,6 +414,9 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
                 <TabsTrigger value="data" data-testid="tab-data">
                   Data
                 </TabsTrigger>
+                <TabsTrigger value="analytics" data-testid="tab-analytics">
+                  Analytics
+                </TabsTrigger>
                 <TabsTrigger value="code" data-testid="tab-code">
                   Code
                 </TabsTrigger>
@@ -649,6 +653,14 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
         />
       ) : tab === "data" ? (
         <DataView projectId={project.id} canManage={canManage} refreshKey={state.versionId} />
+      ) : tab === "analytics" ? (
+        <AnalyticsView
+          projectId={project.id}
+          canManage={canManage}
+          hasVersion={Boolean(state.versionId)}
+          refreshKey={state.versionId}
+          onChanged={refresh}
+        />
       ) : tab === "code" ? (
         <CodeView key={codeFocus ?? "default"} files={files} focusPath={codeFocus} />
       ) : (

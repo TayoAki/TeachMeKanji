@@ -1,6 +1,8 @@
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { AppPlan, ProjectFiles } from "@appbuilder/contract";
 import {
+  ANALYTICS_CONFIG_FILE,
+  analyticsConfigFile,
   BACKEND_CONFIG_FILE,
   backendConfigFile,
   readPlatformConfig,
@@ -170,6 +172,9 @@ export async function duplicateProject(
   });
   const { files: sourceFiles } = await getCurrentFiles(db, source.id);
   const files = { ...sourceFiles };
+  // A copy never sends events to the original's analytics (and starts with analytics off).
+  if (files[ANALYTICS_CONFIG_FILE] !== undefined)
+    files[ANALYTICS_CONFIG_FILE] = analyticsConfigFile({ url: "", projectId: "" });
   if (files[BACKEND_CONFIG_FILE] !== undefined) {
     const { imageEndpoint } = readPlatformConfig(files);
     files[BACKEND_CONFIG_FILE] = backendConfigFile({

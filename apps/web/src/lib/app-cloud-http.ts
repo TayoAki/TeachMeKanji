@@ -31,18 +31,30 @@ export interface AppContext {
   requireUser: () => AppUser;
 }
 
+/**
+ * `requires`: "cloud" (the default) for App Cloud's data, accounts, push and AI; "analytics" for
+ * usage events, which work whether or not the app keeps its data in App Cloud.
+ */
 export function appRoute<P extends { projectId: string }>(
   handler: (request: Request, ctx: AppContext, params: P) => Promise<Response>,
+  options: { requires?: "cloud" | "analytics" } = {},
 ) {
   return async (request: Request, context: { params: Promise<P> }): Promise<Response> => {
     try {
       const params = await context.params;
       const [project] = await db()
-        .select({ id: schema.project.id, backend: schema.project.backend })
+        .select({
+          id: schema.project.id,
+          backend: schema.project.backend,
+          analytics: schema.project.analytics,
+        })
         .from(schema.project)
         .where(and(eq(schema.project.id, params.projectId), isNull(schema.project.deletedAt)));
-      if (!project || project.backend !== "cloud")
+      if (options.requires === "analytics") {
+        if (!project?.analytics) throw new AppCloudError(404, "Analytics is off for this app.");
+      } else if (!project || project.backend !== "cloud") {
         throw new AppCloudError(404, "App Cloud isn't enabled for this app.");
+      }
       const header = request.headers.get("authorization") ?? "";
       const token = header.startsWith("Bearer ") ? header.slice(7).trim() || null : null;
       const user = await sessionUser(db(), project.id, token);

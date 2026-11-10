@@ -20,4 +20,5 @@ export * from "./expo-account";
 export * from "./connectors";
 export * from "./app-push";
 export * from "./app-ai";
+export * from "./app-analytics";
 export * from "./store-credentials";

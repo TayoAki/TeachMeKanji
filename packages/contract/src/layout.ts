@@ -28,6 +28,8 @@ export const TEMPLATE_FILES = [
   "data/push.ts",
   "data/ai.ts",
   "data/payments.ts",
+  "data/analytics.ts",
+  "data/analytics-config.ts",
 ] as const;
 
 /** Files every generated app must contain in addition to the template. */
