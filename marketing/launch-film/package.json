@@ -1,0 +1,23 @@
+{
+  "name": "appbuilder-films",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Product films for App Builder (Sizzle method). Not part of the app's npm workspaces.",
+  "scripts": {
+    "studio": "remotion studio src/remotion/index.ts --port 3123",
+    "still": "remotion still src/remotion/index.ts",
+    "render": "remotion render src/remotion/index.ts"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.539",
+    "geist": "1.8.2",
+    "lucide-react": "0.550.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "remotion": "4.0.539"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "typescript": "5.9.3"
+  }
+}

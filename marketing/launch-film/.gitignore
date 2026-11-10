@@ -1,0 +1,11 @@
+node_modules/
+.sizzle-venv/
+out/
+evidence/
+evidence-*.png
+# Licensed audio (ElevenLabs voiceover, Suno music) and mixes stay out of this public repo.
+/public/
+video/public/audio/
+*.mp3
+*.wav
+*.m4a

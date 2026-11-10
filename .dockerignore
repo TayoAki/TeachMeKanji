@@ -13,3 +13,5 @@
 .env.*
 !.env.example
 docs/images
+# Marketing film source: not part of the app image.
+marketing
