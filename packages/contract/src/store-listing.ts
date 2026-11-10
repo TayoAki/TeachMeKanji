@@ -71,8 +71,18 @@ export function normalizeListing(raw: StoreListing, screens: string[]): StoreLis
     const value = String(text ?? "").trim();
     if (value.length <= max) return value;
     const clipped = value.slice(0, max);
+    // A whole sentence if one fits in most of the space…
+    const sentence = Math.max(
+      ...[". ", "! ", "? "].map((end) => clipped.lastIndexOf(end) + 1),
+      /[.!?]$/.test(clipped) ? clipped.length : 0,
+    );
+    if (sentence > max * 0.5) return clipped.slice(0, sentence).trim();
+    // …else whole words, without a dangling "with a" or comma at the end.
     const space = clipped.lastIndexOf(" ");
-    return (space > max * 0.6 ? clipped.slice(0, space) : clipped).trim();
+    let words = (space > max * 0.6 ? clipped.slice(0, space) : clipped).trim();
+    while (/[\s,;:—–-]+(a|an|the|and|or|with|to|of|for|in|on|at|by|your|from)$/i.test(words))
+      words = words.replace(/[\s,;:—–-]+\S+$/, "");
+    return words.replace(/[,;:—–-]+$/, "").trim();
   };
   const keywords = String(raw.keywords ?? "")
     .split(",")
