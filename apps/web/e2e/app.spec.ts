@@ -239,14 +239,46 @@ test("themes reach the app, apps follow light or dark, and text edits are free",
   await frame.getByRole("button", { name: "Dark" }).click();
   await expect.poll(async () => lightness(await background())).toBeLessThan(100);
 
-  // Double-click text to edit it yourself: no AI, no credits.
+  // The workspace's Light / Night switch previews the app in the other mode.
+  await frame.getByRole("button", { name: "System" }).click();
+  await page.getByTestId("theme-mint").click();
+  await expect.poll(async () => lightness(await background())).toBeGreaterThan(180);
+  await page.getByTestId("app-appearance-dark").click();
+  await expect.poll(async () => lightness(await background())).toBeLessThan(100);
+  await page.getByTestId("app-appearance-light").click();
+  await expect.poll(async () => lightness(await background())).toBeGreaterThan(180);
+
+  // Double-click text and type over it right on the screen: no AI, no credits.
   const credits = await page.getByTestId("workspace-credits").innerText();
   await frame.getByText("SUPPORT", { exact: true }).dblclick();
-  await expect(page.getByTestId("inspector-text")).toHaveValue("SUPPORT");
-  await page.getByTestId("inspector-text").fill("HELP");
-  await page.getByTestId("inspector-apply").click();
+  await page.keyboard.type("HELP");
+  await page.keyboard.press("Enter");
   await expect.poll(async () => (await files())["app/settings.tsx"]).toContain(">HELP</Text>");
+  await expect(frame.getByText("HELP", { exact: true })).toBeVisible();
   await expect(page.getByTestId("workspace-credits")).toHaveText(credits);
+
+  // Escape puts the text back without saving.
+  await frame.getByText("HELP", { exact: true }).dblclick();
+  await page.keyboard.type("NOPE");
+  await page.keyboard.press("Escape");
+  await expect(frame.getByText("HELP", { exact: true })).toBeVisible();
+  expect((await files())["app/settings.tsx"]).not.toContain("NOPE");
+
+  // Text that comes from data or code opens in the inspector instead.
+  await frame.getByText("Free plan").dblclick();
+  await expect(page.getByTestId("inspector")).toContainText("comes from data or code");
+});
+
+test("the builder switches between night and day", async ({ page }) => {
+  await signUp(page, "Night Owl");
+  const html = page.locator("html");
+  await expect(html).toHaveClass(/\bdark\b/);
+  await page.getByTestId("rail-theme").click();
+  await expect(html).not.toHaveClass(/\bdark\b/);
+  await page.reload();
+  await expect(html).not.toHaveClass(/\bdark\b/);
+  await page.getByTestId("rail-theme").click();
+  await expect(html).toHaveClass(/\bdark\b/);
 });
 
 test("sharing and permissions", async ({ browser }) => {

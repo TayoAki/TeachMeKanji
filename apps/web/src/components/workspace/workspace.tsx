@@ -8,6 +8,7 @@ import {
   Copy,
   Download,
   Loader2,
+  Moon,
   MoreHorizontal,
   MousePointerClick,
   Pencil,
@@ -15,6 +16,7 @@ import {
   Share2,
   Smartphone,
   Sparkles,
+  Sun,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -66,6 +68,10 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
   const [tab, setTab] = useState<"canvas" | "code" | "data" | "history">("canvas");
   const [chosenThemeId, setThemeId] = useState<string | undefined>(undefined);
   const [themes, setThemes] = useState<PreviewTheme[]>([]);
+  // Preview the app in light or night mode (null: the picked theme as it is).
+  const [appAppearance, setAppAppearance] = useState<"light" | "dark" | null>(null);
+  const [canSwitchAppearance, setCanSwitchAppearance] = useState(false);
+  const [canvasKey, setCanvasKey] = useState(0);
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<SelectedElement | null>(null);
   const [chatSelection, setChatSelection] = useState<ChatSelection | null>(null);
@@ -147,21 +153,42 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
   const latestPlanId = state.plan?.id ?? null;
   const canBuild = canEdit && !state.versionId && state.plan?.status === "proposed" && !busy;
 
-  const onFrameMessage = useCallback(
-    (frameId: string, message: FrameToParent) => {
-      if (message.type === "theme-info" && frameId === "app") setThemes(message.themes);
-      // Select mode, or a double-click on text in any screen (editors only).
-      if (message.type === "select" && canEdit) {
-        setSelected(message.element);
-        setCodeFocus(parseFid(message.element.fid)?.path ?? null);
-      }
-      if (message.type === "navigate-request" && message.action !== "back" && message.href) {
-        setAppHref(message.href);
-        setAppKey((k) => k + 1);
-      }
-    },
-    [canEdit],
-  );
+  // Text typed straight onto a screen (double-click, then Enter): saved like an inspector edit,
+  // with no AI and no credits.
+  const saveText = async (fid: string, text: string) => {
+    if (!canEdit || !state.versionId) return;
+    try {
+      await api(`/api/projects/${project.id}/inline-edit`, {
+        method: "POST",
+        json: { versionId: state.versionId, fid, patch: { text } },
+        quiet: true,
+      });
+      toast.success("Saved");
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Couldn't save that text.");
+      // Put the screens back to what's saved.
+      setCanvasKey((k) => k + 1);
+      setAppKey((k) => k + 1);
+    }
+  };
+
+  const onFrameMessage = (frameId: string, message: FrameToParent) => {
+    if (message.type === "theme-info" && frameId === "app") {
+      setThemes(message.themes);
+      setCanSwitchAppearance(Boolean(message.canSwitchAppearance));
+    }
+    // Select mode, or a double-click on text that comes from data or code (editors only).
+    if (message.type === "select" && canEdit) {
+      setSelected(message.element);
+      setCodeFocus(parseFid(message.element.fid)?.path ?? null);
+    }
+    if (message.type === "text-edit") void saveText(message.fid, message.text);
+    if (message.type === "navigate-request" && message.action !== "back" && message.href) {
+      setAppHref(message.href);
+      setAppKey((k) => k + 1);
+    }
+  };
 
   const startRun = (id: string) => {
     setRunId(id);
@@ -210,6 +237,7 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
   const themeSave = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chooseTheme = (id: string) => {
     setThemeId(id);
+    setAppAppearance(null);
     if (!canEdit) return;
     if (themeSave.current) clearTimeout(themeSave.current);
     themeSave.current = setTimeout(async () => {
@@ -487,6 +515,8 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
                   mode="app"
                   href={appHref}
                   themeId={themeId}
+                  appearance={appAppearance}
+                  editText={canEdit}
                   selectMode={selectMode}
                   width={390}
                   height={844}
@@ -537,6 +567,14 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
             />
           ) : null}
           <PanelSection title="Themes">
+            {canSwitchAppearance && activeTheme ? (
+              <AppAppearance
+                shown={appAppearance ?? (activeTheme.dark ? "dark" : "light")}
+                onChange={(mode) =>
+                  setAppAppearance(mode === (activeTheme.dark ? "dark" : "light") ? null : mode)
+                }
+              />
+            ) : null}
             <ThemeList themes={themes} activeId={themeId ?? themes[0]?.id} onSelect={chooseTheme} />
           </PanelSection>
         </>
@@ -569,8 +607,11 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
     >
       {tab === "canvas" ? (
         <Canvas
+          key={canvasKey}
           files={files}
           themeId={themeId}
+          appearance={appAppearance}
+          editText={canEdit && hasApp}
           selectMode={selectMode}
           onFrameMessage={onFrameMessage}
           onOpenScreen={(href) => {
@@ -632,5 +673,38 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
         projectId={project.id}
       />
     </AppShell>
+  );
+}
+
+/** Light or night mode for the app preview; the picked theme stays the app's theme. */
+function AppAppearance({
+  shown,
+  onChange,
+}: {
+  shown: "light" | "dark";
+  onChange: (mode: "light" | "dark") => void;
+}) {
+  return (
+    <div className="mb-3">
+      <div className="flex gap-1 rounded-lg border p-0.5" role="group" aria-label="App appearance">
+        {(["light", "dark"] as const).map((mode) => (
+          <Button
+            key={mode}
+            size="sm"
+            variant={shown === mode ? "secondary" : "ghost"}
+            className="h-7 flex-1 text-xs"
+            aria-pressed={shown === mode}
+            onClick={() => onChange(mode)}
+            data-testid={`app-appearance-${mode}`}
+          >
+            {mode === "light" ? <Sun /> : <Moon />} {mode === "light" ? "Light" : "Night"}
+          </Button>
+        ))}
+      </div>
+      <p className="mt-1.5 text-[11px] text-muted-foreground">
+        On phones the app follows the phone&rsquo;s setting, and people can switch it in the
+        app&rsquo;s Settings.
+      </p>
+    </div>
   );
 }

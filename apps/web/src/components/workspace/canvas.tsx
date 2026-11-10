@@ -53,7 +53,11 @@ export function Canvas({
   building,
   emptyState,
   storage,
+  appearance = null,
+  editText = false,
 }: {
+  appearance?: "light" | "dark" | null;
+  editText?: boolean;
   storage?: Record<string, string>;
   files: ProjectFiles;
   themeId?: string;
@@ -176,6 +180,8 @@ export function Canvas({
                 mode="screen"
                 href={href}
                 themeId={themeId}
+                appearance={appearance}
+                editText={editText}
                 selectMode={selectMode}
                 width={DEVICE.width}
                 height={DEVICE.height}

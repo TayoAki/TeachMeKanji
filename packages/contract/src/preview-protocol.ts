@@ -27,8 +27,13 @@ export type ParentToFrame =
       storage?: Record<string, string>;
       /** Report every AsyncStorage write back to the parent (published apps persist data). */
       persistStorage?: boolean;
+      /** Show the theme's light or dark partner instead of the theme itself. */
+      appearance?: "light" | "dark" | null;
+      /** Double-click on text edits it in place (editors only); the frame sends "text-edit". */
+      editText?: boolean;
     }
   | { type: "set-theme"; themeId: string }
+  | { type: "set-appearance"; appearance: "light" | "dark" | null }
   | { type: "set-select-mode"; enabled: boolean }
   | { type: "navigate"; href: string };
 
@@ -50,7 +55,15 @@ export type FrameToParent =
   | { type: "select"; element: SelectedElement }
   /** The user pressed somewhere in the frame (outside select mode). */
   | { type: "pressed" }
-  | { type: "theme-info"; activeThemeId: string; themes: PreviewTheme[] }
+  | {
+      type: "theme-info";
+      activeThemeId: string;
+      themes: PreviewTheme[];
+      /** The app's template can switch between light and dark (useAppearance). */
+      canSwitchAppearance?: boolean;
+    }
+  /** The user typed new text into an element in place (double-click, Enter). */
+  | { type: "text-edit"; fid: string; text: string }
   | { type: "storage"; key: string; value: string | null }
   | { type: "error"; message: string; file?: string };
 

@@ -8,8 +8,11 @@ import type { SelectedElement } from "@appbuilder/contract";
 export function createSelection(
   onSelect: (element: SelectedElement) => void,
   literalTextFor: (fid: string) => string | null = () => null,
+  onTextEdit: (fid: string, text: string) => void = () => undefined,
 ) {
   let enabled = false;
+  let textEditing = false;
+  let editing: HTMLElement | null = null;
   const hover = makeOverlay("2px dashed #3b82f6", "rgba(59,130,246,0.08)");
   const selected = makeOverlay("2px solid #2563eb", "rgba(37,99,235,0.12)");
   let selectedEl: Element | null = null;
@@ -55,18 +58,80 @@ export function createSelection(
     if (el) select(el);
   };
 
-  // Outside select mode, a double-click on text opens it in the editor straight away: the
-  // nearest element whose text is written in the source, else the nearest element at all.
+  /**
+   * Type over the element's text right on the screen: Enter (or clicking away) saves through
+   * the parent, Escape puts the old text back. Keys never reach the app (a focused button
+   * would otherwise press on Enter or Space).
+   */
+  const editInPlace = (el: HTMLElement, original: string) => {
+    editing = el;
+    const before = {
+      outline: el.style.outline,
+      offset: el.style.outlineOffset,
+      cursor: el.style.cursor,
+    };
+    el.setAttribute("contenteditable", "plaintext-only");
+    el.spellcheck = false;
+    Object.assign(el.style, { outline: "2px solid #2563eb", outlineOffset: "2px", cursor: "text" });
+    el.focus();
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+
+    const stop = (event: Event) => event.stopPropagation();
+    const onKey = (event: KeyboardEvent) => {
+      event.stopPropagation();
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        finish(true);
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        finish(false);
+      }
+    };
+    const onBlur = () => finish(true);
+    const finish = (save: boolean) => {
+      if (editing !== el) return;
+      editing = null;
+      el.removeEventListener("keydown", onKey);
+      for (const type of ["keyup", "keypress", "input", "beforeinput"])
+        el.removeEventListener(type, stop);
+      el.removeEventListener("blur", onBlur);
+      el.removeAttribute("contenteditable");
+      Object.assign(el.style, {
+        outline: before.outline,
+        outlineOffset: before.offset,
+        cursor: before.cursor,
+      });
+      window.getSelection()?.removeAllRanges();
+      const text = (el.innerText ?? "").replace(/\s+/g, " ").trim();
+      if (save && text && text !== original.trim()) onTextEdit(el.dataset.fid!, text);
+      // Put the app's own text back; the saved version reloads the screen with the new text.
+      else if (el.textContent !== original) el.textContent = original;
+    };
+    el.addEventListener("keydown", onKey);
+    for (const type of ["keyup", "keypress", "input", "beforeinput"])
+      el.addEventListener(type, stop);
+    el.addEventListener("blur", onBlur);
+  };
+
+  // Outside select mode, a double-click on text edits it: in place when its text is written
+  // in the source (and editing is allowed here), else it opens in the inspector.
   const onDoubleClick = (event: Event) => {
-    if (enabled) return;
+    if (enabled || editing) return;
     let el = target(event);
     const first = el;
     while (el && literalTextFor(el.dataset.fid!) === null)
       el = el.parentElement?.closest("[data-fid]") as HTMLElement | null;
-    const chosen = el ?? first;
-    if (!chosen) return;
     window.getSelection()?.removeAllRanges();
-    select(chosen);
+    if (el && textEditing) {
+      event.preventDefault();
+      editInPlace(el, el.textContent ?? "");
+      return;
+    }
+    const chosen = el ?? first;
+    if (chosen) select(chosen);
   };
 
   for (const type of [
@@ -93,6 +158,9 @@ export function createSelection(
   return {
     get enabled() {
       return enabled;
+    },
+    setTextEditing(next: boolean) {
+      textEditing = next;
     },
     setEnabled(next: boolean) {
       enabled = next;

@@ -30,6 +30,10 @@ export interface PreviewFrameProps {
   /** Visual scale (the app still renders at full device size inside). */
   scale?: number;
   className?: string;
+  /** Show the theme's light or dark partner (null: the theme as it is). */
+  appearance?: "light" | "dark" | null;
+  /** Double-click on text edits it in place; the frame reports it as "text-edit". */
+  editText?: boolean;
 }
 
 /**
@@ -51,6 +55,8 @@ export function PreviewFrame({
   className,
   storage,
   persistStorage = false,
+  appearance = null,
+  editText = false,
 }: PreviewFrameProps) {
   const iframe = useRef<HTMLIFrameElement>(null);
   const ready = useRef(false);
@@ -64,7 +70,18 @@ export function PreviewFrame({
   };
 
   const load = useEffectEvent(() => {
-    send({ type: "load", files, mode, href, themeId, selectMode, storage, persistStorage });
+    send({
+      type: "load",
+      files,
+      mode,
+      href,
+      themeId,
+      selectMode,
+      storage,
+      persistStorage,
+      appearance,
+      editText,
+    });
   });
 
   const receive = useEffectEvent((message: FrameToParent) => {
@@ -104,6 +121,16 @@ export function PreviewFrame({
       );
     }
   }, [themeId, frameId]);
+
+  // After the theme: picking a theme shows it as it is, then this applies light or dark.
+  useEffect(() => {
+    if (ready.current && (appearance || themeId)) {
+      iframe.current?.contentWindow?.postMessage(
+        { type: "set-appearance", appearance, channel: PREVIEW_CHANNEL, frameId },
+        "*",
+      );
+    }
+  }, [appearance, themeId, frameId]);
 
   useEffect(() => {
     if (ready.current) {

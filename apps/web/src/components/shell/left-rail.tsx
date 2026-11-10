@@ -10,13 +10,20 @@ import {
   Home,
   LayoutGrid,
   Loader2,
+  Moon,
   Search,
   Settings,
+  Sun,
 } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { setThemePreference, useThemePreference, type ThemePreference } from "@/lib/theme";
+import {
+  setThemePreference,
+  useResolvedTheme,
+  useThemePreference,
+  type ThemePreference,
+} from "@/lib/theme";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   CommandDialog,
@@ -278,7 +285,8 @@ export function LeftRail({
       >
         <Settings className="size-5" />
       </RailButton>
-      <div className="mt-auto">
+      <div className="mt-auto flex flex-col items-center gap-2">
+        <ThemeToggle />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -338,5 +346,20 @@ function ThemeMenu() {
         </DropdownMenuRadioGroup>
       </DropdownMenuSubContent>
     </DropdownMenuSub>
+  );
+}
+
+/** One click between night and day for the builder (System is in the account menu). */
+function ThemeToggle() {
+  const shown = useResolvedTheme();
+  const next = shown === "dark" ? "light" : "dark";
+  return (
+    <RailButton
+      label={next === "light" ? "Switch to light mode" : "Switch to night mode"}
+      onClick={() => setThemePreference(next)}
+      testId="rail-theme"
+    >
+      {shown === "dark" ? <Sun className="size-5" /> : <Moon className="size-5" />}
+    </RailButton>
   );
 }

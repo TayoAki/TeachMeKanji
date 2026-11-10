@@ -35,6 +35,7 @@ function post(message: FrameToParent) {
 
 let root: Root | null = null;
 let setTheme: ((id: string) => void) | null = null;
+let setAppearance: ((appearance: "light" | "dark" | null) => void) | null = null;
 let currentFiles: ProjectFiles = {};
 
 function literalTextFor(value: string): string | null {
@@ -48,7 +49,11 @@ function literalTextFor(value: string): string | null {
   }
 }
 
-const selection = createSelection((element) => post({ type: "select", element }), literalTextFor);
+const selection = createSelection(
+  (element) => post({ type: "select", element }),
+  literalTextFor,
+  (fid, text) => post({ type: "text-edit", fid, text }),
+);
 
 /** Canvas frames for routes like /expense/[id] get a real record id from the seed data. */
 function resolveSampleHref(
@@ -82,10 +87,14 @@ function resolveSampleHref(
 function postThemeInfo(requireModule: (path: string) => Record<string, unknown>) {
   try {
     const tokens = requireModule("theme/tokens.ts") as { themes?: PreviewTheme[] };
-    const active = requireModule("theme/active.ts") as { getActiveThemeId?: () => string };
+    const active = requireModule("theme/active.ts") as {
+      getActiveThemeId?: () => string;
+      setAppearance?: unknown;
+    };
     post({
       type: "theme-info",
       activeThemeId: active.getActiveThemeId?.() ?? "",
+      canSwitchAppearance: typeof active.setAppearance === "function",
       themes: (tokens.themes ?? []).map((t) => ({
         id: t.id,
         name: t.name,
@@ -125,6 +134,9 @@ window.addEventListener("message", (event) => {
       break;
     case "set-theme":
       setTheme?.(message.themeId);
+      break;
+    case "set-appearance":
+      setAppearance?.(message.appearance);
       break;
     case "set-select-mode":
       selection.setEnabled(message.enabled);
@@ -171,9 +183,25 @@ function load(message: Extract<ParentToFrame, { type: "load" }>) {
       report(error);
     }
   };
+  // Light or dark: the app's own theme/active.ts picks the partner theme (older apps can't).
+  setAppearance = (appearance) => {
+    try {
+      const active = modules.require("theme/active.ts") as {
+        getActiveThemeId?: () => string;
+        setActiveThemeId?: (id: string) => void;
+        setAppearance?: (appearance: "light" | "dark") => void;
+      };
+      if (appearance) active.setAppearance?.(appearance);
+      else active.setActiveThemeId?.(active.getActiveThemeId?.() ?? "");
+    } catch (error) {
+      report(error);
+    }
+  };
   if (message.themeId) setTheme(message.themeId);
   else postThemeInfo(modules.require);
+  if (message.appearance) setAppearance(message.appearance);
   selection.setEnabled(message.selectMode ?? false);
+  selection.setTextEditing(message.editText ?? false);
 
   root = createRoot(document.getElementById("root")!);
   root.render(
