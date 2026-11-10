@@ -53,6 +53,9 @@ function systemText(params: Params): string {
 
 function respond(params: Params): string {
   const request = lastUserText(params);
+  // AI inside a generated app (App Cloud /ai): a deterministic answer that echoes the question.
+  if (systemText(params).startsWith("You are the AI inside"))
+    return `Offline AI answer to: ${request.slice(0, 120)}`;
   // Reading connected tools (MCP connector): offline mode can't reach them; say so as a brief.
   if (params.mcp_servers?.length)
     return `Offline mode: ${params.mcp_servers.map((s) => s.name).join(", ")} wasn't called, so there is nothing to add.`;
@@ -1127,6 +1130,25 @@ function fakeEdit(request: string, system: string): string {
     )}`;
   }
 
+  // "add an Ask AI tab": a screen that asks the app's AI (exercises useAI and App Cloud).
+  if (/\bAI\b/.test(ask) && /\b(tab|screen)\b/i.test(ask)) {
+    const layout = files["app/(tabs)/_layout.tsx"] ?? "";
+    const entry = `      <Tabs.Screen
+        name="ask"
+        options={{
+          title: "Ask AI",
+          tabBarIcon: ({ color, size }) => <Ionicons name="sparkles-outline" color={color as string} size={size} />,
+        }}
+      />
+    </Tabs>`;
+    return `<summary>Added an Ask AI tab: type a question and the app's AI answers.</summary>\n${formatFileBlocks(
+      {
+        "app/(tabs)/ask.tsx": askAiScreen(),
+        "app/(tabs)/_layout.tsx": layout.replace("    </Tabs>", entry),
+      },
+    )}`;
+  }
+
   const add = /add (?:an? |the )?([a-z ]+?) (?:screen|tab|page)/i.exec(ask);
   if (add) {
     const title = add[1]!.trim().replace(/^\w/, (c) => c.toUpperCase());
@@ -1236,6 +1258,46 @@ export default function AccountScreen() {
         </View>
       )}
     </ScrollView>
+  );
+}
+`;
+}
+
+function askAiScreen(): string {
+  return `import { useState } from "react";
+import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAI } from "../../data/ai";
+import { useTheme } from "../../theme/ThemeProvider";
+
+export default function AskScreen() {
+  const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const [question, setQuestion] = useState("");
+  const { ask, answer, loading, error } = useAI();
+
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.colors.background, paddingTop: insets.top + theme.spacing.md, paddingHorizontal: theme.spacing.lg, gap: theme.spacing.md }}>
+      <Text style={{ color: theme.colors.text, fontSize: theme.font.size.headline, fontWeight: theme.font.weight.bold }}>Ask AI</Text>
+      <TextInput
+        value={question}
+        onChangeText={setQuestion}
+        placeholder="What do you want to know?"
+        placeholderTextColor={theme.colors.textMuted}
+        accessibilityLabel="Question"
+        style={{ color: theme.colors.text, backgroundColor: theme.colors.surface, borderRadius: theme.radius.md, padding: theme.spacing.md }}
+      />
+      <Pressable
+        accessibilityRole="button"
+        disabled={!question.trim() || loading}
+        onPress={() => ask({ prompt: question, instructions: "Answer in two sentences." })}
+        style={({ pressed }) => ({ opacity: pressed || loading ? 0.8 : 1, backgroundColor: theme.colors.primary, borderRadius: theme.radius.pill, padding: theme.spacing.md, alignItems: "center" })}
+      >
+        {loading ? <ActivityIndicator color={theme.colors.onPrimary} /> : <Text style={{ color: theme.colors.onPrimary, fontWeight: theme.font.weight.bold }}>Ask</Text>}
+      </Pressable>
+      {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
+      {answer ? <Text style={{ color: theme.colors.text, fontSize: theme.font.size.body }}>{answer}</Text> : null}
+    </View>
   );
 }
 `;

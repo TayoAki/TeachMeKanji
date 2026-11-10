@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, Cloud, Database, Loader2, Send, Trash2, Users } from "lucide-react";
+import { Bell, Cloud, Database, Loader2, Send, Sparkles, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,8 @@ interface DataSummary {
     owner: string;
   }>;
   accounts: Array<{ email: string | null; name: string | null; createdAt: string }>;
+  /** AI answers the app's users got this month, and the credits they cost. */
+  ai: { calls: number; credits: number };
 }
 
 /** Right-sidebar panel: where the app's data lives, and the switch to App Cloud. */
@@ -142,6 +144,19 @@ export function DataView({
           </div>
           <div className="text-xs text-muted-foreground">{data.users.signedUp} with an account</div>
         </div>
+        {data.ai.calls > 0 ? (
+          <div className="rounded-xl border bg-background p-4">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Sparkles className="size-3.5" /> AI this month
+            </div>
+            <div className="mt-1 text-2xl font-semibold" data-testid="data-ai-calls">
+              {data.ai.calls}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              answers · {data.ai.credits} {data.ai.credits === 1 ? "credit" : "credits"}
+            </div>
+          </div>
+        ) : null}
         {data.collections.map((c) => (
           <div key={c.name} className="rounded-xl border bg-background p-4">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">

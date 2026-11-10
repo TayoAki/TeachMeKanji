@@ -48,6 +48,7 @@ const REASONS: Record<string, string> = {
   settle: "Charged",
   purchase: "Purchased",
   monthly: "Monthly credits",
+  app_ai: "AI in your apps",
 };
 
 function Integration({

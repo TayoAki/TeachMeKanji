@@ -52,6 +52,13 @@ steps). This page says exactly what was verified here and what wasn't.
   owner sends from the Data tab (through Expo's push service; store and TestFlight builds,
   not Expo Go). In the web preview the camera and picker return a sample photo and location
   a sample place; on a phone (Expo Go or a build) the real modules run.
+- **AI inside the apps:** `useAI()` / `askAI()` (template `data/ai.ts`) ask a small, fast model
+  (Claude Haiku 5.5) a question, optionally about a photo, through App Cloud's `/ai` endpoint:
+  no API keys in the app. The platform turns App Cloud on in the same version when generated
+  code starts using it. The app's owner pays: each day's measured cost per app is added up and
+  charged in whole credits as it crosses each one (an answer costs about $0.0004), with 60
+  answers per app user an hour, 2,000 per app a day, and a pause when the owner is out of
+  credits. The Data tab shows this month's answers and credits.
 - **Light and dark in the apps:** each app follows the phone's appearance, using the chosen
   theme's light or dark partner (the nearest theme of the other kind), and Settings has an
   Appearance row (System, Light, Dark) saved on the device. The workspace's Light / Night

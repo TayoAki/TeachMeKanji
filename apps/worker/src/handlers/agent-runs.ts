@@ -1,6 +1,13 @@
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
-import { mentionedConnectors, refreshTemplate, type AppPlan } from "@appbuilder/contract";
+import {
+  backendConfigFile,
+  mentionedConnectors,
+  readPlatformConfig,
+  refreshTemplate,
+  type AppPlan,
+  type ProjectFiles,
+} from "@appbuilder/contract";
 import { readTree } from "@appbuilder/contract/node";
 import {
   addMessage,
@@ -64,6 +71,44 @@ async function maxScreens(ctx: HandlerContext): Promise<number> {
 }
 
 const NO_USAGE: UsageTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+
+/**
+ * AI features (askAI/useAI from data/ai) run through App Cloud, so a version that starts using
+ * them turns App Cloud on in the same step: the app works in the preview and on phones at once.
+ */
+async function withAppCloudForAi(
+  ctx: HandlerContext,
+  project: { id: string; backend: string },
+  files: ProjectFiles,
+): Promise<{ files: ProjectFiles; enabled: boolean }> {
+  const usesAi = Object.entries(files).some(
+    ([path, source]) => path !== "data/ai.ts" && /from\s+["'][./]*data\/ai["']/.test(source),
+  );
+  if (!usesAi || project.backend === "cloud") return { files, enabled: false };
+  const apiUrl = (
+    process.env.APP_PUBLIC_URL ||
+    process.env.BETTER_AUTH_URL ||
+    "http://localhost:3000"
+  ).replace(/\/$/, "");
+  await ctx.db
+    .update(schema.project)
+    .set({ backend: "cloud" })
+    .where(eq(schema.project.id, project.id));
+  return {
+    files: {
+      ...files,
+      "data/backend.ts": backendConfigFile({
+        apiUrl,
+        projectId: project.id,
+        imageEndpoint: readPlatformConfig(files).imageEndpoint,
+      }),
+    },
+    enabled: true,
+  };
+}
+
+const APP_CLOUD_FOR_AI_NOTE =
+  "App Cloud is now on: the app's AI features run through it, paid from your credits (a fraction of a credit per answer).";
 
 function sumUsage(a: UsageTotals, b: UsageTotals): UsageTotals {
   return {
@@ -189,9 +234,10 @@ export async function handleBuild(ctx: HandlerContext): Promise<HandlerResult> {
     onEvent: forwardAgentEvent(ctx),
   });
 
+  const cloud = await withAppCloudForAi(ctx, project, built.files);
   const version = await commitVersion(ctx.db, {
     projectId: project.id,
-    files: built.files,
+    files: cloud.files,
     kind: "generate",
     summary: `Built ${plan.screens.length} screens from plan ${planRow.number}`,
     runId: ctx.run.id,
@@ -207,7 +253,7 @@ export async function handleBuild(ctx: HandlerContext): Promise<HandlerResult> {
     role: "assistant",
     runId: ctx.run.id,
     content: {
-      text: `${plan.appName} is ready: ${screenList}.${built.warnings.length ? ` ${built.warnings.length} screen(s) need another try; ask me to regenerate them.` : ""} Switch themes on the right, click any element to edit it, or tell me what to change.`,
+      text: `${plan.appName} is ready: ${screenList}.${built.warnings.length ? ` ${built.warnings.length} screen(s) need another try; ask me to regenerate them.` : ""} Switch themes on the right, click any element to edit it, or tell me what to change.${cloud.enabled ? ` ${APP_CLOUD_FOR_AI_NOTE}` : ""}`,
       versionId: version.id,
     },
   });
@@ -253,17 +299,19 @@ export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
   });
 
   let versionId: string | null = null;
+  const cloud = await withAppCloudForAi(ctx, project, result.files);
+  if (cloud.enabled) connectors.notes.push(APP_CLOUD_FOR_AI_NOTE);
   if (result.changed.length > 0) {
     const version = await commitVersion(ctx.db, {
       projectId: project.id,
-      files: result.files,
+      files: cloud.files,
       kind: "ai_edit",
       summary: result.summary.slice(0, 200),
       runId: ctx.run.id,
       createdBy: ctx.run.userId,
     });
     versionId = version.id;
-    await ctx.emit("files", { files: result.files });
+    await ctx.emit("files", { files: cloud.files });
   }
   await addMessage(ctx.db, {
     projectId: project.id,

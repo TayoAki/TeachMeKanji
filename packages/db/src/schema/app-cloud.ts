@@ -1,5 +1,7 @@
 import {
+  bigint,
   index,
+  integer,
   jsonb,
   pgTable,
   primaryKey,
@@ -105,4 +107,21 @@ export const appPushBroadcast = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("app_push_broadcast_project_idx").on(t.projectId, t.createdAt)],
+);
+
+/** AI calls made by a generated app (App Cloud /ai) per day: what the owner's credits paid for. */
+export const appAiUsage = pgTable(
+  "app_ai_usage",
+  {
+    projectId: text("project_id")
+      .notNull()
+      .references(() => project.id, { onDelete: "cascade" }),
+    /** UTC date, YYYY-MM-DD. */
+    day: text("day").notNull(),
+    calls: integer("calls").notNull().default(0),
+    /** Measured model cost in millionths of a dollar. */
+    costMicroUsd: bigint("cost_micro_usd", { mode: "number" }).notNull().default(0),
+    creditsCharged: integer("credits_charged").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.projectId, t.day] })],
 );

@@ -239,7 +239,15 @@ export const runEvent = pgTable(
   (t) => [index("run_event_run_idx").on(t.runId, t.id)],
 );
 
-export type LedgerReason = "grant" | "reserve" | "release" | "settle" | "purchase" | "monthly";
+export type LedgerReason =
+  | "grant"
+  | "reserve"
+  | "release"
+  | "settle"
+  | "purchase"
+  | "monthly"
+  /** AI features inside the owner's generated apps (App Cloud /ai), metered per day. */
+  | "app_ai";
 
 export const creditLedger = pgTable(
   "credit_ledger",

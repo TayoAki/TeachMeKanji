@@ -96,6 +96,8 @@ export default defineConfig({
             // preview-runtime.spec.ts drives the runtime through the (otherwise dev-only) spike page.
             ENABLE_SPIKES: "1",
             ADMIN_API_TOKEN: E2E_ADMIN_TOKEN,
+            // App Cloud's AI endpoint answers with the offline generator too.
+            LLM_PROVIDER: "fake",
           },
         },
       ],

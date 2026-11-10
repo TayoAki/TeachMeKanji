@@ -18,5 +18,9 @@
     "@appbuilder/db": "*",
     "drizzle-orm": "^0.45.4",
     "@appbuilder/core": "*"
+  },
+  "exports": {
+    "./client": "./src/generation/client.ts",
+    "./fake-provider": "./src/generation/fake-provider.ts"
   }
 }

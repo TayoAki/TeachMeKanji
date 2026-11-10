@@ -117,7 +117,7 @@ Required in production:
 | `ENCRYPTION_KEY` | Encrypts users' GitHub and Expo tokens (no fallback in production) |
 | `NEXT_PUBLIC_PREVIEW_ORIGIN` (build time), `PREVIEW_ALLOWED_PARENTS` | The preview origin, and the app origin it trusts |
 | `APP_PUBLIC_URL` | The origin generated apps call for App Cloud; phones must be able to reach it |
-| `ANTHROPIC_API_KEY` | The built-in agent (Free and Pro). Studio users bring their own AI over MCP; leave `LLM_PROVIDER` empty |
+| `ANTHROPIC_API_KEY` | The built-in agent (worker), and AI features inside generated apps (web: App Cloud's `/ai`). On Railway, set the web service's to a reference, `${{worker.ANTHROPIC_API_KEY}}`; leave `LLM_PROVIDER` empty |
 | `ADMIN_API_TOKEN` (optional, 32+ characters; or run `npm run credits:grant -- --amount 500 --key <once> --email a@b.com` where the database is reachable, e.g. as a one-off pre-deploy command. Railway runs that command without a shell, so wrap two commands in `sh -c '…'`, and push a commit to apply it: a redeploy reuses the old deployment's settings) | Turns on `POST /api/admin/credits` for giving credits to testers by email: `curl -X POST $BETTER_AUTH_URL/api/admin/credits -H "Authorization: Bearer $ADMIN_API_TOKEN" -H "content-type: application/json" -d '{"emails":["a@b.com"],"amount":500}'` (or `"emailSuffix":"@example.com"`). Unset, the endpoint returns 404 |
 | `CLIENT_IP_HEADER` (and `TRUSTED_PROXIES` for a multi-hop chain) | The header your proxy sets with the client's address, for per-IP rate limits. Caddy overwrites `X-Forwarded-For` (the default works); with nginx, set `proxy_set_header X-Real-IP $remote_addr` and `CLIENT_IP_HEADER=x-real-ip` |
 

@@ -26,6 +26,7 @@ export const TEMPLATE_FILES = [
   "data/photos.ts",
   "data/location.ts",
   "data/push.ts",
+  "data/ai.ts",
 ] as const;
 
 /** Files every generated app must contain in addition to the template. */

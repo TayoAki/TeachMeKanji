@@ -366,6 +366,55 @@ test("free plan limits", async ({ page }) => {
   expect(status).toBe(403);
 });
 
+test("AI features: the app asks its AI through App Cloud, which turns on by itself", async ({
+  page,
+  request,
+}) => {
+  await signUp(page, "Asker");
+  await createAndBuild(page, "A kanji study app");
+  const projectId = page.url().split("/projects/")[1]!;
+  expect((await request.post(`/api/app/${projectId}/ai`)).status()).toBe(404);
+
+  // App Cloud turning on gives the preview a session, which reloads the screens once.
+  const previewToken = page.waitForResponse((r) => r.url().includes("/preview-token"));
+  await page.getByLabel("Message the agent").fill("add an Ask AI tab");
+  await page.getByTestId("chat-send").click();
+  await expect(page.getByText("App Cloud is now on")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("status")).toHaveText("Ready", { timeout: 30_000 });
+  await expect(page.getByTestId("app-cloud-panel")).toContainText("Connected");
+
+  // In the canvas, the new tab asks the AI and shows its answer.
+  const ask = page
+    .getByTestId("canvas-screen")
+    .filter({ hasText: "ask.tsx" })
+    .frameLocator("iframe");
+  await previewToken;
+  await expect(async () => {
+    await ask.getByLabel("Question").fill("What does 水 mean?");
+    await ask.getByRole("button", { name: "Ask", exact: true }).click();
+    await expect(ask.getByText("Offline AI answer to: What does 水 mean?")).toBeVisible({
+      timeout: 3_000,
+    });
+  }).toPass({ timeout: 20_000 });
+
+  // The API needs a session and a question, and the Data tab counts the answers.
+  const { token } = (await (await request.post(`/api/app/${projectId}/auth/anonymous`)).json()) as {
+    token: string;
+  };
+  const headers = { authorization: `Bearer ${token}` };
+  expect((await request.post(`/api/app/${projectId}/ai`, { data: {} })).status()).toBe(401);
+  expect((await request.post(`/api/app/${projectId}/ai`, { headers, data: {} })).status()).toBe(
+    400,
+  );
+  const answer = await request.post(`/api/app/${projectId}/ai`, {
+    headers,
+    data: { prompt: "hello" },
+  });
+  expect(await answer.json()).toEqual({ text: "Offline AI answer to: hello" });
+  await page.getByTestId("tab-data").click();
+  await expect(page.getByTestId("data-ai-calls")).not.toHaveText("0");
+});
+
 test("App Cloud: accounts and per-user data for the generated app", async ({ page, request }) => {
   await signUp(page, "Cloud");
   await createAndBuild(page, "A habit tracker with streaks");

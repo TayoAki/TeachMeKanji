@@ -128,14 +128,10 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
     return () => {
       alive = false;
     };
-  }, [state.project.backend, state.project.id, state.access, state.versionId]);
-  const previewStorage = useMemo(
-    () =>
-      state.project.backend === "cloud" && previewToken
-        ? { "app:auth:token": previewToken.token }
-        : undefined,
-    [state.project.backend, previewToken],
-  );
+    // Once per App Cloud switch: a new token reloads every preview frame.
+  }, [state.project.backend, state.project.id, state.access]);
+  const token = state.project.backend === "cloud" ? previewToken?.token : undefined;
+  const previewStorage = useMemo(() => (token ? { "app:auth:token": token } : undefined), [token]);
 
   const progress = useRunStream(runId, () => {
     setRunId(null);
