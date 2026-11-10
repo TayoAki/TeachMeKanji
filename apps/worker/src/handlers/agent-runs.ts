@@ -242,7 +242,7 @@ export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
   );
   const result = await editApp({
     createMessage: ctx.createMessage,
-    model: ctx.model,
+    model: ctx.editModel,
     files,
     request: input.request,
     selection: input.selection ?? null,

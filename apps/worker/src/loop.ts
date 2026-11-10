@@ -84,6 +84,7 @@ export async function processRun(db: Database, run: Run, provider: Provider): Pr
     run,
     createMessage: meter.createMessage,
     model: provider.model,
+    editModel: provider.editModel,
     offline: provider.offline,
     emit: (type, payload) => addEvent(db, run.id, type, payload),
   };
@@ -95,6 +96,7 @@ export async function processRun(db: Database, run: Run, provider: Provider): Pr
       output: result.output,
       model: provider.model,
       usage: meter.usage(),
+      costUsd: meter.cost() ?? undefined,
     });
   } catch (error) {
     if (!(
@@ -114,6 +116,7 @@ export async function processRun(db: Database, run: Run, provider: Provider): Pr
       {
         model: provider.model,
         usage: meter.usage(),
+        costUsd: meter.cost() ?? undefined,
       },
     );
     if (AGENT_KINDS.has(run.kind)) {

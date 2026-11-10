@@ -16,30 +16,41 @@ export default async function PricingPage() {
       id: "free",
       tagline: "Try it with built-in AI.",
       features: [
-        `${PLANS.free.signupCredits} credits to start`,
+        `${PLANS.free.signupCredits} credits to start (about one app)`,
         `${PLANS.free.maxProjects} projects`,
         `Up to ${PLANS.free.maxScreensPerProject} screens per app`,
-        "Live preview, on-phone preview, inline editing",
+        "Live preview, on-phone preview, editing text yourself for free",
         "Download source, push to GitHub, publish to the web",
       ],
     },
     {
-      id: "studio",
-      tagline: "Bring the AI you already pay for.",
+      id: "builder",
+      tagline: "Build and ship your app.",
       features: [
-        "Build from Claude, ChatGPT or Cursor through MCP: no credits needed",
+        `${PLANS.builder.monthlyCredits} credits every month`,
         "Unlimited projects",
-        `Up to ${PLANS.studio.maxScreensPerProject} screens per app`,
-        "App Cloud: accounts and data for your apps",
-        "Android (APK/AAB) and iOS (IPA) builds",
+        `Up to ${PLANS.builder.maxScreensPerProject} screens per app`,
+        "TestFlight and Google Play builds",
+        "Real in-app purchases with RevenueCat",
+        "AI features and App Cloud inside your apps",
+      ],
+    },
+    {
+      id: "studio",
+      tagline: "More AI, plus the AI you already pay for.",
+      features: [
+        `${PLANS.studio.monthlyCredits} credits every month`,
+        "Build from Claude, ChatGPT or Cursor through MCP, without using credits",
+        "Everything in Builder",
       ],
     },
     {
       id: "pro",
-      tagline: "Built-in AI, plus everything in Studio.",
+      tagline: "For apps you're growing.",
       features: [
-        `${PLANS.pro.monthlyCredits} credits every month for the built-in agent`,
-        "Everything in Studio, including MCP",
+        `${PLANS.pro.monthlyCredits} credits every month`,
+        `Up to ${PLANS.pro.maxScreensPerProject} screens per app`,
+        "Everything in Studio",
       ],
     },
   ];
@@ -52,7 +63,7 @@ export default async function PricingPage() {
           Use the built-in agent with credits, or connect your own Claude, ChatGPT or Cursor and
           build without paying for AI twice.
         </p>
-        <div className="mt-10 grid gap-6 md:grid-cols-3">
+        <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {tiers.map((tier) => (
             <div
               key={tier.id}
@@ -85,8 +96,9 @@ export default async function PricingPage() {
           ))}
         </div>
         <p className="mt-8 text-center text-xs text-muted-foreground">
-          1 credit ≈ ${CREDIT_USD.toFixed(2)} of AI usage. A new app (plan + 5 screens) uses about
-          30 credits; most edits use 2–5. Failed runs are free.
+          1 credit = ${CREDIT_USD.toFixed(2)} of AI usage, charged at what each step actually used.
+          A new app uses about 60–90 credits and a chat edit usually 5–15. Editing text and styles
+          yourself is free; a step that fails pays only for what it used.
         </p>
       </main>
     </>

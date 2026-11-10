@@ -21,10 +21,16 @@ export const DEFAULT_EFFORT = (process.env.GENERATION_EFFORT || "high") as
  */
 export function anthropicCreateMessage(client = new Anthropic()): CreateMessage {
   return (params, hooks) => {
+    // Haiku has no server-side fallback (a fallbacks field is a 400).
+    const fallback = !String(params.model).startsWith("claude-haiku");
     const stream = client.beta.messages.stream({
       ...params,
-      betas: [...(params.betas ?? []), "server-side-fallback-2026-07-01"],
-      fallbacks: "default",
+      ...(fallback
+        ? {
+            betas: [...(params.betas ?? []), "server-side-fallback-2026-07-01"],
+            fallbacks: "default",
+          }
+        : {}),
     });
     if (hooks?.onStreamStart) stream.once("streamEvent", () => hooks.onStreamStart?.());
     return stream.finalMessage();
@@ -63,6 +69,8 @@ const PRICES: Record<
   { input: number; output: number; cacheRead: number; cacheWrite: number }
 > = {
   "claude-opus-5-5": { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 },
+  "claude-sonnet-5-5": { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 2.5 },
+  "claude-haiku-5-5": { input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite: 0.125 },
 };
 
 export function estimateCostUsd(model: string, usage: UsageTotals): number | null {

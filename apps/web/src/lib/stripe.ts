@@ -9,11 +9,14 @@ export function stripe(): Stripe {
   return new Stripe(process.env.STRIPE_SECRET_KEY);
 }
 
-/** The Stripe price (monthly) for each paid plan: STRIPE_PRICE_STUDIO, STRIPE_PRICE_PRO. */
+/** The Stripe price (monthly) for each paid plan: STRIPE_PRICE_BUILDER, _STUDIO, _PRO. */
 export function priceForPlan(plan: PaidPlanId): string | null {
-  return (
-    (plan === "studio" ? process.env.STRIPE_PRICE_STUDIO : process.env.STRIPE_PRICE_PRO) || null
-  );
+  const prices: Record<PaidPlanId, string | undefined> = {
+    builder: process.env.STRIPE_PRICE_BUILDER,
+    studio: process.env.STRIPE_PRICE_STUDIO,
+    pro: process.env.STRIPE_PRICE_PRO,
+  };
+  return prices[plan] || null;
 }
 
 /** Which plan a Stripe price belongs to, so portal upgrades and downgrades are followed. */
@@ -26,6 +29,7 @@ export function planForPrice(priceId: string | null | undefined): PaidPlanId | n
 export function billingAvailability(): Record<PaidPlanId, boolean> {
   const keyed = Boolean(process.env.STRIPE_SECRET_KEY);
   return {
+    builder: keyed && Boolean(priceForPlan("builder")),
     studio: keyed && Boolean(priceForPlan("studio")),
     pro: keyed && Boolean(priceForPlan("pro")),
   };

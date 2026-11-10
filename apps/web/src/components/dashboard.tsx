@@ -22,7 +22,7 @@ export interface DashboardData {
   projects: ProjectCardData[];
   community: ProjectCardData[];
   credits: number;
-  plan: "free" | "studio" | "pro";
+  plan: "free" | "builder" | "studio" | "pro";
   limits: { name: string; maxProjects: number | null; maxScreensPerProject: number };
   /** A prompt typed on the landing page before signing up. */
   pendingPrompt: string;

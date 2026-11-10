@@ -19,7 +19,7 @@ import { ConnectorsSection } from "@/components/connectors-section";
 export interface SettingsData {
   user: RailUser;
   credits: number;
-  plan: "free" | "studio" | "pro";
+  plan: "free" | "builder" | "studio" | "pro";
   limits: {
     mcp: boolean;
     name: string;

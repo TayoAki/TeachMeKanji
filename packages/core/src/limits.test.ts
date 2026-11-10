@@ -39,7 +39,10 @@ describe("plan pricing", () => {
   it("keeps every paid plan at the target gross margin, even if all credits are used", async () => {
     const { PAID_PLANS, planMargin, TARGET_MARGIN, PLANS } = await import("./billing");
     for (const plan of PAID_PLANS) expect(planMargin(plan)).toBeGreaterThanOrEqual(TARGET_MARGIN);
-    expect(PLANS.studio.mcp && PLANS.pro.mcp && !PLANS.free.mcp).toBe(true);
+    expect(PLANS.studio.mcp && PLANS.pro.mcp && !PLANS.builder.mcp && !PLANS.free.mcp).toBe(true);
+    // The entry plan is priced like other AI app builders and includes a few builds a month.
+    expect(PLANS.builder.priceUsdPerMonth).toBeLessThanOrEqual(25);
+    expect(PLANS.builder.monthlyCredits).toBeGreaterThanOrEqual(200);
   });
 
   it("grants complimentary plans by email, ignoring unknown plans", async () => {

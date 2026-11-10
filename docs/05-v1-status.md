@@ -81,16 +81,18 @@ steps). This page says exactly what was verified here and what wasn't.
 - **Publish:** a public web URL (`/p/<slug>`) serving the published version, and an option to
   list the app in the community gallery, where anyone can try it or remix a copy.
 - **Plans and credits:** Free ($0: 100 starting credits, 2 projects, 5 screens per app),
-  Studio ($49/month: bring your own AI over MCP, unlimited projects, 12 screens, native builds)
-  and Pro ($99/month: Studio plus 80 credits a month for the built-in agent), via Stripe
-  Checkout, the customer portal and webhooks; the plan follows the Stripe price. Each paid plan
-  keeps at least a 90% gross margin even if every included credit is spent, after hosting and
-  payment fees (Studio ≈ 92%, Pro ≈ 90%; see [07-unit-economics.md](07-unit-economics.md); a
-  test enforces it). `COMP_PLANS` gives chosen accounts a plan without paying. Each run
-  reserves credits, which are also its spending cap: the worker stops a run when its measured
-  model cost reaches the reserve. A run is charged its measured cost (at
-  least a small minimum when it succeeds, never more than its reserve). Failed or cancelled
-  runs pay only for the model usage they consumed.
+  Builder ($25/month: 200 credits a month, unlimited projects, 12 screens, store builds), Studio
+  ($49/month: 450 credits plus building from your own AI over MCP) and Pro ($99/month: 1,000
+  credits, 20 screens), via Stripe Checkout, the customer portal and webhooks; the plan follows
+  the Stripe price. Every paid plan keeps at least a 40% gross margin even if every included
+  credit is spent, after hosting and payment fees (see
+  [07-unit-economics.md](07-unit-economics.md); a test enforces it). Chat edits run on Claude
+  Sonnet 5.5 (`EDIT_MODEL`), half the price of Opus; plans and builds stay on Opus 5.5
+  (`GENERATION_MODEL`); each model call is billed at its own model's price. `COMP_PLANS` gives
+  chosen accounts a plan without paying. Each run reserves credits, which are also its spending
+  cap: the worker stops a run when its measured model cost reaches the reserve. A run is charged
+  its measured cost (at least a small minimum when it succeeds, never more than its reserve).
+  Failed or cancelled runs pay only for the model usage they consumed.
 - **Limits and operations:** 60 AI requests an hour and 20 new projects a day per user;
   sign-in, sign-up and password-reset rate limits; App Cloud storage caps per user and per app,
   request size limits, and per-address limits on new devices, sign-ups and sign-ins; server

@@ -7,6 +7,8 @@ export interface HandlerContext {
   run: Run;
   createMessage: CreateMessage;
   model: string;
+  /** Model for chat edits (see Provider.editModel). */
+  editModel: string;
   offline: boolean;
   emit: (type: string, payload?: Record<string, unknown>) => Promise<void>;
 }

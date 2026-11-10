@@ -167,7 +167,7 @@ export function ShareDialog({
 // --- Export --------------------------------------------------------------------------------
 
 interface Me {
-  plan: "free" | "studio" | "pro";
+  plan: "free" | "builder" | "studio" | "pro";
   limits: { nativeBuilds: boolean };
   integrations: Array<{ provider: "github" | "expo"; label: string | null }>;
 }

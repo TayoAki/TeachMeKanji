@@ -13,7 +13,7 @@ export function UpgradeButton({
   enabled,
   current,
 }: {
-  plan: "studio" | "pro";
+  plan: "builder" | "studio" | "pro";
   name: string;
   signedIn: boolean;
   enabled: boolean;

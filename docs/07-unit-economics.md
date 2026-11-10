@@ -3,25 +3,28 @@
 What it costs to serve one subscriber for a month, and what's left of the price. Prices are
 as of November 2026: Railway, Anthropic (Claude) and Stripe list prices. The worst-case
 numbers are enforced by a test (`planMargin` in `packages/core/src/billing.ts` must stay at or
-above 90% for every paid plan).
+above 40% for every paid plan).
+
+Plans are priced against other AI app builders: Rork Pro and a0.dev Pro are $20 a month for 100
+credits, Vibecode Plus $20 for $20 of AI usage at cost, Newly $25 (November 2026). The old Pro
+($99 for 80 credits, about one build a month) lost every side-by-side comparison.
 
 ## Per subscriber, per month (worst case)
 
-Worst case means a Pro subscriber spends every included credit on the most expensive model.
+Worst case means a subscriber spends every included credit.
 
-| | Studio $49 | Pro $99 |
-|---|---:|---:|
-| AI (included credits, all used) | $0.00 | $4.00 (80 credits × $0.05) |
-| Hosting (estimate, see below) | $2.00 | $2.00 |
-| Payments (2.9% + $0.30 card, 0.7% Stripe Billing) | $2.06 | $3.86 |
-| **Cost of goods sold** | **$4.06** | **$9.86** |
-| **Gross margin** | **91.7%** | **90.0%** |
+| | Builder $25 | Studio $49 | Pro $99 |
+|---|---:|---:|---:|
+| Credits included | 200 | 450 | 1,000 |
+| AI (all credits used, × $0.05) | $10.00 | $22.50 | $50.00 |
+| Hosting (estimate, see below) | $2.00 | $2.00 | $2.00 |
+| Payments (2.9% + $0.30 card, 0.7% Stripe Billing) | $1.20 | $2.06 | $3.86 |
+| **Cost of goods sold** | **$13.20** | **$26.56** | **$55.86** |
+| **Gross margin** | **47.2%** | **45.8%** | **43.6%** |
 
-Studio has no AI line: the subscriber's own Claude, ChatGPT or Cursor subscription does the
-generation over MCP. That is why it carries the best margin at half the price.
-
-In a typical month a Pro subscriber uses part of the credits, so the real margin is higher
-(about 92% at half usage).
+In a typical month subscribers use part of their credits, so the real margin is higher (about
+70% at half usage). What a credit buys: a new app is about 60–90 credits on Opus 5.5; a chat
+edit on Sonnet 5.5 is usually 5–15.
 
 ## The cost lines
 

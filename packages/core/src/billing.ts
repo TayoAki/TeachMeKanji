@@ -2,9 +2,10 @@
  * Plans, limits and credit pricing. One credit is worth CREDIT_USD of model cost; a run is
  * charged its measured cost in credits, never less than its minimum.
  *
- * Paid plans are priced for at least a 90% gross margin (see planMargin): Studio has no model
- * cost (users bring their own AI through MCP), and Pro's included credits are capped at 10% of
- * its price minus hosting. Check HOSTING_USD_PER_USER_MONTH against real bills after launch.
+ * Paid plans keep at least TARGET_MARGIN gross margin even if a subscriber spends every included
+ * credit (see planMargin); most don't, so the real margin is higher. Plans are priced against
+ * other AI app builders ($20–25 for an entry plan). Check HOSTING_USD_PER_USER_MONTH against real
+ * bills after launch.
  */
 export const CREDIT_USD = 0.05;
 
@@ -15,12 +16,12 @@ export const HOSTING_USD_PER_USER_MONTH = 2;
 export const PAYMENT_FEE_RATE = 0.029 + 0.007;
 export const PAYMENT_FEE_FIXED_USD = 0.3;
 
-/** The gross margin every paid plan must keep. */
-export const TARGET_MARGIN = 0.9;
+/** The gross margin every paid plan keeps when all of its credits are spent. */
+export const TARGET_MARGIN = 0.4;
 
-export type PlanId = "free" | "studio" | "pro";
+export type PlanId = "free" | "builder" | "studio" | "pro";
 export type PaidPlanId = Exclude<PlanId, "free">;
-export const PAID_PLANS: readonly PaidPlanId[] = ["studio", "pro"];
+export const PAID_PLANS: readonly PaidPlanId[] = ["builder", "studio", "pro"];
 
 export interface PlanLimits {
   name: string;
@@ -45,11 +46,21 @@ export const PLANS: Record<PlanId, PlanLimits> = {
     nativeBuilds: false,
     mcp: false,
   },
+  builder: {
+    name: "Builder",
+    priceUsdPerMonth: 25,
+    signupCredits: 0,
+    monthlyCredits: 200,
+    maxProjects: null,
+    maxScreensPerProject: 12,
+    nativeBuilds: true,
+    mcp: false,
+  },
   studio: {
     name: "Studio",
     priceUsdPerMonth: 49,
     signupCredits: 0,
-    monthlyCredits: 0,
+    monthlyCredits: 450,
     maxProjects: null,
     maxScreensPerProject: 12,
     nativeBuilds: true,
@@ -59,10 +70,9 @@ export const PLANS: Record<PlanId, PlanLimits> = {
     name: "Pro",
     priceUsdPerMonth: 99,
     signupCredits: 0,
-    // The most included AI that keeps a 90% margin after hosting and payment fees.
-    monthlyCredits: 80,
+    monthlyCredits: 1000,
     maxProjects: null,
-    maxScreensPerProject: 12,
+    maxScreensPerProject: 20,
     nativeBuilds: true,
     mcp: true,
   },
@@ -160,7 +170,7 @@ export const MODEL_PRICES: Record<
   { input: number; output: number; cacheRead: number; cacheWrite: number }
 > = {
   "claude-opus-5-5": { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 },
-  "claude-sonnet-5-5": { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 },
+  "claude-sonnet-5-5": { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 2.5 },
   "claude-haiku-5-5": { input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite: 0.125 },
 };
 

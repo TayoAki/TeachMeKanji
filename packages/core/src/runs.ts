@@ -187,6 +187,8 @@ export async function activeRun(db: Database, projectId: string): Promise<Run | 
 export interface RunUsage {
   model?: string;
   usage?: TokenUsage;
+  /** Measured cost when the run used several models (each call priced by its own model). */
+  costUsd?: number;
 }
 
 const NO_USAGE: TokenUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
@@ -201,7 +203,7 @@ export async function completeRun(
   const charge = chargeForRun(
     run.kind,
     run.creditsReserved,
-    result.model ? costUsd(result.model, usage) : null,
+    result.costUsd ?? (result.model ? costUsd(result.model, usage) : null),
     "succeeded",
   );
   await settleCredits(db, run.userId, run.id, run.creditsReserved, charge);
@@ -239,7 +241,7 @@ export async function failRun(
   const charge = chargeForRun(
     run.kind,
     run.creditsReserved,
-    result.model ? costUsd(result.model, usage) : null,
+    result.costUsd ?? (result.model ? costUsd(result.model, usage) : null),
     "failed",
   );
   await settleCredits(db, run.userId, run.id, run.creditsReserved, charge);
