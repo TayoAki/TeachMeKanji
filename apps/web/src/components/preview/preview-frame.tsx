@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useEffectEvent, useRef } from "react";
+import { useEffect, useEffectEvent, useImperativeHandle, useRef, type Ref } from "react";
 import {
   isEnvelope,
   PREVIEW_CHANNEL,
@@ -34,6 +34,12 @@ export interface PreviewFrameProps {
   appearance?: "light" | "dark" | null;
   /** Double-click on text edits it in place; the frame reports it as "text-edit". */
   editText?: boolean;
+  /** capture(): the screen as a PNG data URL (store screenshots). */
+  ref?: Ref<PreviewFrameHandle>;
+}
+
+export interface PreviewFrameHandle {
+  capture: (pixelRatio?: number) => Promise<string>;
 }
 
 /**
@@ -57,8 +63,13 @@ export function PreviewFrame({
   persistStorage = false,
   appearance = null,
   editText = false,
+  ref,
 }: PreviewFrameProps) {
   const iframe = useRef<HTMLIFrameElement>(null);
+  const captures = useRef(
+    new Map<string, { resolve: (png: string) => void; reject: (e: Error) => void }>(),
+  );
+
   const ready = useRef(false);
 
   const send = (message: ParentToFrame) => {
@@ -68,6 +79,19 @@ export function PreviewFrame({
       "*",
     );
   };
+
+  useImperativeHandle(ref, () => ({
+    capture: (pixelRatio = 3) =>
+      new Promise<string>((resolve, reject) => {
+        const requestId = Math.random().toString(36).slice(2);
+        captures.current.set(requestId, { resolve, reject });
+        send({ type: "capture", requestId, pixelRatio });
+        setTimeout(() => {
+          if (captures.current.delete(requestId))
+            reject(new Error("The screen didn't render in time."));
+        }, 20_000);
+      }),
+  }));
 
   const load = useEffectEvent(() => {
     send({
@@ -85,6 +109,13 @@ export function PreviewFrame({
   });
 
   const receive = useEffectEvent((message: FrameToParent) => {
+    if (message.type === "captured") {
+      const pending = captures.current.get(message.requestId);
+      captures.current.delete(message.requestId);
+      if (message.png) pending?.resolve(message.png);
+      else pending?.reject(new Error(message.error ?? "Couldn't capture the screen."));
+      return;
+    }
     if (message.type === "ready") {
       if (ready.current) return; // "ready" can arrive twice (startup + reply to hello)
       ready.current = true;

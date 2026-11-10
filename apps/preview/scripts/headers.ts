@@ -14,8 +14,9 @@ export function securityHeaders(): Record<string, string> {
       // https: for ImageKit and the app's own images in production; the parents for local dev.
       `img-src 'self' data: blob: https: ${allowedParents.join(" ")}`,
       "font-src 'self'",
-      // Generated apps may only call App Cloud on the app's own origin; nothing else.
-      `connect-src ${allowedParents.join(" ")}`,
+      // Generated apps may only call App Cloud on the app's own origin; nothing else. 'self' lets
+      // a screen read the preview's own files (the icon font) when it renders itself to an image.
+      `connect-src 'self' ${allowedParents.join(" ")}`,
       `frame-ancestors ${allowedParents.join(" ")}`,
     ].join("; "),
     "X-Content-Type-Options": "nosniff",

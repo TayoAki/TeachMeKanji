@@ -16,6 +16,7 @@ import {
   Share2,
   Smartphone,
   Sparkles,
+  Store,
   Sun,
   Trash2,
   Upload,
@@ -51,6 +52,7 @@ import { CodeView, HistoryView } from "./code-and-history";
 import { DeviceDialog, ExportDialog, PublishDialog, ShareDialog } from "./dialogs";
 import { Inspector, ThemeList } from "./inspector";
 import { PaymentsPanel } from "./payments-panel";
+import { StoreListingDialog } from "./store-listing-dialog";
 import type { ProjectState } from "./types";
 
 const STATUS_LABEL: Record<ProjectState["project"]["status"], string> = {
@@ -78,7 +80,9 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
   const [chatSelection, setChatSelection] = useState<ChatSelection | null>(null);
   const [appHref, setAppHref] = useState("/");
   const [appKey, setAppKey] = useState(0);
-  const [dialog, setDialog] = useState<null | "share" | "export" | "publish" | "device">(null);
+  const [dialog, setDialog] = useState<
+    null | "share" | "export" | "publish" | "device" | "listing"
+  >(null);
   const [codeFocus, setCodeFocus] = useState<string | null>(null);
 
   const { project, access } = state;
@@ -357,6 +361,13 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
                   ) : null}
                   <DropdownMenuItem onSelect={remix} disabled={!state.versionId}>
                     <Copy /> Duplicate
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => setDialog("listing")}
+                    disabled={!state.versionId}
+                    data-testid="open-listing"
+                  >
+                    <Store /> Store listing
                   </DropdownMenuItem>
                   {canManage ? (
                     <>
@@ -673,6 +684,15 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
         open={dialog === "device"}
         onOpenChange={(o) => setDialog(o ? "device" : null)}
         projectId={project.id}
+      />
+      <StoreListingDialog
+        open={dialog === "listing"}
+        onOpenChange={(o) => setDialog(o ? "listing" : null)}
+        projectId={project.id}
+        files={files}
+        themeId={themeId}
+        theme={activeTheme}
+        canEdit={canEdit}
       />
     </AppShell>
   );

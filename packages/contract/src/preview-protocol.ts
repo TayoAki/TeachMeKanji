@@ -34,6 +34,8 @@ export type ParentToFrame =
     }
   | { type: "set-theme"; themeId: string }
   | { type: "set-appearance"; appearance: "light" | "dark" | null }
+  /** Render the screen to a PNG (store screenshots); the frame answers "captured". */
+  | { type: "capture"; requestId: string; pixelRatio?: number }
   | { type: "set-select-mode"; enabled: boolean }
   | { type: "navigate"; href: string };
 
@@ -62,6 +64,8 @@ export type FrameToParent =
       /** The app's template can switch between light and dark (useAppearance). */
       canSwitchAppearance?: boolean;
     }
+  /** The screen as a PNG data URL, or null with the reason. */
+  | { type: "captured"; requestId: string; png: string | null; error?: string }
   /** The user typed new text into an element in place (double-click, Enter). */
   | { type: "text-edit"; fid: string; text: string }
   | { type: "storage"; key: string; value: string | null }

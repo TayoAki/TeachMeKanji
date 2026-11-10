@@ -510,6 +510,34 @@ test("store builds: keys are checked before saving, identifiers live in app.json
   await expect(page.getByText("That isn't a Google service account key")).toBeVisible();
 });
 
+test("store listing: copy within the stores' limits, framed screenshots, one zip", async ({
+  page,
+}) => {
+  await signUp(page, "Lister");
+  await createAndBuild(page, "A reading log");
+  await page.getByRole("button", { name: "Project menu" }).click();
+  await page.getByTestId("open-listing").click();
+  await page.getByTestId("listing-write").click();
+  const listing = page.getByTestId("listing");
+  await expect(listing).toContainText("Track it in seconds", { timeout: 30_000 });
+  await expect(listing).toContainText("19/30"); // the subtitle's length against the limit
+
+  // Each screenshot is the real screen, rendered and captured, framed with its caption.
+  await page.getByTestId("listing-screenshots").click();
+  const shots = page.getByTestId("listing-shots").locator("img");
+  await expect(shots).toHaveCount(4, { timeout: 60_000 });
+  const size = await shots
+    .first()
+    .evaluate((img: HTMLImageElement) => [img.naturalWidth, img.naturalHeight]);
+  expect(size).toEqual([1290, 2796]);
+
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Download all" }).click(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(/-store-listing\.zip$/);
+});
+
 test("App Cloud: accounts and per-user data for the generated app", async ({ page, request }) => {
   await signUp(page, "Cloud");
   await createAndBuild(page, "A habit tracker with streaks");

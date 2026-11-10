@@ -17,6 +17,7 @@ import {
   type PreviewTheme,
   type ProjectFiles,
 } from "@appbuilder/contract";
+import { toPng } from "html-to-image";
 import { createModuleSystem, ModuleError } from "./loader";
 import { createSelection } from "./selection";
 import { resetAsyncStorage } from "./shims/async-storage";
@@ -138,6 +139,9 @@ window.addEventListener("message", (event) => {
     case "set-appearance":
       setAppearance?.(message.appearance);
       break;
+    case "capture":
+      void capture(message.requestId, message.pixelRatio ?? 3);
+      break;
     case "set-select-mode":
       selection.setEnabled(message.enabled);
       break;
@@ -219,6 +223,35 @@ function load(message: Extract<ParentToFrame, { type: "load" }>) {
       post({ type: "rendered", href: message.href, ms: Math.round(performance.now() - started) }),
     ),
   );
+}
+
+/** The screen as it looks now, as a PNG (store screenshots), at device pixel density. */
+async function capture(requestId: string, pixelRatio: number) {
+  // Phones don't show scrollbars; a store screenshot shouldn't either.
+  const hideScrollbars = document.createElement("style");
+  hideScrollbars.textContent =
+    "*{scrollbar-width:none!important}*::-webkit-scrollbar{display:none!important}";
+  document.head.append(hideScrollbars);
+  try {
+    await document.fonts.ready;
+    const root = document.getElementById("root")!;
+    const png = await toPng(root, {
+      pixelRatio,
+      width: root.clientWidth,
+      height: root.clientHeight,
+      backgroundColor: getComputedStyle(document.body).backgroundColor,
+    });
+    post({ type: "captured", requestId, png });
+  } catch (error) {
+    post({
+      type: "captured",
+      requestId,
+      png: null,
+      error: (error as Error)?.message ?? String(error),
+    });
+  } finally {
+    hideScrollbars.remove();
+  }
 }
 
 function report(error: unknown) {

@@ -52,6 +52,13 @@ steps). This page says exactly what was verified here and what wasn't.
   owner sends from the Data tab (through Expo's push service; store and TestFlight builds,
   not Expo Go). In the web preview the camera and picker return a sample photo and location
   a sample place; on a phone (Expo Go or a build) the real modules run.
+- **Store listing:** Project menu → Store listing writes the App Store and Google Play copy
+  (name, subtitle, promotional text, description, keywords, Play short description, category,
+  and a caption per screenshot; a store_listing run on Sonnet with structured output, trimmed
+  to each store's limits). "Make screenshots" renders each chosen screen at device size in its
+  own preview frame, which draws itself to a PNG (html-to-image), and frames it with its
+  caption over the theme's color at App Store (1290×2796) and Google Play (1080×1920) sizes;
+  "Download all" zips them with the text.
 - **Send to the stores:** the build dialog's "Send to TestFlight" and "Send to Google Play"
   run a production EAS build with auto-submit on the user's Expo account. Settings → Phone
   builds holds the App Store Connect API key (checked by signing a request Apple accepts; it
