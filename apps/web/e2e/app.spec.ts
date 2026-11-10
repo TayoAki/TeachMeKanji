@@ -145,6 +145,42 @@ test("from idea to published app", async ({ page, browser }) => {
   await visitor.close();
 });
 
+test("selecting a screen scopes a chat change to that screen", async ({ page }) => {
+  await page.goto("/sign-up");
+  await page.getByLabel("Name").fill("Scoped Editor");
+  await page.getByLabel("Email").fill(`scoped-${Date.now()}@example.com`);
+  await page.getByLabel("Password").fill("correct-horse-battery");
+  await page.getByRole("button", { name: "Create account" }).click();
+  await page.getByLabel("Describe your app").fill("An expense tracker");
+  await page.getByTestId("prompt-submit").click();
+  await page.waitForURL(/\/projects\//);
+  await page.getByTestId("confirm-build").click({ timeout: 30_000 });
+  await expect(page.getByTestId("status")).toHaveText("Ready", { timeout: 60_000 });
+  const projectId = page.url().split("/projects/")[1]!;
+
+  // Pick the Settings screen on the canvas: the chat is now about that screen.
+  const settings = page.getByTestId("canvas-screen").filter({ hasText: "settings.tsx" });
+  await settings.getByTestId("canvas-screen-title").click();
+  await expect(settings).toHaveAttribute("data-selected", "true");
+  await expect(page.getByTestId("chat-selection")).toContainText("Editing: Settings screen");
+
+  // "Restore Purchases" is on the paywall too; only the selected screen changes.
+  await page
+    .getByLabel("Message the agent")
+    .fill('change "Restore Purchases" to "Restore my plan"');
+  await page.getByTestId("chat-send").click();
+  await expect(page.getByText("Changed “Restore Purchases” to “Restore my plan”.")).toBeVisible({
+    timeout: 30_000,
+  });
+  const { files } = (await (await page.request.get(`/api/projects/${projectId}`)).json()) as {
+    files: Record<string, string>;
+  };
+  expect(files["app/settings.tsx"]).toContain("Restore my plan");
+  expect(files["app/paywall.tsx"]).toContain("Restore Purchases");
+  expect(files["app/paywall.tsx"]).not.toContain("Restore my plan");
+  await expect(page.getByTestId("chat-selection")).toHaveCount(0);
+});
+
 test("sharing and permissions", async ({ browser }) => {
   const owner = await browser.newPage();
   await signUp(owner, "Owner");

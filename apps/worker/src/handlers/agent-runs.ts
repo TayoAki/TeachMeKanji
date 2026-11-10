@@ -157,7 +157,7 @@ export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
   const project = await loadProject(ctx);
   const input = ctx.run.input as {
     request: string;
-    selection?: { path: string; snippet: string } | null;
+    selection?: { path: string; snippet: string; kind?: "element" | "screen" } | null;
   };
   const current = await getCurrentFiles(ctx.db, project.id);
   // Projects made with an older template get the current platform files before editing.

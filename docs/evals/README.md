@@ -32,12 +32,11 @@ readings and meaning, a quiz mode that tests meanings, and progress by JLPT leve
 
 ## What the judges still ask for (next steps)
 
-- **More content than one generation can write**: a real kanji app needs the full JLPT lists
-  (~2,000 kanji). That needs a content pipeline (bundled datasets or App Cloud collections
-  filled from a source), not a bigger seed file.
-- **Image sharing** (`react-native-view-shot`) and **daily reminders**
-  (`expo-notifications` local notifications): both ship in Expo Go, so they could join the
-  allow-list with preview stand-ins. Judges ask for them on every habit app.
+- **More content than one generation can write**: grown step by step instead. Select a screen
+  on the canvas and ask in the chat ("add 30 more N4 kanji"); edits add new
+  `data/content/<name>.ts` files that `data/seed.ts` merges, rather than rewriting one big file.
+- **Image sharing and daily reminders**: added (`useShareImage()` and `useReminder()`, built on
+  react-native-view-shot, expo-sharing and expo-notifications, all in Expo Go).
 - **Template API**: `restorePurchases()` should return its error, not only a boolean.
 - **Cost**: a seven-screen build is ~$3.35 at high effort. Candidates to A/B with this
   harness: medium effort for the structure screens, Sonnet 5.5 for builds.

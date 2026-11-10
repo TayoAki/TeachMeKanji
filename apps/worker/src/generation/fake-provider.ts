@@ -1136,8 +1136,11 @@ function fakeEdit(request: string, system: string): string {
   const replace = /(?:change|rename|replace)\s+"([^"]+)"\s+(?:to|with)\s+"([^"]+)"/i.exec(ask);
   if (replace) {
     const [, from, to] = replace;
+    // A selected screen scopes the change to that screen.
+    const scope = /The user selected the screen (\S+)/.exec(request)?.[1];
     const changed: Record<string, string> = {};
     for (const [path, content] of Object.entries(files)) {
+      if (scope && path !== scope) continue;
       if ((path.startsWith("app/") || path.startsWith("components/")) && content.includes(from!)) {
         changed[path] = content.split(from!).join(to!);
       }

@@ -35,7 +35,10 @@ An app that people download, keep and pay for needs more than screens that rende
 - **The template** (platform-owned) provides the plumbing so the model writes product, not
   infrastructure: `useAppState()` (first-launch state and onboarding answers),
   `usePurchases()` (offers, purchase, restore, entitlement; simulated in Expo Go and the
-  preview, labeled as test mode), `appInfo` (support and legal links), and a root layout that
+  preview, labeled as test mode), `appInfo` (support and legal links), `useShareImage()` (share
+  a card as an image: react-native-view-shot and expo-sharing on a phone, text in the
+  preview), `useReminder()` (one daily local notification via expo-notifications, asked for
+  when the user turns it on), and a root layout that
   uses `Stack.Protected` to show onboarding until it is completed and opens the paywall as a
   modal.
 - **Each screen's prompt** carries its part's job (see `roleGuidance` in

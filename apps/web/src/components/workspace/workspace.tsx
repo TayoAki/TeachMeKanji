@@ -166,7 +166,7 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
 
   const send = async (text: string): Promise<boolean> => {
     const selection = chatSelection
-      ? { path: chatSelection.path, snippet: chatSelection.snippet }
+      ? { path: chatSelection.path, snippet: chatSelection.snippet, kind: chatSelection.kind }
       : null;
     try {
       const optimistic = {
@@ -233,6 +233,7 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
     if (!target) return;
     const snippet = state.files[target.path]?.slice(target.start, target.end) ?? "";
     setChatSelection({
+      kind: "element",
       path: target.path,
       snippet,
       label: selected.text ? `“${selected.text.slice(0, 40)}”` : target.path,
@@ -565,6 +566,18 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
             setAppHref(href);
             setAppKey((k) => k + 1);
           }}
+          onSelectScreen={
+            canEdit && hasApp
+              ? (file, title) =>
+                  setChatSelection({
+                    kind: "screen",
+                    path: file,
+                    snippet: "",
+                    label: `${title} screen`,
+                  })
+              : undefined
+          }
+          selectedFile={chatSelection?.kind === "screen" ? chatSelection.path : undefined}
           building={Boolean(buildingNow)}
           storage={previewStorage}
           emptyState={emptyState}

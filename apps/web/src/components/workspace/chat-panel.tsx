@@ -25,6 +25,8 @@ export interface ChatSelection {
   path: string;
   snippet: string;
   label: string;
+  /** A whole screen (picked on the canvas) or one element (picked in the preview). */
+  kind: "element" | "screen";
 }
 
 /** Which of the app's four parts a screen is (plans made before roles show as tab/screen). */
@@ -319,7 +321,13 @@ export function ChatPanel({
                   void send();
                 }
               }}
-              placeholder={canBuild ? "Ask for changes to the plan…" : "Describe a change…"}
+              placeholder={
+                canBuild
+                  ? "Ask for changes to the plan…"
+                  : selection?.kind === "screen"
+                    ? `What should change on the ${selection.label}?`
+                    : "Describe a change…"
+              }
               className="min-h-16 resize-none border-0 p-1 text-sm shadow-none focus-visible:ring-0"
               aria-label="Message the agent"
               disabled={busy}

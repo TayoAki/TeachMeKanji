@@ -143,3 +143,15 @@ describe("four-part app structure", () => {
     ]);
   });
 });
+
+describe("incremental content", () => {
+  it("lets edits add content files under data/content/ but nothing else new in data/", async () => {
+    const { isWritablePath } = await import("./changes");
+    expect(isWritablePath("data/content/n4-kanji.ts")).toBe(true);
+    expect(isWritablePath("data/content/more_words.ts")).toBe(true);
+    expect(isWritablePath("data/content/../repo.ts")).toBe(false);
+    expect(isWritablePath("data/content/nested/x.ts")).toBe(false);
+    expect(isWritablePath("data/reminders.ts")).toBe(false);
+    expect(isWritablePath("components/share.ts")).toBe(false);
+  });
+});

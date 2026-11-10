@@ -26,6 +26,10 @@ export const IMPORTABLE_MODULES: Readonly<Record<string, readonly string[] | "*"
   "@expo/vector-icons": ["Ionicons"],
   "react-native-safe-area-context": ["SafeAreaView", "useSafeAreaInsets", "SafeAreaProvider"],
   "@react-native-async-storage/async-storage": "*",
+  // Native capabilities used only through the platform's helpers (see PLATFORM_ONLY_MODULES).
+  "react-native-view-shot": ["captureRef"],
+  "expo-sharing": ["isAvailableAsync", "shareAsync"],
+  "expo-notifications": "*",
 };
 
 /**
@@ -40,6 +44,16 @@ export const INSTRUMENTED_MODULES: ReadonlySet<string> = new Set([
   "@expo/vector-icons",
   "react-native-safe-area-context",
 ]);
+
+/**
+ * Native modules only the platform's own files import; generated code uses the helpers:
+ * useShareImage() (components/share) and useReminder() (data/reminders).
+ */
+export const PLATFORM_ONLY_MODULES: Readonly<Record<string, string>> = {
+  "react-native-view-shot": "Share a card as an image with useShareImage() from components/share.",
+  "expo-sharing": "Share a card as an image with useShareImage() from components/share.",
+  "expo-notifications": "Schedule the daily reminder with useReminder() from data/reminders.",
+};
 
 /** AsyncStorage may only be used by the data layer, never directly by screens. */
 export const DATA_LAYER_ONLY_MODULES: ReadonlySet<string> = new Set([

@@ -1,4 +1,9 @@
-import type { AppPlan, PlanScreen, ProjectFiles } from "@appbuilder/contract";
+import {
+  structureRoleOf,
+  type AppPlan,
+  type PlanScreen,
+  type ProjectFiles,
+} from "@appbuilder/contract";
 import { contractRules, FILE_BLOCKS_OUTPUT } from "../generation/prompt";
 
 export function planSystem(defaultScreens: number, maxScreens: number): string {
@@ -11,13 +16,14 @@ Decide the product first:
 - shareMoment: one result in the app worth screenshotting or sharing (a streak card, a finished plan, a score), shown in a main screen.
 
 Every app has four parts, in this order in "screens":
-1. Onboarding: role "onboarding", path app/onboarding.tsx, kind "stack". onboarding.steps holds 2 to 4 steps that get people to their first win fast. Prefer steps that do work: a "question" that personalizes the app (2 to 5 short options, an answerKey the main app reads) or a "demo" that lets them try the core action once. At most one "value" step; no generic promotional slides.
+1. Onboarding: role "onboarding", path app/onboarding.tsx, kind "stack". onboarding.steps holds 2 to 4 steps that get people to their first win fast. Prefer steps that do work: a "question" that personalizes the app (2 to 5 short options, an answerKey the main app reads), a "demo" that lets them try the core action once, or a "permission" step that explains the daily reminder before asking for it (only if the app has one). At most one "value" step; no generic promotional slides.
 2. Paywall: role "paywall", path app/paywall.tsx, kind "stack". monetization.premiumFeatures lists 2 to 4 concrete things premium unlocks, each of which a main screen will show (locked for free users). monetization.offers lists 1 to 3 plans: id, label, price (e.g. "$4.99"), period (week, month, year or lifetime), trialDays (0 for none) and a short badge such as "Save 40%" or "". Price for this audience. The free app must still deliver the core loop.
 3. Main app: role "main". ${defaultScreens} screens by default, or the number the user asks for, never more than ${maxScreens}. 2 to 5 of them are tabs: the first tab is the home screen at exactly app/(tabs)/index.tsx, the other tabs at app/(tabs)/<key>.tsx. Screens opened from a tab (detail, add/edit forms) are "stack" screens at app/<key>.tsx; a detail screen for one record uses a route parameter: app/<collection-singular>/[id].tsx. The home tab puts the core loop one tap away.
 4. Settings: role "settings", path app/settings.tsx, kind "stack". Its purpose names the preferences that matter for this app.
 
 Rules for the plan:
-- Plan only what the app can really do: its data (on the device, or App Cloud accounts when enabled), its screens and the platform's purchases. It can't send notifications or reminders, use the camera, photos, location, contacts, health data, audio or maps, or share images yet, so don't plan features, onboarding steps or premium perks that need them.
+- Plan only what the app can really do: its data (on the device, or App Cloud accounts when enabled), its screens, the platform's purchases, one daily local reminder at a time the user picks, and sharing a card as an image. It can't use the camera, photos, location, contacts, health data, audio or maps, or send server push notifications, so don't plan features, onboarding steps or premium perks that need them.
+- Habit and learning apps usually benefit from the daily reminder (a reason to come back) and from sharing the share moment as an image.
 - Every screen must be useful with local data. Define 1 to 3 collections (snake_case names, plural) with realistic fields; "id" is implicit, don't list it.
 - Give every screen a concise purpose that says what it shows and what the user can do there, and an Ionicons icon name.
 - Propose exactly 5 distinct visual themes (at least 2 dark), each with a short id, a name, a one-line mood and a primary color as #RRGGBB. Avoid the generic purple-to-blue look unless the idea calls for it.
@@ -120,7 +126,9 @@ ${bullet(
   steps.map((s) =>
     s.kind === "question"
       ? `question: "${s.title}" ${s.body} Options: ${s.options.join(" / ")}. Save with setAnswer("${s.answerKey}", option).`
-      : `${s.kind}: "${s.title}" ${s.body}`,
+      : s.kind === "permission"
+        ? `permission: "${s.title}" ${s.body} Explain the daily reminder first, then "Turn on reminders" calls useReminder().enable({ title, body }) with copy written for this app (and a sensible hour); "Not now" moves on. A declined permission must not block onboarding.`
+        : `${s.kind}: "${s.title}" ${s.body}`,
   ),
 )}
 - A progress indicator, a primary button pinned at the bottom (inside the safe area), Back on steps after the first, and Skip in the top corner that finishes onboarding.
@@ -144,7 +152,7 @@ ${bullet(features)}
   if (screen.role === "settings") {
     return `This is Settings, a stack screen: set the title with <Stack.Screen options={{ title: "Settings" }} /> and use the navigator's header (no custom title text). Grouped sections with small uppercase headers and rows separated by hairlines, in a ScrollView:
 - Subscription: the status from usePurchases() (premium with activeOffer, or an "Upgrade to Premium" row calling openPaywall()), "Restore Purchases" (restorePurchases(), showing the outcome) and "Manage subscription" opening https://apps.apple.com/account/subscriptions on iOS or https://play.google.com/store/account/subscriptions on Android (Platform.OS, Linking.openURL).
-- Preferences that matter for this app (${screen.purpose}). Show onboarding answers (useAppState().answers${answerKeys.length ? `: ${answerKeys.join(", ")}` : ""}) with a "Change" action that calls resetOnboarding(). Use a Switch only for something that really changes the app.
+- Preferences that matter for this app (${screen.purpose}). Show onboarding answers (useAppState().answers${answerKeys.length ? `: ${answerKeys.join(", ")}` : ""}) with a "Change" action that calls resetOnboarding(). Use a Switch only for something that really changes the app. If the app has a daily reminder, a "Daily reminder" row with a Switch (useReminder().enable / disable) and the time (setTime), and a note when permission was denied.
 - Support and legal: Contact support (mailto:appInfo.supportEmail), Privacy Policy and Terms of Use (appInfo), each hidden when empty.
 - About: the app name and "Version " + appInfo.version.
 - "Replay onboarding" calling resetOnboarding().`;
@@ -161,7 +169,7 @@ ${bullet(features)}
     );
   if (plan.shareMoment)
     lines.push(
-      `Share moment: ${plan.shareMoment}. If it belongs on this screen, design it as a polished card people will want to screenshot (real data, not empty placeholders), with a Share button that shares a short text summary with Share.share from react-native (the app can't share images yet).`,
+      `Share moment: ${plan.shareMoment}. If it belongs on this screen, design it as a polished card worth posting (real data, not empty placeholders), wrapped in <View ref={ref} collapsable={false}> from useShareImage() (components/share), with a Share button that calls share({ message }) to share it as an image.`,
     );
   if (answerKeys.length)
     lines.push(
@@ -193,7 +201,7 @@ Craft: one clear primary action, hierarchy through size and weight rather than m
 
 export function editRequest(input: {
   request: string;
-  selection?: { path: string; snippet: string } | null;
+  selection?: { path: string; snippet: string; kind?: "element" | "screen" } | null;
   history?: string[];
   maxScreens: number;
 }): string {
@@ -201,7 +209,13 @@ export function editRequest(input: {
   if (input.history?.length)
     parts.push(`Recent conversation:\n${input.history.map((h) => `- ${h}`).join("\n")}`);
   parts.push(`Change request: ${input.request}`);
-  if (input.selection) {
+  if (input.selection?.kind === "screen") {
+    const role = structureRoleOf(input.selection.path);
+    const part = role ? `the app's ${role} screen` : "a screen of the main app";
+    parts.push(
+      `The user selected the screen ${input.selection.path} (${part}) and is asking about it. Make the change on that screen; change other files only when the request needs it (a component it uses, data/schema.ts, data/seed.ts, or a new data/content/<name>.ts for more content).`,
+    );
+  } else if (input.selection) {
     parts.push(
       `The user selected this element in ${input.selection.path}:\n${input.selection.snippet}`,
     );

@@ -15,6 +15,8 @@ export const CHANGE_LIMITS = { files: 60, fileBytes: 200 * 1024 };
 export function isWritablePath(path: string): boolean {
   if (!isSafePath(path) || isTemplateFile(path)) return false;
   if (path.startsWith("app/") || path.startsWith("components/")) return /\.tsx?$/.test(path);
+  // Reference content grows in its own files (data/content/<name>.ts), merged by data/seed.ts.
+  if (/^data\/content\/[a-z0-9][a-z0-9_-]*\.ts$/.test(path)) return true;
   return [
     "theme/tokens.ts",
     "data/schema.ts",
@@ -96,7 +98,7 @@ export function applyChanges(
 function writableReason(path: string): string {
   if (!isSafePath(path)) return "Not a valid relative file path.";
   if (isTemplateFile(path)) return "This file belongs to the platform and can't be changed.";
-  return "Only app/ and components/ (.ts/.tsx), theme/tokens.ts, data/schema.ts, data/seed.ts, data/monetization.ts and data/app-info.ts can be written.";
+  return "Only app/ and components/ (.ts/.tsx), theme/tokens.ts, data/schema.ts, data/seed.ts, data/content/*.ts, data/monetization.ts and data/app-info.ts can be written.";
 }
 
 /** Set the app's display name, slug and URL scheme in app.json. */

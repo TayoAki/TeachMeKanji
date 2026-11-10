@@ -206,7 +206,13 @@ A tool-using agent loop with these tools:
 - `set_theme`, `validate`
 
 When the user picks an element with the inline editor, the message carries a selection
-reference (`path`, source span, snippet). Every run writes a new version, so users can undo.
+reference (`path`, source span, snippet). When they pick a whole screen on the canvas (its
+title; the frame shows which of the four parts it belongs to), the chat says "Editing: <screen>"
+and the message carries `{ kind: "screen", path }`: the agent changes that screen and touches
+other files only when the request needs it. Apps grow this way, one screen and one request at
+a time; more reference content goes into new `data/content/<name>.ts` files that
+`data/seed.ts` merges, rather than rewrites of one big file. Every run writes a new version, so
+users can undo.
 
 ### 4.4 Model and SDK notes
 - Use the **Anthropic TypeScript SDK** (`@anthropic-ai/sdk`), called directly rather than

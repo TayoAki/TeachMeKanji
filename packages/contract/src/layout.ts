@@ -19,7 +19,9 @@ export const TEMPLATE_FILES = [
   "data/app-state.ts",
   "data/purchases.ts",
   "data/app-structure.ts",
+  "data/reminders.ts",
   "components/AiImage.tsx",
+  "components/share.ts",
 ] as const;
 
 /** Files every generated app must contain in addition to the template. */

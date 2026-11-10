@@ -12,7 +12,7 @@ export const POST = route(
     const { project, viewer } = await requireProject(id, "edit");
     const body = await readJson<{
       text?: string;
-      selection?: { path: string; snippet: string } | null;
+      selection?: { path: string; snippet?: string; kind?: "element" | "screen" } | null;
     }>(request);
     const text = String(body.text ?? "").trim();
     if (!text || text.length > 4000)
@@ -24,7 +24,9 @@ export const POST = route(
       body.selection && typeof body.selection.path === "string"
         ? {
             path: body.selection.path.slice(0, 200),
-            snippet: String(body.selection.snippet).slice(0, 4000),
+            snippet: String(body.selection.snippet ?? "").slice(0, 4000),
+            // A whole screen (picked on the canvas) or one element (picked in the preview).
+            kind: body.selection.kind === "screen" ? ("screen" as const) : ("element" as const),
           }
         : null;
     await addMessage(db(), {

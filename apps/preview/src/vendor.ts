@@ -5,6 +5,12 @@ import AsyncStorage from "./shims/async-storage";
 import * as ExpoRouter from "./shims/expo-router";
 import { Image } from "./shims/expo-image";
 import { LinearGradient } from "./shims/linear-gradient";
+import {
+  captureRef,
+  isAvailableAsync,
+  notifications,
+  shareAsync,
+} from "./shims/native-capabilities";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "./shims/safe-area";
 import { StatusBar } from "./shims/status-bar";
 import { Ionicons } from "./shims/vector-icons";
@@ -40,4 +46,7 @@ export const vendorModules: Readonly<Record<string, unknown>> = {
   "@expo/vector-icons": esm({ Ionicons }),
   "react-native-safe-area-context": esm({ SafeAreaProvider, SafeAreaView, useSafeAreaInsets }),
   "@react-native-async-storage/async-storage": esm({}, AsyncStorage),
+  "react-native-view-shot": esm({ captureRef }),
+  "expo-sharing": esm({ isAvailableAsync, shareAsync }),
+  "expo-notifications": esm(notifications),
 };

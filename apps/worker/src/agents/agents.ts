@@ -271,7 +271,7 @@ export async function editApp(input: {
   createMessage: CreateMessage;
   files: ProjectFiles;
   request: string;
-  selection?: { path: string; snippet: string } | null;
+  selection?: { path: string; snippet: string; kind?: "element" | "screen" } | null;
   history?: string[];
   maxScreens: number;
   onEvent?: (event: AgentEvent) => Promise<void> | void;

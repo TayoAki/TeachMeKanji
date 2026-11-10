@@ -5,6 +5,7 @@ import { Hand, Loader2, Maximize, Minus, MousePointer2, Plus } from "lucide-reac
 import {
   buildRouteTree,
   journeyRank,
+  STRUCTURE_SCREENS,
   screens as listScreens,
   type FrameToParent,
   type ProjectFiles,
@@ -33,12 +34,22 @@ export function screenTitle(screen: ScreenRoute): string {
     .replace(/^\w/, (c) => c.toUpperCase());
 }
 
+/** The part of the app a screen belongs to, shown on its frame. */
+function partOf(file: string): string {
+  if (file === STRUCTURE_SCREENS.onboarding) return "Onboarding";
+  if (file === STRUCTURE_SCREENS.paywall) return "Paywall";
+  if (file === STRUCTURE_SCREENS.settings) return "Settings";
+  return "Main app";
+}
+
 export function Canvas({
   files,
   themeId,
   selectMode,
   onFrameMessage,
   onOpenScreen,
+  onSelectScreen,
+  selectedFile,
   building,
   emptyState,
   storage,
@@ -49,6 +60,9 @@ export function Canvas({
   selectMode: boolean;
   onFrameMessage: (frameId: string, message: FrameToParent) => void;
   onOpenScreen: (href: string) => void;
+  /** Picking a screen scopes the chat to it ("Editing: Paywall screen"). */
+  onSelectScreen?: (file: string, title: string) => void;
+  selectedFile?: string;
   building: boolean;
   emptyState: React.ReactNode;
 }) {
@@ -114,13 +128,33 @@ export function Canvas({
         {screens.map((screen) => {
           const href = canvasHref(screen);
           return (
-            <div key={screen.file} className="flex flex-col gap-2" data-testid="canvas-screen">
+            <div
+              key={screen.file}
+              className={cn(
+                "flex flex-col gap-2 rounded-xl",
+                selectedFile === screen.file &&
+                  "outline outline-2 outline-offset-8 outline-primary",
+              )}
+              data-testid="canvas-screen"
+              data-selected={selectedFile === screen.file ? "true" : undefined}
+            >
               <button
                 type="button"
                 className="self-start rounded px-1 text-left text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-                onClick={() => onOpenScreen(href)}
-                title="Open this screen in the interactive preview"
+                onClick={() => {
+                  onOpenScreen(href);
+                  onSelectScreen?.(screen.file, screenTitle(screen));
+                }}
+                title={
+                  onSelectScreen
+                    ? "Select this screen to change it in the chat (and open it in the preview)"
+                    : "Open this screen in the interactive preview"
+                }
+                data-testid="canvas-screen-title"
               >
+                <span className="mr-1.5 rounded bg-muted px-1 py-0.5 text-[10px] font-medium uppercase tracking-wide">
+                  {partOf(screen.file)}
+                </span>
                 {screenTitle(screen)}{" "}
                 <span className="font-mono text-[10px] opacity-60">
                   {screen.file.replace(/^app\//, "")}

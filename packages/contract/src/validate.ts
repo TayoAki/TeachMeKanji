@@ -1,5 +1,5 @@
 import type { Node } from "@babel/types";
-import { DATA_LAYER_ONLY_MODULES, IMPORTABLE_MODULES } from "./allowed";
+import { DATA_LAYER_ONLY_MODULES, IMPORTABLE_MODULES, PLATFORM_ONLY_MODULES } from "./allowed";
 import { STRUCTURE_SCREENS } from "./app-structure";
 import {
   GENERATED_ROOTS,
@@ -76,6 +76,15 @@ export function validateFile(path: string, source: string, context: FileContext 
       add(
         "imports/module",
         `"${imp.source}" is not an allowed module. Allowed: ${Object.keys(IMPORTABLE_MODULES).join(", ")}.`,
+        imp.line,
+      );
+      continue;
+    }
+    const platformOnly = PLATFORM_ONLY_MODULES[imp.source];
+    if (platformOnly && !isTemplateFile(path)) {
+      add(
+        "imports/platform-only",
+        `"${imp.source}" is used through the platform. ${platformOnly}`,
         imp.line,
       );
       continue;
