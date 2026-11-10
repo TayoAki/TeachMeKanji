@@ -53,6 +53,18 @@ function systemText(params: Params): string {
 
 function respond(params: Params): string {
   const request = lastUserText(params);
+  // Store listing (structured output): fixed copy that fits the stores' limits.
+  if (params.output_config?.format && systemText(params).startsWith("You write App Store"))
+    return JSON.stringify(fakeListing(request));
+  // RevenueCat setup through the connector: offline mode can't reach RevenueCat; fake keys.
+  if (params.mcp_servers?.length && systemText(params).startsWith("You set up in-app purchases"))
+    return `Offline mode: RevenueCat wasn't called.\n\n\`\`\`json\n${JSON.stringify({
+      iosApiKey: "appl_OfflineTestKey1234",
+      androidApiKey: "goog_OfflineTestKey1234",
+      entitlement: "premium",
+      summary: "Offline mode: pretend products, entitlement and offering.",
+      storeSteps: ["Create the subscriptions in App Store Connect with the same product IDs."],
+    })}\n\`\`\``;
   // AI inside a generated app (App Cloud /ai): a deterministic answer that echoes the question.
   if (systemText(params).startsWith("You are the AI inside"))
     return `Offline AI answer to: ${request.slice(0, 120)}`;
@@ -1301,4 +1313,30 @@ export default function AskScreen() {
   );
 }
 `;
+}
+
+function fakeListing(request: string) {
+  const name = /"appName": "([^"]+)"/.exec(request)?.[1] ?? "My App";
+  const screens = (/use these paths exactly\): ([^\n]+)/.exec(request)?.[1] ?? "")
+    .split(", ")
+    .filter(Boolean);
+  const captions = [
+    "Start in seconds",
+    "See your progress",
+    "Everything in one place",
+    "Made for you",
+    "Go premium",
+  ];
+  return {
+    name,
+    subtitle: "Track it in seconds",
+    promotionalText: `${name} keeps everything in one place, so you can see your progress every day.`,
+    description: `${name} helps you keep track every day.\n\n• Add an entry in seconds\n• See your progress at a glance\n\nPremium unlocks more. The subscription renews automatically unless cancelled.`,
+    keywords: "tracker,habits,progress,daily,goals",
+    shortDescription: `Keep track every day with ${name}.`,
+    category: "Productivity",
+    screenshots: screens
+      .slice(0, 5)
+      .map((screen, i) => ({ screen, caption: captions[i] ?? "Made for you" })),
+  };
 }

@@ -22,6 +22,8 @@ import { AgentError } from "./agents/agents";
 import { DeviceManager } from "./device";
 import { GenerationStopped } from "./generation/generate-file";
 import { handleBuild, handleEdit, handlePlan } from "./handlers/agent-runs";
+import { handlePaymentsSetup } from "./handlers/payments-setup";
+import { handleStoreListing } from "./handlers/store-listing";
 import type { HandlerContext, HandlerResult } from "./handlers/context";
 import { handleGitHubPush } from "./handlers/github";
 import { handleNativeBuild } from "./handlers/native-build";
@@ -35,6 +37,8 @@ const HANDLERS: Record<Run["kind"], (ctx: HandlerContext) => Promise<HandlerResu
   review: handleReview,
   github_push: handleGitHubPush,
   native_build: handleNativeBuild,
+  payments_setup: handlePaymentsSetup,
+  store_listing: handleStoreListing,
   device_preview: async () => ({ output: {} }),
 };
 

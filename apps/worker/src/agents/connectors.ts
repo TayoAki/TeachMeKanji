@@ -43,20 +43,43 @@ export async function readConnectors(input: {
   /** What the request is for, e.g. "a new app idea" or "a change to the Paywall screen". */
   about: string;
 }): Promise<ConnectorBrief> {
+  const result = await runConnectorTask({
+    createMessage: input.createMessage,
+    model: input.model,
+    connectors: input.connectors,
+    system: connectorSystem(input.connectors.map((c) => c.name)),
+    prompt: `The user's message (${input.about}):\n\n${input.request}`,
+  });
+  return { brief: result.text, calls: result.calls, usage: result.usage };
+}
+
+/**
+ * One task in the user's connected tools (MCP connector), continuing paused server-side tool
+ * loops. Returns the model's final text.
+ */
+export async function runConnectorTask(input: {
+  createMessage: CreateMessage;
+  model?: string;
+  connectors: ConnectorAccess[];
+  system: string;
+  prompt: string;
+  effort?: "low" | "medium" | "high";
+  maxContinuations?: number;
+}): Promise<{ text: string; calls: number; usage: UsageTotals }> {
   let usage: UsageTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
   const messages: Anthropic.Beta.Messages.BetaMessageParam[] = [
-    { role: "user", content: `The user's message (${input.about}):\n\n${input.request}` },
+    { role: "user", content: input.prompt },
   ];
   let calls = 0;
   let response: Anthropic.Beta.Messages.BetaMessage | null = null;
-  for (let turn = 0; turn <= MAX_CONTINUATIONS; turn++) {
+  for (let turn = 0; turn <= (input.maxContinuations ?? MAX_CONTINUATIONS); turn++) {
     response = await input.createMessage({
       model: input.model ?? DEFAULT_MODEL,
       max_tokens: 16_000,
       thinking: { type: "adaptive" },
-      output_config: { effort: "medium" },
+      output_config: { effort: input.effort ?? "medium" },
       betas: [MCP_BETA],
-      system: connectorSystem(input.connectors.map((c) => c.name)),
+      system: input.system,
       mcp_servers: input.connectors.map((c) => ({
         type: "url" as const,
         url: c.url,
@@ -72,6 +95,5 @@ export async function readConnectors(input: {
     // The server paused a long tool loop: send the turn back unchanged to let it continue.
     messages.push({ role: "assistant", content: response.content });
   }
-  const brief = response ? textOf(response).trim() : "";
-  return { brief, calls, usage };
+  return { text: response ? textOf(response).trim() : "", calls, usage };
 }

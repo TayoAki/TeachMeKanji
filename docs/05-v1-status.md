@@ -52,6 +52,15 @@ steps). This page says exactly what was verified here and what wasn't.
   owner sends from the Data tab (through Expo's push service; store and TestFlight builds,
   not Expo Go). In the web preview the camera and picker return a sample photo and location
   a sample place; on a phone (Expo Go or a build) the real modules run.
+- **Real purchases with RevenueCat:** the Payments panel takes RevenueCat's public SDK keys
+  (`appl_…`, `goog_…`) and an entitlement, written into the platform file `data/payments.ts`
+  as a version; or "Set up in RevenueCat" runs an agent through the user's RevenueCat connector
+  that creates the products (from `data/monetization.ts`), the entitlement, the current
+  offering with standard packages, and reads the keys. The template's `usePurchases()` then
+  sells through Apple and Google in store and TestFlight builds (store prices, entitlement from
+  RevenueCat, restore); Expo Go, the preview and apps without keys stay in test mode. New apps
+  get store identifiers in app.json (`com.appbuilder.<slug><id>`), and template refreshes now
+  bring older apps the template's new dependencies and permission plugins.
 - **AI inside the apps:** `useAI()` / `askAI()` (template `data/ai.ts`) ask a small, fast model
   (Claude Haiku 5.5) a question, optionally about a photo, through App Cloud's `/ai` endpoint:
   no API keys in the app. The platform turns App Cloud on in the same version when generated

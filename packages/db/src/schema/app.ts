@@ -187,7 +187,17 @@ export const versionFile = pgTable(
 );
 
 export type RunKind =
-  "plan" | "build" | "edit" | "review" | "device_preview" | "github_push" | "native_build";
+  | "plan"
+  | "build"
+  | "edit"
+  | "review"
+  | "device_preview"
+  | "github_push"
+  | "native_build"
+  /** Create the app's products, entitlement and offering in the user's RevenueCat. */
+  | "payments_setup"
+  /** Write the App Store / Google Play listing (name, description, keywords, captions). */
+  | "store_listing";
 export type RunStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
 
 export const agentRun = pgTable(

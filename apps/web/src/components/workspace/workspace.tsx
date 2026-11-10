@@ -50,6 +50,7 @@ import { AppCloudPanel, DataView } from "./app-cloud";
 import { CodeView, HistoryView } from "./code-and-history";
 import { DeviceDialog, ExportDialog, PublishDialog, ShareDialog } from "./dialogs";
 import { Inspector, ThemeList } from "./inspector";
+import { PaymentsPanel } from "./payments-panel";
 import type { ProjectState } from "./types";
 
 const STATUS_LABEL: Record<ProjectState["project"]["status"], string> = {
@@ -544,6 +545,16 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
               disabled={busy}
               onChanged={refresh}
               onOpenData={() => setTab("data")}
+            />
+          ) : null}
+          {hasApp && canEdit ? (
+            <PaymentsPanel
+              projectId={project.id}
+              canManage={canManage}
+              disabled={busy}
+              versionId={state.versionId}
+              onChanged={refresh}
+              onStartRun={startRun}
             />
           ) : null}
           {selected ? (

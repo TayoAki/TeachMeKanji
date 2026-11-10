@@ -44,6 +44,7 @@ export const IMPORTABLE_MODULES: Readonly<Record<string, readonly string[] | "*"
     "reverseGeocodeAsync",
   ],
   "expo-constants": "*",
+  "react-native-purchases": "*",
 };
 
 /**
@@ -74,6 +75,7 @@ export const PLATFORM_ONLY_MODULES: Readonly<Record<string, string>> = {
   "expo-image-picker": "Pick or take a photo with pickPhoto() from data/photos.",
   "expo-location": "Get the person's location with useLocation() from data/location.",
   "expo-constants": "The platform's helpers read the app's configuration.",
+  "react-native-purchases": "Sell premium with usePurchases() from data/purchases.",
 };
 
 /** AsyncStorage may only be used by the data layer, never directly by screens. */

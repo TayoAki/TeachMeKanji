@@ -415,6 +415,52 @@ test("AI features: the app asks its AI through App Cloud, which turns on by itse
   await expect(page.getByTestId("data-ai-calls")).not.toHaveText("0");
 });
 
+test("payments: RevenueCat keys by hand, or set up through the RevenueCat connector", async ({
+  page,
+}) => {
+  await signUp(page, "Seller");
+  await createAndBuild(page, "A meditation timer");
+  const projectId = page.url().split("/projects/")[1]!;
+  const files = async () =>
+    (
+      (await (await page.request.get(`/api/projects/${projectId}`)).json()) as {
+        files: Record<string, string>;
+      }
+    ).files;
+  const panel = page.getByTestId("payments-panel");
+  await expect(panel.getByTestId("payments-mode")).toHaveText("Test mode");
+  // New apps get store identifiers for builds and RevenueCat.
+  expect((await files())["app.json"]).toMatch(/"bundleIdentifier": "com\.appbuilder\./);
+
+  // Pasted keys: RevenueCat's public keys only.
+  await panel.getByTestId("payments-edit").click();
+  await panel.getByLabel("RevenueCat App Store key").fill("sk_secret_key_never_in_an_app");
+  await panel.getByTestId("payments-save").click();
+  await expect(page.getByText("The App Store key is RevenueCat's public key")).toBeVisible();
+  await panel.getByLabel("RevenueCat App Store key").fill("appl_PastedPublicKey123");
+  await panel.getByTestId("payments-save").click();
+  await expect(panel.getByTestId("payments-mode")).toHaveText("RevenueCat", { timeout: 15_000 });
+  expect((await files())["data/payments.ts"]).toContain('"iosApiKey": "appl_PastedPublicKey123"');
+
+  // Through the RevenueCat connector: the setup run writes both keys.
+  await page.goto("/settings#connectors");
+  const revenuecat = page.getByTestId("connector-revenuecat");
+  await revenuecat.getByTestId("connector-connect").click();
+  await revenuecat.getByLabel("RevenueCat token").fill("sk_e2e_good_revenuecat_token");
+  await revenuecat.getByRole("button", { name: "Save" }).click();
+  await expect(revenuecat.getByTestId("connector-status")).toHaveText("Connected");
+  await page.goto(`/projects/${projectId}`);
+  await page.getByTestId("payments-setup").click();
+  await expect(
+    page.getByText("Offline mode: pretend products, entitlement and offering."),
+  ).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect
+    .poll(async () => (await files())["data/payments.ts"])
+    .toContain('"androidApiKey": "goog_OfflineTestKey1234"');
+});
+
 test("App Cloud: accounts and per-user data for the generated app", async ({ page, request }) => {
   await signUp(page, "Cloud");
   await createAndBuild(page, "A habit tracker with streaks");

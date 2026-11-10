@@ -11,7 +11,7 @@ import { createServer } from "node:http";
 export const MOCK_MCP_PORT = Number(process.env.MOCK_MCP_PORT || 3005);
 const base = `http://localhost:${MOCK_MCP_PORT}`;
 const codes = new Map();
-const tokens = new Set(["lin_api_e2e_good_token"]);
+const tokens = new Set(["lin_api_e2e_good_token", "sk_e2e_good_revenuecat_token"]);
 
 function send(res, status, body, headers = {}) {
   res.writeHead(status, { "content-type": "application/json", ...headers });

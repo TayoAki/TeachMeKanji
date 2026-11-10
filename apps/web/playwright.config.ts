@@ -21,6 +21,7 @@ const shared = {
   // Two connectors point at a local stand-in MCP + OAuth server (e2e/mock-mcp-server.mjs).
   CONNECTOR_LINEAR_URL: "http://localhost:3005/mcp",
   CONNECTOR_NOTION_URL: "http://localhost:3005/mcp",
+  CONNECTOR_REVENUECAT_URL: "http://localhost:3005/mcp",
 };
 
 export default defineConfig({

@@ -16,6 +16,7 @@ import {
   constants,
   imagePicker,
   location,
+  purchasesSdk,
   useCameraPermissions,
 } from "./shims/device-features";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "./shims/safe-area";
@@ -60,4 +61,5 @@ export const vendorModules: Readonly<Record<string, unknown>> = {
   "expo-image-picker": esm(imagePicker),
   "expo-location": esm(location),
   "expo-constants": esm(constants, constants),
+  "react-native-purchases": esm(purchasesSdk, purchasesSdk),
 };

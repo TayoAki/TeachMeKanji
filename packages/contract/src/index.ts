@@ -26,3 +26,4 @@ export * from "./platform-config";
 export * from "./rules";
 export * from "./changes";
 export * from "./connectors";
+export * from "./store-listing";

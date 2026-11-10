@@ -87,3 +87,17 @@ export const constants = {
   expoConfig: { name: "Preview", extra: {} },
   executionEnvironment: "storeClient",
 };
+
+// react-native-purchases: never live in the preview (data/purchases.ts simulates purchases on
+// the web), so these only need to exist.
+const notInPreview = async () => {
+  throw new Error("Store purchases run in store and TestFlight builds.");
+};
+export const purchasesSdk = {
+  configure: () => {},
+  getOfferings: notInPreview,
+  getCustomerInfo: notInPreview,
+  purchasePackage: notInPreview,
+  restorePurchases: notInPreview,
+  addCustomerInfoUpdateListener: () => {},
+};

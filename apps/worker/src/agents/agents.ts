@@ -4,6 +4,7 @@ import {
   APP_PLAN_JSON_SCHEMA,
   appInfoFile,
   applyAppName,
+  withAppIdentifiers,
   BACKEND_CONFIG_FILE,
   backendConfigFile,
   type PlatformConfig,
@@ -130,8 +131,11 @@ export async function buildApp(input: {
   const warnings: string[] = [];
   let usage = ZERO;
   let files = applyAppName(input.template, plan.appName);
-  if (input.platform)
+  if (input.platform) {
     files = { ...files, [BACKEND_CONFIG_FILE]: backendConfigFile(input.platform) };
+    // Store identifiers (iOS bundle id, Android package) for store builds and RevenueCat.
+    files = withAppIdentifiers(files, input.platform.projectId);
+  }
   // What premium unlocks and the app's info come straight from the plan, not from the model.
   files = {
     ...files,
