@@ -84,7 +84,7 @@ How to judge:
 - Calibration: 3 = what a top indie app on the App Store does; 2 = solid, shippable work with small gaps; 1 = present but weak, generic or partly broken; 0 = missing or broken.
 - Judge each criterion on its own; a beautiful screen doesn't excuse a missing control.
 - The deterministic findings are facts about the code; respect them.
-- Purchases are simulated in this environment by design (test mode); judge the paywall as the user would see it in a store build.
+- Platform facts (template code you aren't shown): completeOnboarding() opens the app and then shows the paywall when the app has one; the root layout shows onboarding until it is completed; purchases are simulated in this environment by design (test mode), so judge the paywall as the user would see it in a store build.
 - Be specific and useful: each fix is the single most valuable change, written so a developer could do it. Never write "overall good effort".`;
 
 function rubricText(): string {

@@ -58,14 +58,14 @@ describe("core (Postgres)", () => {
 
     const a = await createProject(db, { ownerId: u.id, prompt: "a", platforms: "both" });
     const b = await createProject(db, { ownerId: u.id, prompt: "b", platforms: "both" });
-    // A build reserves 60: the first fits, the second (on another project) doesn't.
+    // A build reserves 90: the first fits, the second (on another project) doesn't.
     const runs = await Promise.allSettled(
       [a, b].map((p) => enqueueRun(db, { projectId: p.id, userId: u.id, kind: "build" })),
     );
     expect(runs.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     const rejected = runs.find((r) => r.status === "rejected") as PromiseRejectedResult;
     expect(rejected.reason).toBeInstanceOf(InsufficientCredits);
-    expect(await creditBalance(db, u.id)).toBe(40);
+    expect(await creditBalance(db, u.id)).toBe(10);
   });
 
   it("allows one agent run per project, even under concurrent requests", async () => {

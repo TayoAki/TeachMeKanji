@@ -1,0 +1,794 @@
+{
+  "name": "kanji-v2-four-parts",
+  "appName": "Kanjiro",
+  "versionNumber": 1,
+  "date": "2026-11-10",
+  "baseUrl": "https://web-production-ea8f8.up.railway.app",
+  "projectId": "p_w39o273elcr2ov",
+  "model": "claude-opus-5-5",
+  "judges": 2,
+  "score": {
+    "parts": {
+      "main": {
+        "max": 35,
+        "points": 25.7
+      },
+      "craft": {
+        "max": 20,
+        "points": 17.5
+      },
+      "paywall": {
+        "max": 20,
+        "points": 17.4
+      },
+      "settings": {
+        "max": 10,
+        "points": 9
+      },
+      "onboarding": {
+        "max": 15,
+        "points": 15
+      }
+    },
+    "total": 84.6,
+    "cappedBy": null,
+    "criteria": [
+      {
+        "id": "O1",
+        "cap": 3,
+        "fix": "After the last step, land users directly on the Today deck with the first card already queued, so the habit starts with no extra tap.",
+        "part": "onboarding",
+        "score": 3,
+        "title": "Fast to first value",
+        "judged": 3,
+        "points": 5,
+        "scores": [
+          3,
+          3
+        ],
+        "weight": 5,
+        "evidence": "Onboarding has 4 steps with a '1 of 4' progress bar and Skip. It ends via completeOnboarding() on Home, where 'Start today's deck' is the primary button."
+      },
+      {
+        "id": "O2",
+        "cap": 3,
+        "fix": "On the reminder step, call the OS notification permission prompt right after 'Remind me at…' so the explanation leads into a real permission request.",
+        "part": "onboarding",
+        "score": 3,
+        "title": "Steps that do work",
+        "judged": 3,
+        "points": 5,
+        "scores": [
+          3,
+          3
+        ],
+        "weight": 5,
+        "evidence": "Target level and daily cap are saved with setAnswer and drive Home ('2 new from N5') and Levels ('Aiming for N5 · 5 new kanji a day'). Step 3 is a real try-it card (日) whose Know/Again result is saved to progress."
+      },
+      {
+        "id": "O3",
+        "cap": 3,
+        "fix": "Keep the voice. Change the 'Welcome' Stack title to 'Set up Kanjiro' so even hidden metadata stays on brand.",
+        "part": "onboarding",
+        "score": 3,
+        "title": "Specific voice",
+        "judged": 3,
+        "points": 5,
+        "scores": [
+          3,
+          3
+        ],
+        "weight": 5,
+        "evidence": "Copy is written for this audience: 'Fits a two-stop commute, even in a rough week', 'Small and steady beats big and abandoned', 'No streak-guilt spam'. The heading is 'Which JLPT level are you aiming for?', not a welcome slide."
+      },
+      {
+        "id": "P1",
+        "cap": 3,
+        "fix": "Shorten the feature rows to outcome phrasing (e.g. 'See every stroke animate') so all four fit above the fold.",
+        "part": "paywall",
+        "score": 3,
+        "title": "Clear value",
+        "judged": 3,
+        "points": 4,
+        "scores": [
+          3,
+          3
+        ],
+        "weight": 4,
+        "evidence": "Headline 'Take your 10-minute deck all the way to N1', an N5–N1 Free/Pro strip, and four feature rows. Each feature maps to code: locked levels, StrokeOrderRow, Reading mode and Weak kanji mode."
+      },
+      {
+        "id": "P2",
+        "cap": 3,
+        "fix": "Move 'Choose your plan' above the feature list, or make it compact enough that the selected offer shows next to the CTA. Rename the lifetime badge to 'Pay once'.",
+        "part": "paywall",
+        "score": 2,
+        "title": "Clear prices",
+        "judged": 2,
+        "points": 2.7,
+        "scores": [
+          2,
+          2
+        ],
+        "weight": 4,
+        "evidence": "Offers show price per period, a 7-day trial, a 'Save 50%' badge, and a billing summary ('Free for 7 days, then $29.99 / year from Tue, Nov 17'). In the screenshot the plan cards sit below the fold, so the user sees a yearly charge without seeing which plan is selected. The lifetime badge 'Pass once, keep forever' is confusing."
+      },
+      {
+        "id": "P3",
+        "cap": 3,
+        "fix": "Keep the Restore and legal links visible near the sticky CTA rather than only at the end of the scroll.",
+        "part": "paywall",
+        "score": 3,
+        "title": "Required controls",
+        "judged": 3,
+        "points": 4,
+        "scores": [
+          3,
+          3
+        ],
+        "weight": 4,
+        "evidence": "44pt Close button top-right with a label, a Restore Purchases ghost button, renewalText with 24-hour auto-renew terms, and Terms of Use / Privacy Policy links."
+      },
+      {
+        "id": "P4",
+        "cap": 3,
+        "fix": "After completeOnboarding, show the paywall once (dismissible) for users who picked N3–N1. That pick is the natural moment to offer Pro.",
+        "part": "paywall",
+        "score": 2,
+        "title": "Honest and well timed",
+        "judged": 2,
+        "points": 2.7,
+        "scores": [
+          2,
+          2
+        ],
+        "weight": 4,
+        "evidence": "There is no urgency, the close is visible immediately, and the 'Test mode: purchases are simulated' note is shown. The paywall opens from locked chips, Pro modes and the Levels lock row. Nothing shown routes to the paywall after completeOnboarding()."
+      },
+      {
+        "id": "P5",
+        "cap": 3,
+        "fix": "Show the purchase error inline under the CTA with a retry, and keep the selected offer highlighted.",
+        "part": "paywall",
+        "score": 3,
+        "title": "Entitlements wired",
+        "judged": 3,
+        "points": 4,
+        "scores": [
+          3,
+          3
+        ],
+        "weight": 4,
+        "evidence": "buildDailyDeck receives isPremium. StrokeOrderRow has an onLocked=openPaywall handler. The quiz forces effectiveMode to 'meaning' for free users. Level rows open the paywall when locked. The paywall has an isPremium 'You're on Kanjiro Pro' state, a ready/loading state and busy status."
+      },
+      {
+        "id": "M1",
+        "cap": 3,
+        "fix": "After the last card, auto-start the 5-question quiz with a 'Skip quiz' option, so the loop finishes in one flow.",
+        "part": "main",
+        "score": 3,
+        "title": "Core loop first",
+        "judged": 3,
+        "points": 7,
+        "scores": [
+          3,
+          3
+        ],
+        "weight": 7,
+        "evidence": "Today leads with '5 cards in today's deck · About 3 min' and a full-width 'Start today's deck'. Finishing the deck goes straight to 'Take today's quiz'. The loop matches the brief."
+      },
+      {
+        "id": "M2",
+        "cap": 3,
+        "fix": "Ship the full JLPT kanji set (about 80 N5 and 170 N4 free, N3–N1 Pro) with on/kun readings and an example word each. Make 'learned' and 'new' use one definition so the counts agree.",
+        "part": "main",
+        "score": 1,
+        "title": "Real content and states",
+        "judged": 1,
+        "points": 2.3,
+        "scores": [
+          1,
+          1
+        ],
+        "weight": 7,
+        "evidence": "Loading and empty states are well written. But the seeded dictionary is tiny: Levels shows N5 '5/5 learned' and N4 '0/2 learned', so the app has about 7 kanji against roughly 2,000 for N5–N1. Home claims '2 new from N5' while the same screen says 'JLPT N5 5/5 learned · 100%'."
+      },
+      {
+        "id": "M3",
+        "cap": 3,
+        "fix": "Use expo-notifications: request permission when the user picks a time, schedule a daily trigger at reminderTime, cancel it on 'Off', and skip it on days the deck is finished.",
+        "part": "main",
+        "score": 2,
+        "title": "Every control works",
+        "judged": 2,
+        "points": 4.7,
+        "scores": [
+          2,
+          2
+        ],
+        "weight": 7,
+        "evidence": "Know/Again persist through applyReview, quiz results update progress and the session, settings chips persist, and reset uses an inline confirm. However 'Remind me at 6:00 PM' (onboarding) and the Settings 'Daily reminder' chips only call setAnswer. No notification permission or scheduling appears in the code."
+      },
+      {
+        "id": "M4",
+        "cap": 3,
+        "fix": "Render filled stamps as red hanko-style seals, and share the card as an image using react-native-view-shot plus Share.",
+        "part": "main",
+        "score": 2,
+        "title": "Distinctive and shareable",
+        "judged": 2,
+        "points": 4.7,
+        "scores": [
+          2,
+          2
+        ],
+        "weight": 7,
+        "evidence": "The Kanji Stamp card on Home has a seal grid, quiz score, streak, an N5 progress bar and a 'KANJIRO' wordmark, which is a real point of view. Before study it is five dashed empty squares. shareStamp shares only a text message, not the card image."
+      },
+      {
+        "id": "M5",
+        "cap": 3,
+        "fix": "Present the paywall with presentation: 'modal' so swipe-down dismiss works on iOS.",
+        "part": "main",
+        "score": 3,
+        "title": "Navigation conventions",
+        "judged": 3,
+        "points": 7,
+        "scores": [
+          3,
+          3
+        ],
+        "weight": 7,
+        "evidence": "Three tabs (Today, Quiz, Levels). Settings is reachable from a gear on Today and Levels. Settings and Kanji detail use navigator header titles ('Settings', '日 · sun'). The paywall is a route with a close button."
+      },
+      {
+        "id": "S1",
+        "cap": 3,
+        "fix": "For premium users, show the renewal date and plan price in the status row.",
+        "part": "settings",
+        "score": 3,
+        "title": "Subscription",
+        "judged": 3,
+        "points": 4,
+        "scores": [
+          3,
+          3
+        ],
+        "weight": 4,
+        "evidence": "The Subscription section has an Upgrade row with a trial mention (or a Pro status row with since-date), Restore Purchases with inline outcome text, and Manage subscription linking to the App Store or Play subscriptions."
+      },
+      {
+        "id": "S2",
+        "cap": 3,
+        "fix": "Prefill the support email with the app version and device so learners' bug reports are actionable.",
+        "part": "settings",
+        "score": 3,
+        "title": "Support, legal and about",
+        "judged": 3,
+        "points": 3,
+        "scores": [
+          3,
+          3
+        ],
+        "weight": 3,
+        "evidence": "Deterministic checks confirm contact support, Privacy, Terms and the app version in Settings. The app has no accounts."
+      },
+      {
+        "id": "S3",
+        "cap": 3,
+        "fix": "Wire the reminder chips to real scheduled notifications so every setting in the list changes behavior.",
+        "part": "settings",
+        "score": 2,
+        "title": "Preferences that matter",
+        "judged": 2,
+        "points": 2,
+        "scores": [
+          2,
+          2
+        ],
+        "weight": 3,
+        "evidence": "Grouped sections (Study plan, Reading and reminders, Appearance, Study data) cover target level, cap, quiz length, a romaji switch, themes and 'Your setup · Change', which replays onboarding. The Daily reminder chips save a value that nothing appears to act on."
+      },
+      {
+        "id": "C1",
+        "cap": 3,
+        "fix": "On Quiz, drop the info banner box and make the mode list a single grouped list, leaving the Start button as the only heavy element.",
+        "part": "craft",
+        "score": 2.5,
+        "title": "Layout and hierarchy",
+        "judged": 2.5,
+        "points": 4.2,
+        "scores": [
+          2,
+          3
+        ],
+        "weight": 5,
+        "evidence": "Home has a clear first read: a big '5' and the red CTA. Paywall hierarchy is strong. Levels and Settings stack many equally bordered boxes, and the Quiz tab has a boxed banner plus three boxed mode cards plus a CTA."
+      },
+      {
+        "id": "C2",
+        "cap": 3,
+        "fix": "In LevelRow, put the blurb on its own line under the level badge (numberOfLines 2) instead of truncating it next to the Target pill.",
+        "part": "craft",
+        "score": 2,
+        "title": "Spacing and type",
+        "judged": 2,
+        "points": 3.3,
+        "scores": [
+          2,
+          2
+        ],
+        "weight": 5,
+        "evidence": "tabular-nums are used on counts and the type ramp is clear. On Levels, row titles truncate ('Basic kanj…', 'Daily life, simple re…'). In Settings, 'Your setup' wraps to two lines next to its value."
+      },
+      {
+        "id": "C3",
+        "cap": 3,
+        "fix": "Darken the disabled Continue fill in the light theme. Pale salmon with white text is hard to read even when disabled.",
+        "part": "craft",
+        "score": 3,
+        "title": "Color and contrast",
+        "judged": 3,
+        "points": 4,
+        "scores": [
+          3,
+          3
+        ],
+        "weight": 4,
+        "evidence": "The light Washi and dark Sumi Night themes both stay legible on the onboarding, paywall and home screenshots. Pro tags, calendar states and quiz progress use text, borders or legend labels in addition to color."
+      },
+      {
+        "id": "C4",
+        "cap": 3,
+        "fix": "Add accessibilityState={{selected}} to OptionRow and the offer cards so screen readers announce the current choice.",
+        "part": "craft",
+        "score": 3,
+        "title": "Accessibility",
+        "judged": 3,
+        "points": 3,
+        "scores": [
+          3,
+          3
+        ],
+        "weight": 3,
+        "evidence": "Icon buttons (Settings gear, Close, End quiz, End session) are 44×44 with accessibilityLabel. Chips carry descriptive labels, the calendar has a summary label, and font scaling is never disabled."
+      },
+      {
+        "id": "C5",
+        "cap": 3,
+        "fix": "Keep it. Swap the generic 'sparkles' upgrade icon for a seal/hanko mark that fits the brand.",
+        "part": "craft",
+        "score": 3,
+        "title": "No slop tells",
+        "judged": 3,
+        "points": 3,
+        "scores": [
+          3,
+          3
+        ],
+        "weight": 3,
+        "evidence": "Ionicons throughout, Pressable instead of TouchableOpacity, no gradients or emoji, router-based modals, and inline confirmations instead of Alert."
+      }
+    ]
+  },
+  "judgeScores": {
+    "C1": [
+      2,
+      3
+    ],
+    "C2": [
+      2,
+      2
+    ],
+    "C3": [
+      3,
+      3
+    ],
+    "C4": [
+      3,
+      3
+    ],
+    "C5": [
+      3,
+      3
+    ],
+    "M1": [
+      3,
+      3
+    ],
+    "M2": [
+      1,
+      1
+    ],
+    "M3": [
+      2,
+      2
+    ],
+    "M4": [
+      2,
+      2
+    ],
+    "M5": [
+      3,
+      3
+    ],
+    "O1": [
+      3,
+      3
+    ],
+    "O2": [
+      3,
+      3
+    ],
+    "O3": [
+      3,
+      3
+    ],
+    "P1": [
+      3,
+      3
+    ],
+    "P2": [
+      2,
+      2
+    ],
+    "P3": [
+      3,
+      3
+    ],
+    "P4": [
+      2,
+      2
+    ],
+    "P5": [
+      3,
+      3
+    ],
+    "S1": [
+      3,
+      3
+    ],
+    "S2": [
+      3,
+      3
+    ],
+    "S3": [
+      2,
+      2
+    ]
+  },
+  "findings": [
+    {
+      "ok": true,
+      "cap": 1,
+      "message": "Onboarding finishes with completeOnboarding().",
+      "criterion": "O1"
+    },
+    {
+      "ok": true,
+      "cap": 2,
+      "message": "Onboarding can be skipped.",
+      "criterion": "O1"
+    },
+    {
+      "ok": true,
+      "cap": 2,
+      "message": "Onboarding asks a question that personalizes the app.",
+      "criterion": "O2"
+    },
+    {
+      "ok": true,
+      "cap": 1,
+      "message": "The main screens use the onboarding answers.",
+      "criterion": "O2"
+    },
+    {
+      "ok": true,
+      "cap": 1,
+      "message": "Onboarding avoids a generic \"Welcome to <App>\" heading.",
+      "criterion": "O3"
+    },
+    {
+      "ok": true,
+      "cap": 0,
+      "message": "The paywall has a close button.",
+      "criterion": "P3"
+    },
+    {
+      "ok": true,
+      "cap": 1,
+      "message": "The paywall offers Restore Purchases.",
+      "criterion": "P3"
+    },
+    {
+      "ok": true,
+      "cap": 1,
+      "message": "The paywall states the auto-renewal terms.",
+      "criterion": "P3"
+    },
+    {
+      "ok": true,
+      "cap": 2,
+      "message": "The paywall links Terms and Privacy.",
+      "criterion": "P3"
+    },
+    {
+      "ok": true,
+      "cap": 1,
+      "message": "Offers show their billing period.",
+      "criterion": "P2"
+    },
+    {
+      "ok": true,
+      "cap": 2,
+      "message": "Offers show free-trial terms.",
+      "criterion": "P2"
+    },
+    {
+      "ok": true,
+      "cap": 2,
+      "message": "Simulated purchases are labeled as test mode.",
+      "criterion": "P4"
+    },
+    {
+      "ok": true,
+      "cap": 1,
+      "message": "No fake urgency or scarcity on the paywall.",
+      "criterion": "P4"
+    },
+    {
+      "ok": true,
+      "cap": 1,
+      "message": "A main screen checks isPremium for its premium features.",
+      "criterion": "P5"
+    },
+    {
+      "ok": true,
+      "cap": 1,
+      "message": "Locked features in the main app open the paywall.",
+      "criterion": "P5"
+    },
+    {
+      "ok": true,
+      "cap": 2,
+      "message": "The purchase button shows progress while purchasing.",
+      "criterion": "P5"
+    },
+    {
+      "ok": true,
+      "cap": 1,
+      "message": "No placeholder copy (lorem ipsum, TODO, coming soon).",
+      "criterion": "M2"
+    },
+    {
+      "ok": true,
+      "cap": 2,
+      "message": "Screens that load data show a loading state.",
+      "criterion": "M2"
+    },
+    {
+      "ok": true,
+      "cap": 2,
+      "message": "No Alert pop-ups standing in for features.",
+      "criterion": "M3"
+    },
+    {
+      "ok": true,
+      "cap": 1,
+      "message": "No empty onPress handlers.",
+      "criterion": "M3"
+    },
+    {
+      "ok": true,
+      "cap": 2,
+      "message": "Settings is reachable from the home screen.",
+      "criterion": "M5"
+    },
+    {
+      "ok": true,
+      "cap": 1,
+      "message": "Settings offers Restore Purchases.",
+      "criterion": "S1"
+    },
+    {
+      "ok": true,
+      "cap": 2,
+      "message": "Settings links to managing the subscription in the store.",
+      "criterion": "S1"
+    },
+    {
+      "ok": true,
+      "cap": 1,
+      "message": "Settings links privacy and terms.",
+      "criterion": "S2"
+    },
+    {
+      "ok": true,
+      "cap": 2,
+      "message": "Settings shows the app version.",
+      "criterion": "S2"
+    },
+    {
+      "ok": true,
+      "cap": 2,
+      "message": "Settings offers a way to contact support.",
+      "criterion": "S2"
+    },
+    {
+      "ok": true,
+      "cap": 2,
+      "message": "Settings can replay onboarding.",
+      "criterion": "S3"
+    },
+    {
+      "ok": true,
+      "cap": 2,
+      "message": "Pressable controls carry accessibility roles or labels.",
+      "criterion": "C4"
+    },
+    {
+      "ok": true,
+      "cap": 1,
+      "message": "Font scaling is never disabled.",
+      "criterion": "C4"
+    },
+    {
+      "ok": true,
+      "cap": 2,
+      "message": "No slop tells found.",
+      "criterion": "C5"
+    }
+  ],
+  "issues": [
+    {
+      "fix": "Seed the full JLPT N5–N1 list with on'yomi, kun'yomi, meaning, stroke count and one example word per kanji, bundled as JSON.",
+      "part": "main",
+      "screen": "Levels / Today",
+      "problem": "The kanji dictionary holds about 7 characters (N5 5/5, N4 0/2), so a learner at 5 a day exhausts free content in under two days and N3–N1 'Pro' levels are effectively empty. That is a refund magnet for a paid kanji app.",
+      "severity": "critical"
+    },
+    {
+      "fix": "Integrate expo-notifications: request permission on choose, schedule a daily local notification at reminderTime, cancel it on Off, and suppress it once today's deck is finished.",
+      "part": "main",
+      "screen": "Onboarding step 4 / Settings Daily reminder",
+      "problem": "'Remind me at 6:00 PM' and the reminder chips only store a string. No notification permission is requested and nothing is scheduled, so the promised commute nudge never arrives.",
+      "severity": "major"
+    },
+    {
+      "fix": "Count 'learned' only for kanji with a successful review, or don't label cards 'new' once a progress record exists. Use one helper for both.",
+      "part": "main",
+      "screen": "Home (Today)",
+      "problem": "Home says '3 reviews, 2 new from N5' while the Stamp card shows 'JLPT N5 5/5 learned · 100%'. These contradictory numbers undermine trust in the progress tracking.",
+      "severity": "major"
+    },
+    {
+      "fix": "Move the offer cards above the feature list, or into the sticky footer as a compact segmented selector next to the CTA.",
+      "part": "paywall",
+      "screen": "Paywall",
+      "problem": "Plan cards are below the fold. The visible CTA 'Start free trial · $29.99/year' commits to yearly before the user has seen the Monthly or Lifetime options.",
+      "severity": "major"
+    },
+    {
+      "fix": "Capture the KanjiStampCard with react-native-view-shot and share the PNG. Style studied kanji as red hanko seals.",
+      "part": "main",
+      "screen": "Home Kanji Stamp",
+      "problem": "The share moment is weak. Before study the stamp is five dashed boxes, and Share sends plain text instead of the stamp image the brief calls for.",
+      "severity": "major"
+    },
+    {
+      "fix": "In completeOnboarding, if the target level is not free and the user is not premium, router.push('/paywall') once.",
+      "part": "paywall",
+      "screen": "Paywall (code)",
+      "problem": "The paywall is never shown after onboarding, even when the user picks a Pro level (N3–N1). This misses the highest-intent conversion moment.",
+      "severity": "minor"
+    },
+    {
+      "fix": "Change the badge to 'Pay once, yours forever' or 'Best value'.",
+      "part": "paywall",
+      "screen": "Paywall offers (monetization.ts)",
+      "problem": "The lifetime badge 'Pass once, keep forever' reads as a typo or mistranslation.",
+      "severity": "minor"
+    },
+    {
+      "fix": "Show the level name as the title and move the blurb to a second line with numberOfLines={2}.",
+      "part": "craft",
+      "screen": "Levels",
+      "problem": "Level rows truncate their descriptions ('Basic kanj…', 'Daily life, simple re…') because the Target pill and percentage crowd the title line.",
+      "severity": "minor"
+    },
+    {
+      "fix": "Turn the banner into plain muted text, and put quiz length as a chip row inside the mode section above Start.",
+      "part": "craft",
+      "screen": "Quiz",
+      "problem": "Boxed banner, three bordered mode cards and a red CTA all compete for weight, and the 'Quiz length' link sits below the fold under the Start button.",
+      "severity": "minor"
+    },
+    {
+      "fix": "Use a neutral disabled fill (surfaceAlt) with textMuted label text for disabled buttons.",
+      "part": "craft",
+      "screen": "Onboarding (light theme)",
+      "problem": "The disabled Continue button is pale salmon with white text, which has low contrast and is hard to read.",
+      "severity": "minor"
+    },
+    {
+      "fix": "Rename the row to 'Replay setup questions', drop the duplicate value, and keep 'Change' as the trailing action.",
+      "part": "settings",
+      "screen": "Settings Study plan",
+      "problem": "'Your setup' wraps onto two lines beside 'N5 · 5 a day Change', so the row looks cramped and duplicates the level and cap rows directly below it.",
+      "severity": "minor"
+    },
+    {
+      "fix": "Ship the full JLPT kanji lists per level with on'yomi, kun'yomi, meaning, stroke count and one example word in the seed collection.",
+      "part": "main",
+      "screen": "Levels / Today",
+      "problem": "The kanji dataset is tiny: N5 shows 5/5 and N4 shows 0/2. Free users will exhaust the product in about two days, and the paywall's promise of 'hundreds more' is unverifiable.",
+      "severity": "critical"
+    },
+    {
+      "fix": "Make levelStats and buildDailyDeck share one definition of learned/new. Count 'learned' only for cards marked Know at least once, or exclude already-progressed kanji from 'new'.",
+      "part": "main",
+      "screen": "Today (Kanji Stamp)",
+      "problem": "The header says '3 reviews, 2 new from N5' while the stamp bar says 'JLPT N5 5/5 learned · 100%', a visible contradiction on the home screen.",
+      "severity": "major"
+    },
+    {
+      "fix": "Integrate expo-notifications: ask permission on that button and schedule a daily repeating local notification at reminderTime. Skip it when today's deckFinished is true, and cancel it on Off.",
+      "part": "main",
+      "screen": "Onboarding step 4 / Settings Daily reminder",
+      "problem": "'Remind me at 6:00 PM' and the reminder chips only save an answer. No notification permission is requested and nothing is scheduled, so the habit nudge the app promises never fires.",
+      "severity": "major"
+    },
+    {
+      "fix": "In finish(), after completeOnboarding(), call openPaywall() once when the chosen level is locked, or always as a dismissible sheet.",
+      "part": "paywall",
+      "screen": "Onboarding → Today",
+      "problem": "The paywall is never presented after onboarding, even when the user picks a Pro level (N3–N1). The highest-intent moment is lost.",
+      "severity": "major"
+    },
+    {
+      "fix": "Place 'Choose your plan' directly under the headline and level strip. Add '$2.50/mo' to Yearly and rename the Lifetime badge to 'One-time'.",
+      "part": "paywall",
+      "screen": "Paywall",
+      "problem": "The plan cards sit below four feature rows, so the CTA 'Start free trial' is visible before the user ever sees which plan is selected. Yearly lacks a monthly equivalent, and the Lifetime badge 'Pass once, keep forever' is awkward.",
+      "severity": "minor"
+    },
+    {
+      "fix": "Capture the KanjiStampCard with react-native-view-shot and pass the image URI to Share. Render today's planned kanji as faded seals until they're stamped.",
+      "part": "main",
+      "screen": "Today (Kanji Stamp)",
+      "problem": "Sharing sends a plain text string, and the stamp's empty state is five dashed boxes, so the share moment isn't screenshot-worthy until late in the day.",
+      "severity": "minor"
+    },
+    {
+      "fix": "Allow numberOfLines={2} on the LevelRow title, or move badges to the subtitle line.",
+      "part": "craft",
+      "screen": "Levels",
+      "problem": "Level descriptions truncate ('Basic kanj…', 'Daily life, simple re…') because the Target and Pro badges share the title line.",
+      "severity": "minor"
+    },
+    {
+      "fix": "Rename it 'Replay welcome' in an About group and keep the inline pickers as the way to edit answers.",
+      "part": "settings",
+      "screen": "Settings › Study plan",
+      "problem": "The 'Your setup → Change' row duplicates the level and cap pickers right below it and restarts the whole onboarding, including the demo card that writes progress again.",
+      "severity": "minor"
+    },
+    {
+      "fix": "Rewrite features as outcomes, e.g. 'N3–N1 in the same 5-a-day deck', 'Watch each stroke drawn in order', 'Type readings to prove you know them', 'A deck of only your misses'.",
+      "part": "paywall",
+      "screen": "Paywall",
+      "problem": "Feature copy is pasted from the plan, e.g. 'Unlock all levels N3 to N1 (N5 and N4 are free)', and repeats the Free/Pro level strip directly above it.",
+      "severity": "minor"
+    },
+    {
+      "fix": "Await the write in record() and show an inline 'Couldn't save, retry' message under the choices on failure, as Today's mark() does.",
+      "part": "main",
+      "screen": "Quiz",
+      "problem": "record() writes progress with fire-and-forget void progressCol.update/add. A failed write silently loses the answer, while the Today screen handles save errors.",
+      "severity": "minor"
+    }
+  ],
+  "summary": "Kanjiro has an unusually well-built shell: a 4-step onboarding that personalizes and lets users try a card, a compliant and honest paywall, real entitlement gating, complete settings and a clean light/dark theme system. What stops it from shipping is content and follow-through: the dictionary holds about seven kanji, the reminder feature is never scheduled, and the shareable Kanji Stamp is text-only. Next, load the full JLPT N5–N1 kanji set, wire expo-notifications to the reminder choices, and share the stamp as a rendered image. After that, bring the plan cards above the fold on the paywall.",
+  "renderErrors": [],
+  "costUsd": 0.7000000000000001
+}

@@ -118,7 +118,8 @@ export function compPlanFor(email: string): PlanId | null {
  */
 export const RUN_CREDITS: Record<string, { reserve: number; minimum: number }> = {
   plan: { reserve: 6, minimum: 1 },
-  build: { reserve: 60, minimum: 8 },
+  // An app with onboarding, a paywall, settings and its main screens measured about $3.
+  build: { reserve: 90, minimum: 8 },
   edit: { reserve: 12, minimum: 2 },
   // Two judges scoring screenshots and code against the quality rubric.
   review: { reserve: 20, minimum: 1 },

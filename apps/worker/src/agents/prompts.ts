@@ -11,12 +11,13 @@ Decide the product first:
 - shareMoment: one result in the app worth screenshotting or sharing (a streak card, a finished plan, a score), shown in a main screen.
 
 Every app has four parts, in this order in "screens":
-1. Onboarding: role "onboarding", path app/onboarding.tsx, kind "stack". onboarding.steps holds 2 to 4 steps that get people to their first win fast. Prefer steps that do work: a "question" that personalizes the app (2 to 5 short options, an answerKey the main app reads), a "demo" that lets them try the core action once, or a "permission" explained before it is asked (only if the app truly needs one). At most one "value" step; no generic promotional slides.
+1. Onboarding: role "onboarding", path app/onboarding.tsx, kind "stack". onboarding.steps holds 2 to 4 steps that get people to their first win fast. Prefer steps that do work: a "question" that personalizes the app (2 to 5 short options, an answerKey the main app reads) or a "demo" that lets them try the core action once. At most one "value" step; no generic promotional slides.
 2. Paywall: role "paywall", path app/paywall.tsx, kind "stack". monetization.premiumFeatures lists 2 to 4 concrete things premium unlocks, each of which a main screen will show (locked for free users). monetization.offers lists 1 to 3 plans: id, label, price (e.g. "$4.99"), period (week, month, year or lifetime), trialDays (0 for none) and a short badge such as "Save 40%" or "". Price for this audience. The free app must still deliver the core loop.
 3. Main app: role "main". ${defaultScreens} screens by default, or the number the user asks for, never more than ${maxScreens}. 2 to 5 of them are tabs: the first tab is the home screen at exactly app/(tabs)/index.tsx, the other tabs at app/(tabs)/<key>.tsx. Screens opened from a tab (detail, add/edit forms) are "stack" screens at app/<key>.tsx; a detail screen for one record uses a route parameter: app/<collection-singular>/[id].tsx. The home tab puts the core loop one tap away.
 4. Settings: role "settings", path app/settings.tsx, kind "stack". Its purpose names the preferences that matter for this app.
 
 Rules for the plan:
+- Plan only what the app can really do: its data (on the device, or App Cloud accounts when enabled), its screens and the platform's purchases. It can't send notifications or reminders, use the camera, photos, location, contacts, health data, audio or maps, or share images yet, so don't plan features, onboarding steps or premium perks that need them.
 - Every screen must be useful with local data. Define 1 to 3 collections (snake_case names, plural) with realistic fields; "id" is implicit, don't list it.
 - Give every screen a concise purpose that says what it shows and what the user can do there, and an Ionicons icon name.
 - Propose exactly 5 distinct visual themes (at least 2 dark), each with a short id, a name, a one-line mood and a primary color as #RRGGBB. Avoid the generic purple-to-blue look unless the idea calls for it.
@@ -90,7 +91,7 @@ export function dataLayerRequest(plan: AppPlan): string {
 
 Write the data and shared components of this app (the theme is written separately; use the Theme type and useTheme() as usual):
 - data/schema.ts: an exported TypeScript interface per collection (each with \`id: string\`), plus small pure helpers the screens will need (formatting, date helpers).
-- data/seed.ts: \`export const seed = { ... }\` with one key per collection (${plan.collections.map((c) => c.name).join(", ")}) and 5–8 realistic records each, using ids like "${plan.collections[0]?.name.slice(0, 1) ?? "r"}1". Dates as ISO strings relative to today.
+- data/seed.ts: \`export const seed = { ... }\` with one key per collection (${plan.collections.map((c) => c.name).join(", ")}), using ids like "${plan.collections[0]?.name.slice(0, 1) ?? "r"}1". Dates as ISO strings relative to today. For the user's own records (things they log or create), 5–8 realistic examples. For reference content the app teaches or browses (words, kanji, recipes, exercises, places), enough real, accurate entries to feel complete and to fill every level or category the app shows, including premium ones: 30 to 60, written compactly.
 - app/(tabs)/_layout.tsx: a Tabs navigator with headerShown false, colors from the theme, and one <Tabs.Screen> per tab in this order: ${tabs.map((t) => `"${t.path.replace("app/(tabs)/", "").replace(".tsx", "")}" (${t.title}, icon ${t.icon})`).join(", ")}.
 - components/: 1–3 small shared components the screens will reuse (cards, list rows, empty states, buttons), directly in components/.
 Do not write theme/tokens.ts.`;
@@ -130,9 +131,9 @@ ${bullet(
   if (screen.role === "paywall") {
     return `This is the paywall, shown as a modal right after onboarding and when someone taps a locked premium feature.
 - A close button in the top corner (Ionicons "close", accessibilityLabel "Close") that calls dismissPaywall(). Always visible.
-- A headline about the outcome for ${audience}, then what premium unlocks as a short checklist:
+- Everything needed to decide fits the first screenful: a headline about the outcome for ${audience}, what premium unlocks as a compact checklist, then the offers and the button (small print may sit below):
 ${bullet(features)}
-- usePurchases().offers as selectable cards, with defaultOfferId selected at first: label, price per period ("$29.99 / year"), the free trial if trialDays > 0 ("7-day free trial") and the badge. What is billed, and when, must be obvious.
+- usePurchases().offers as compact selectable cards, with defaultOfferId selected at first: label, price per period ("$29.99 / year"), the free trial if trialDays > 0 ("7-day free trial") and the badge. What is billed, and when, must be obvious.
 - One primary button: "Start free trial" when the selected offer has a trial, otherwise "Continue". It calls purchase(selectedId), shows progress while status is "purchasing", and calls dismissPaywall() when it resolves true.
 - "Restore Purchases" calling restorePurchases(), showing the outcome (or usePurchases().error) on screen.
 - Small print: "Renews automatically at <price>/<period> unless canceled at least 24 hours before the end of the period. Cancel anytime in your App Store or Google Play settings." (lifetime offers: "One-time purchase."), then Terms of Use and Privacy Policy links from appInfo.termsUrl / appInfo.privacyUrl (hide an empty one).
@@ -160,7 +161,7 @@ ${bullet(features)}
     );
   if (plan.shareMoment)
     lines.push(
-      `Share moment: ${plan.shareMoment}. If it belongs on this screen, make it a polished card worth a screenshot with a Share button (Share.share from react-native).`,
+      `Share moment: ${plan.shareMoment}. If it belongs on this screen, design it as a polished card people will want to screenshot (real data, not empty placeholders), with a Share button that shares a short text summary with Share.share from react-native (the app can't share images yet).`,
     );
   if (answerKeys.length)
     lines.push(

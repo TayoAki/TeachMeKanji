@@ -187,7 +187,7 @@ creates a `restore` version so history stays linear.
 2. **Shared layer, two calls in parallel:** the theme (`theme/tokens.ts`), and the data layer
    with the tab layout and shared components (`data/schema.ts`, `data/seed.ts`,
    `app/(tabs)/_layout.tsx`, `components/*`). They don't depend on each other.
-3. **All screens in parallel** (`GENERATION_CONCURRENCY`, default 4), one call per screen.
+3. **All screens in parallel** (`GENERATION_CONCURRENCY`, default 8), one call per screen.
    Every call has the same cached prefix: the contract plus the template and shared-layer
    source. Each screen writes only its own file and new components in its own folder
    (`components/<screen key>/`); writes elsewhere are discarded and sent back for repair, so

@@ -43,7 +43,7 @@ import {
 import { fanOut } from "../generation/fan-out";
 
 /** How many screens are generated at once (each is one streaming model call). */
-const GENERATION_CONCURRENCY = Math.max(1, Number(process.env.GENERATION_CONCURRENCY || 4));
+const GENERATION_CONCURRENCY = Math.max(1, Number(process.env.GENERATION_CONCURRENCY || 8));
 
 export class AgentError extends Error {}
 

@@ -1,0 +1,729 @@
+{
+  "name": "kanji-v1-baseline",
+  "appName": "KanjiDojo",
+  "versionNumber": 1,
+  "date": "2026-11-10",
+  "baseUrl": "https://web-production-ea8f8.up.railway.app",
+  "projectId": "p_w03yd4b9minj4e",
+  "model": "claude-opus-5-5",
+  "judges": 2,
+  "score": {
+    "parts": {
+      "main": {
+        "max": 35,
+        "points": 18.7
+      },
+      "craft": {
+        "max": 20,
+        "points": 13.8
+      },
+      "paywall": {
+        "max": 20,
+        "points": 0
+      },
+      "settings": {
+        "max": 10,
+        "points": 0
+      },
+      "onboarding": {
+        "max": 15,
+        "points": 0
+      }
+    },
+    "total": 32.5,
+    "cappedBy": null,
+    "criteria": [
+      {
+        "id": "O1",
+        "cap": 0,
+        "fix": "Add a skippable 3-step onboarding (target JLPT level → daily card goal → try one flashcard flip) with a progress indicator, ending on Daily Cards with the deck ready.",
+        "part": "onboarding",
+        "score": 0,
+        "title": "Fast to first value",
+        "judged": 0,
+        "points": 0,
+        "scores": [
+          0,
+          0
+        ],
+        "weight": 5,
+        "evidence": "Deterministic finding: no onboarding. The app launches straight into the Daily Cards tab ('Today's Deck') with no flow to set a JLPT target or daily goal."
+      },
+      {
+        "id": "O2",
+        "cap": 0,
+        "fix": "Ask for current/target JLPT level and daily new-card count, persist them, and use them to filter the home deck and preselect the quiz level.",
+        "part": "onboarding",
+        "score": 0,
+        "title": "Steps that do work",
+        "judged": 0,
+        "points": 0,
+        "scores": [
+          0,
+          0
+        ],
+        "weight": 5,
+        "evidence": "No onboarding exists, so no answers are collected. The quiz always defaults to `useState(5)` (N5) and the home deck ignores any learner level."
+      },
+      {
+        "id": "O3",
+        "cap": 0,
+        "fix": "Write onboarding copy in the app's dojo voice (e.g. 'Which belt are you? N5 beginner … N1 master') with a live kanji demo instead of slides.",
+        "part": "onboarding",
+        "score": 0,
+        "title": "Specific voice",
+        "judged": 0,
+        "points": 0,
+        "scores": [
+          0,
+          0
+        ],
+        "weight": 5,
+        "evidence": "No onboarding copy exists. The only voice is in-app lines like 'Your path from N5 to N1, one kanji at a time.'"
+      },
+      {
+        "id": "P1",
+        "cap": 0,
+        "fix": "Create a paywall route with an outcome headline ('Pass the N3 in 6 months') and 3 real premium features, e.g. full N1–N3 decks, unlimited quizzes and the stroke-order view.",
+        "part": "paywall",
+        "score": 0,
+        "title": "Clear value",
+        "judged": 0,
+        "points": 0,
+        "scores": [
+          0,
+          0
+        ],
+        "weight": 4,
+        "evidence": "Deterministic finding: no paywall. There is no screen describing premium value."
+      },
+      {
+        "id": "P2",
+        "cap": 0,
+        "fix": "Show monthly and annual offers with price per period, trial length, a 'Best value' badge on annual and a clear selected state with 'Billed $X/year after 7-day trial'.",
+        "part": "paywall",
+        "score": 0,
+        "title": "Clear prices",
+        "judged": 0,
+        "points": 0,
+        "scores": [
+          0,
+          0
+        ],
+        "weight": 4,
+        "evidence": "No paywall, so no prices, periods or trial terms are shown anywhere."
+      },
+      {
+        "id": "P3",
+        "cap": 0,
+        "fix": "Add a header close button, a Restore Purchases button, an auto-renew disclosure paragraph and Terms/Privacy links to the paywall.",
+        "part": "paywall",
+        "score": 0,
+        "title": "Required controls",
+        "judged": 0,
+        "points": 0,
+        "scores": [
+          0,
+          0
+        ],
+        "weight": 4,
+        "evidence": "No paywall: there is no close button, Restore Purchases, renewal terms or Terms/Privacy links."
+      },
+      {
+        "id": "P4",
+        "cap": 0,
+        "fix": "Present the paywall once after onboarding (dismissable) and when the user taps a locked N3–N1 level in the Quiz level picker; label it as test mode.",
+        "part": "paywall",
+        "score": 0,
+        "title": "Honest and well timed",
+        "judged": 0,
+        "points": 0,
+        "scores": [
+          0,
+          0
+        ],
+        "weight": 4,
+        "evidence": "No paywall is shown after onboarding or at any locked feature."
+      },
+      {
+        "id": "P5",
+        "cap": 0,
+        "fix": "Add an entitlement store with isPremium. Gate the N3–N1 levels and the 'All' quiz length behind it, pushing the paywall route when locked, and show purchase progress and error states.",
+        "part": "paywall",
+        "score": 0,
+        "title": "Entitlements wired",
+        "judged": 0,
+        "points": 0,
+        "scores": [
+          0,
+          0
+        ],
+        "weight": 4,
+        "evidence": "Nothing checks isPremium. Every JLPT level chip in quiz.tsx is freely selectable and the Progress LevelCards are open."
+      },
+      {
+        "id": "M1",
+        "cap": 3,
+        "fix": "Move the three stat tiles below the card (or collapse them into the header line) so the flip card and Known/Needs review buttons fit above the tab bar on a standard phone.",
+        "part": "main",
+        "score": 2,
+        "title": "Core loop first",
+        "judged": 2,
+        "points": 4.7,
+        "scores": [
+          2,
+          2
+        ],
+        "weight": 7,
+        "evidence": "Home 'Today's Deck' puts the flashcard front and center with 'Tap to reveal' and Known/Needs review buttons that update next_review via nextReviewDate. However, in the screenshot the Known/Needs review buttons are clipped under the tab bar, below three stat tiles."
+      },
+      {
+        "id": "M2",
+        "cap": 3,
+        "fix": "Ship a real seed deck (all ~80 N5 and ~170 N4 kanji at minimum) and give the empty states a working next action instead of referring to an add feature that doesn't exist.",
+        "part": "main",
+        "score": 2,
+        "title": "Real content and states",
+        "judged": 2,
+        "points": 4.7,
+        "scores": [
+          2,
+          2
+        ],
+        "weight": 7,
+        "evidence": "Seed data is realistic: 水 with スイ/みず readings, 6 quizzes with 90%/80% scores, a 5-day streak. Loading states exist (ActivityIndicator, 'Gathering your cards…'). But the whole deck is only 8 kanji across N5–N1 ('1 kanji' for N4–N1), and the home empty state says 'Once kanji are added' with no way to add any."
+      },
+      {
+        "id": "M3",
+        "cap": 3,
+        "fix": "Disable or hide length options larger than the level pool (show '4 (all)') so the selected control matches what will actually run.",
+        "part": "main",
+        "score": 2,
+        "title": "Every control works",
+        "judged": 2,
+        "points": 4.7,
+        "scores": [
+          2,
+          2
+        ],
+        "weight": 7,
+        "evidence": "Known/Needs review persist via update(). Skip, Up next picks and View details work. Quiz saves results via addResult and guards double saves with savingRef. Weak spots: the Length segment shows '10' selected while the note reads '4 questions', and there is no way to add kanji, which the empty-state copy implies."
+      },
+      {
+        "id": "M4",
+        "cap": 3,
+        "fix": "Add a shareable result card at quiz completion or streak milestones (big kanji, score, JLPT level, streak flames in sumi-ink style) with a Share button using the native share sheet.",
+        "part": "main",
+        "score": 1,
+        "title": "Distinctive and shareable",
+        "judged": 1,
+        "points": 2.3,
+        "scores": [
+          1,
+          1
+        ],
+        "weight": 7,
+        "evidence": "There are thematic touches: 問 badge on Quiz, 音読み/訓読み labels on the detail screen, a 'Sumi Ink' dark theme. But the quiz done phase and the progress screen have no share action, and the layout is a generic stat-tile flashcard template."
+      },
+      {
+        "id": "M5",
+        "cap": 3,
+        "fix": "Add a gear button in the Daily Cards header that pushes a /settings stack route with a native header title.",
+        "part": "main",
+        "score": 1,
+        "title": "Navigation conventions",
+        "judged": 1,
+        "points": 2.3,
+        "scores": [
+          1,
+          1
+        ],
+        "weight": 7,
+        "evidence": "3 tabs (Daily Cards, Quiz, Progress) and the kanji/[id] stack screen uses a native header ('水 · water'). Tab screens set headerShown:false with hand-built titles, and no settings screen is reachable from anywhere."
+      },
+      {
+        "id": "S1",
+        "cap": 0,
+        "fix": "Build a Settings screen with a Subscription section: plan status, Upgrade (opens paywall), Restore Purchases, and Manage Subscription linking to the App Store subscriptions URL.",
+        "part": "settings",
+        "score": 0,
+        "title": "Subscription",
+        "judged": 0,
+        "points": 0,
+        "scores": [
+          0,
+          0
+        ],
+        "weight": 4,
+        "evidence": "Deterministic finding: no settings screen, so no plan status, upgrade, restore or manage-subscription controls."
+      },
+      {
+        "id": "S2",
+        "cap": 0,
+        "fix": "Add an About section with Contact Support (mailto), Privacy Policy and Terms links (WebBrowser), and the app version from expo-constants.",
+        "part": "settings",
+        "score": 0,
+        "title": "Support, legal and about",
+        "judged": 0,
+        "points": 0,
+        "scores": [
+          0,
+          0
+        ],
+        "weight": 3,
+        "evidence": "No settings screen: no contact support, privacy policy, terms or version anywhere."
+      },
+      {
+        "id": "S3",
+        "cap": 0,
+        "fix": "Add grouped preferences: Theme (Light/Sumi Ink/System), Target JLPT level, Daily new cards, Show romaji, and a 'Replay onboarding' row.",
+        "part": "settings",
+        "score": 0,
+        "title": "Preferences that matter",
+        "judged": 0,
+        "points": 0,
+        "scores": [
+          0,
+          0
+        ],
+        "weight": 3,
+        "evidence": "No preferences exist. The Sumi Ink theme appears in a screenshot, but the user has no visible way to switch themes, and there is no way to change level, daily goal or replay onboarding."
+      },
+      {
+        "id": "C1",
+        "cap": 3,
+        "fix": "On Progress, drop the borders on the four stat tiles and render them as a plain two-column stat row so the 'Kanji learned 3/8' hero is the only boxed focal element.",
+        "part": "craft",
+        "score": 2,
+        "title": "Layout and hierarchy",
+        "judged": 2,
+        "points": 3.3,
+        "scores": [
+          2,
+          2
+        ],
+        "weight": 5,
+        "evidence": "Home has a clear focal flashcard with large 日, but three equal-weight bordered stat tiles compete above it. Progress is a stack of equally bordered cards (summary, 4 tiles, due card, level cards)."
+      },
+      {
+        "id": "C2",
+        "cap": 3,
+        "fix": "Add the missing scale steps (e.g. 12, 6) to the theme instead of sm+4/xs+2 arithmetic, and set fontVariant: ['tabular-nums'] on stat values and score counts.",
+        "part": "craft",
+        "score": 2,
+        "title": "Spacing and type",
+        "judged": 2,
+        "points": 3.3,
+        "scores": [
+          2,
+          2
+        ],
+        "weight": 5,
+        "evidence": "A theme spacing scale is used, but with ad-hoc offsets (spacing.sm + 4, xs + 2, marginTop: 2) and hard-coded sizes (fontSize 32/40, lineHeight 18). The type ramp (headline/title/body/caption) is clear. Numbers like '3/8' and '72%' don't use tabular figures."
+      },
+      {
+        "id": "C3",
+        "cap": 3,
+        "fix": "Darken the primary used for small text on the pink background to reach 4.5:1, and raise the ProgressBar track contrast in the light theme.",
+        "part": "craft",
+        "score": 2,
+        "title": "Color and contrast",
+        "judged": 2,
+        "points": 2.7,
+        "scores": [
+          2,
+          2
+        ],
+        "weight": 4,
+        "evidence": "Both the light pink theme and the Sumi Ink dark theme are legible. Weak spots: pink 'Tap to reveal' on pale pink and the near-invisible progress bar track ('Card 1 of 5') in light mode. Quiz score colors are paired with numbers, so color isn't the only signal."
+      },
+      {
+        "id": "C4",
+        "cap": 3,
+        "fix": "Give the Skip/View details links minHeight: 44 (or hitSlop of 10) and add accessibilityLabel to the flashcard toggle stating its flipped state.",
+        "part": "craft",
+        "score": 2,
+        "title": "Accessibility",
+        "judged": 2,
+        "points": 2,
+        "scores": [
+          2,
+          2
+        ],
+        "weight": 3,
+        "evidence": "Pressables carry roles and labels ('Study 日', 'End quiz' with hitSlop) and font scaling isn't disabled. But 'Skip for now' and 'View details' have only theme.spacing.xs padding around a 16pt icon and caption text (~28pt tall), and the 30pt week circles fall below 44pt."
+      },
+      {
+        "id": "C5",
+        "cap": 3,
+        "fix": "Use the native large-title header (headerLargeTitle) for the tab screens instead of custom Text headers.",
+        "part": "craft",
+        "score": 2.5,
+        "title": "No slop tells",
+        "judged": 2.5,
+        "points": 2.5,
+        "scores": [
+          2,
+          3
+        ],
+        "weight": 3,
+        "evidence": "No emoji icons, gradients, TouchableOpacity or Alert confirmations; Ionicons are used throughout. The tab screens hand-roll their large titles with headerShown:false instead of using the navigator header."
+      }
+    ]
+  },
+  "judgeScores": {
+    "C1": [
+      2,
+      2
+    ],
+    "C2": [
+      2,
+      2
+    ],
+    "C3": [
+      2,
+      2
+    ],
+    "C4": [
+      2,
+      2
+    ],
+    "C5": [
+      2,
+      3
+    ],
+    "M1": [
+      2,
+      2
+    ],
+    "M2": [
+      2,
+      2
+    ],
+    "M3": [
+      2,
+      2
+    ],
+    "M4": [
+      1,
+      1
+    ],
+    "M5": [
+      1,
+      1
+    ],
+    "O1": [
+      0,
+      0
+    ],
+    "O2": [
+      0,
+      0
+    ],
+    "O3": [
+      0,
+      0
+    ],
+    "P1": [
+      0,
+      0
+    ],
+    "P2": [
+      0,
+      0
+    ],
+    "P3": [
+      0,
+      0
+    ],
+    "P4": [
+      0,
+      0
+    ],
+    "P5": [
+      0,
+      0
+    ],
+    "S1": [
+      0,
+      0
+    ],
+    "S2": [
+      0,
+      0
+    ],
+    "S3": [
+      0,
+      0
+    ]
+  },
+  "findings": [
+    {
+      "ok": false,
+      "cap": 0,
+      "message": "The app has no onboarding.",
+      "criterion": "O1"
+    },
+    {
+      "ok": false,
+      "cap": 0,
+      "message": "The app has no onboarding.",
+      "criterion": "O2"
+    },
+    {
+      "ok": false,
+      "cap": 0,
+      "message": "The app has no onboarding.",
+      "criterion": "O3"
+    },
+    {
+      "ok": false,
+      "cap": 0,
+      "message": "The app has no paywall.",
+      "criterion": "P1"
+    },
+    {
+      "ok": false,
+      "cap": 0,
+      "message": "The app has no paywall.",
+      "criterion": "P2"
+    },
+    {
+      "ok": false,
+      "cap": 0,
+      "message": "The app has no paywall.",
+      "criterion": "P3"
+    },
+    {
+      "ok": false,
+      "cap": 0,
+      "message": "The app has no paywall.",
+      "criterion": "P4"
+    },
+    {
+      "ok": false,
+      "cap": 0,
+      "message": "The app has no paywall.",
+      "criterion": "P5"
+    },
+    {
+      "ok": true,
+      "cap": 1,
+      "message": "No placeholder copy (lorem ipsum, TODO, coming soon).",
+      "criterion": "M2"
+    },
+    {
+      "ok": true,
+      "cap": 2,
+      "message": "Screens that load data show a loading state.",
+      "criterion": "M2"
+    },
+    {
+      "ok": true,
+      "cap": 2,
+      "message": "No Alert pop-ups standing in for features.",
+      "criterion": "M3"
+    },
+    {
+      "ok": true,
+      "cap": 1,
+      "message": "No empty onPress handlers.",
+      "criterion": "M3"
+    },
+    {
+      "ok": false,
+      "cap": 0,
+      "message": "The app has no settings screen.",
+      "criterion": "S1"
+    },
+    {
+      "ok": false,
+      "cap": 0,
+      "message": "The app has no settings screen.",
+      "criterion": "S2"
+    },
+    {
+      "ok": false,
+      "cap": 0,
+      "message": "The app has no settings screen.",
+      "criterion": "S3"
+    },
+    {
+      "ok": true,
+      "cap": 2,
+      "message": "Pressable controls carry accessibility roles or labels.",
+      "criterion": "C4"
+    },
+    {
+      "ok": true,
+      "cap": 1,
+      "message": "Font scaling is never disabled.",
+      "criterion": "C4"
+    },
+    {
+      "ok": true,
+      "cap": 2,
+      "message": "No slop tells found.",
+      "criterion": "C5"
+    }
+  ],
+  "issues": [
+    {
+      "fix": "Add a paywall route with monthly/annual offers, trial terms, close, Restore and legal links. Gate N3–N1 levels behind isPremium and open the paywall from the locked level chips.",
+      "part": "paywall",
+      "screen": "(missing)",
+      "problem": "There is no paywall, no entitlement check and no purchase path, so the app cannot make money. Every JLPT level and quiz length is free.",
+      "severity": "critical"
+    },
+    {
+      "fix": "Create /settings, reachable via a gear in the Daily Cards header, with Subscription, Preferences and About sections.",
+      "part": "settings",
+      "screen": "(missing)",
+      "problem": "There is no settings screen: no subscription management, support, privacy policy, terms or version. Missing privacy/terms is an App Store review risk.",
+      "severity": "critical"
+    },
+    {
+      "fix": "Add a 3-step skippable flow (level, daily goal, one demo flip), persist the answers, and use them for the home deck and quiz default level.",
+      "part": "onboarding",
+      "screen": "(missing)",
+      "problem": "There is no onboarding. Users are dropped into a deck without choosing their JLPT level or daily goal, so nothing is personalized.",
+      "severity": "major"
+    },
+    {
+      "fix": "Bundle a full JLPT kanji dataset with readings, meanings and example words, starting with complete N5 and N4.",
+      "part": "main",
+      "screen": "Daily Cards / Progress",
+      "problem": "The content is a toy: 8 kanji total, with N4–N1 at 1 kanji each, for an app promising N5→N1 progress. Users will exhaust it in minutes.",
+      "severity": "major"
+    },
+    {
+      "fix": "Move or condense the stat tiles so the flashcard and both answer buttons fit above the fold.",
+      "part": "main",
+      "screen": "Daily Cards",
+      "problem": "The core action buttons (Known / Needs review) are clipped under the tab bar on first view because three stat tiles sit above the card.",
+      "severity": "major"
+    },
+    {
+      "fix": "Add a styled result card (score, level, streak flames, a featured kanji) with a native Share button at quiz completion.",
+      "part": "main",
+      "screen": "Quiz (done phase)",
+      "problem": "There is no shareable moment: quiz results and streaks have no share action or screenshot-worthy card.",
+      "severity": "major"
+    },
+    {
+      "fix": "Replace it with a 'Start N5 deck' or 'Take a quiz' button, or add an Add Kanji/browse-library flow.",
+      "part": "main",
+      "screen": "Daily Cards empty state",
+      "problem": "The 'Once kanji are added' empty state has no action, and the app has no add-kanji feature, so it is a dead end.",
+      "severity": "minor"
+    },
+    {
+      "fix": "Disable length options that exceed the level pool, or relabel the option as 'All (4)'.",
+      "part": "main",
+      "screen": "Quiz setup",
+      "problem": "Length '10' shows as selected while the note says '4 questions', so the control contradicts the outcome.",
+      "severity": "minor"
+    },
+    {
+      "fix": "Expose a Theme picker (Light / Sumi Ink / System) in Settings, persisted in storage.",
+      "part": "settings",
+      "screen": "(missing)",
+      "problem": "The Sumi Ink dark theme exists but users cannot choose it.",
+      "severity": "minor"
+    },
+    {
+      "fix": "Set minHeight: 44 and a hitSlop on these Pressables.",
+      "part": "craft",
+      "screen": "Daily Cards",
+      "problem": "'Skip for now' and 'View details' are small text links (~28pt targets).",
+      "severity": "minor"
+    },
+    {
+      "fix": "Unbox the stat tiles into a plain grid and apply tabular-nums to all numeric values.",
+      "part": "craft",
+      "screen": "Progress",
+      "problem": "Every section is an equally bordered card, which flattens hierarchy, and stat numbers aren't tabular.",
+      "severity": "minor"
+    },
+    {
+      "fix": "Add a /paywall route with an outcome headline, monthly and annual prices with trial, Restore, close, renewal terms and legal links. Gate N4–N1 levels in Quiz and Progress behind isPremium.",
+      "part": "paywall",
+      "screen": "(missing)",
+      "problem": "There is no paywall and no isPremium entitlement, so the app has no way to make money. All JLPT levels are free.",
+      "severity": "critical"
+    },
+    {
+      "fix": "Create a Settings stack route reached from a gear on Today's Deck, with Subscription, Study preferences, Appearance and About sections.",
+      "part": "settings",
+      "screen": "(missing)",
+      "problem": "There is no settings screen: no subscription management, support, privacy/terms, version or preferences.",
+      "severity": "critical"
+    },
+    {
+      "fix": "Add a skippable 3-step flow (target level, daily count, reminder primer). Persist the answers and use them to build Today's Deck and preselect the quiz level.",
+      "part": "onboarding",
+      "screen": "(missing)",
+      "problem": "There is no onboarding, so the app never learns the user's target JLPT level or daily pace. The Quiz always defaults to N5.",
+      "severity": "critical"
+    },
+    {
+      "fix": "Constrain the Flashcard height so the grading buttons are fully visible above the tab bar on a 6.1\" screen.",
+      "part": "main",
+      "screen": "Home (tabs)/index.tsx",
+      "problem": "The Known / Needs review buttons, the core action, are cut off behind the tab bar on first view in both themes. The user must scroll to grade a card.",
+      "severity": "major"
+    },
+    {
+      "fix": "Seed the complete N5 list with readings and example words and a meaningful N4 set. Disable levels with fewer than 4 kanji, since 4 are needed for distractors.",
+      "part": "main",
+      "screen": "Quiz (tabs)/quiz.tsx",
+      "problem": "The content is too thin to be a real JLPT companion: 8 kanji total, with N4–N1 holding 1 kanji each. A quiz on those levels is meaningless and there is no way to add kanji.",
+      "severity": "major"
+    },
+    {
+      "fix": "Render a styled result card (level, score, kanji learned) on quiz completion with a Share button that uses react-native Share or a view snapshot.",
+      "part": "main",
+      "screen": "Quiz (done phase)",
+      "problem": "There is no shareable moment: quiz results and streaks can't be shared.",
+      "severity": "major"
+    },
+    {
+      "fix": "Replace it with a 'Start N5 deck' button that loads the level's seed set.",
+      "part": "main",
+      "screen": "Home (tabs)/index.tsx",
+      "problem": "The empty state 'Your deck is empty. Once kanji are added…' has no action, and there is no add-kanji feature to fulfil it.",
+      "severity": "minor"
+    },
+    {
+      "fix": "Disable length options that exceed the level pool and fall back to 'All'.",
+      "part": "main",
+      "screen": "Quiz (tabs)/quiz.tsx",
+      "problem": "The Length control shows '10' selected while the note says '4 questions', which is contradictory.",
+      "severity": "minor"
+    },
+    {
+      "fix": "Set minHeight: 44 and hitSlop: 12 on both Pressables.",
+      "part": "craft",
+      "screen": "Home (tabs)/index.tsx",
+      "problem": "The 'Skip for now' and 'View details' links have roughly 24pt tap targets.",
+      "severity": "minor"
+    },
+    {
+      "fix": "Unbox the 2×2 stat tiles, keep the 'Kanji learned' hero as the only card, and apply tabular-nums to numbers.",
+      "part": "craft",
+      "screen": "Progress (tabs)/progress.tsx",
+      "problem": "Seven bordered cards of near-equal weight compete for attention, and stat numbers aren't tabular.",
+      "severity": "minor"
+    },
+    {
+      "fix": "Use a darker rose token for small primary text in the light theme so it meets 4.5:1.",
+      "part": "craft",
+      "screen": "Home (tabs)/index.tsx (light)",
+      "problem": "Pink 'Tap to reveal' and pink caption text on a pale pink surface have weak contrast.",
+      "severity": "minor"
+    }
+  ],
+  "summary": "KanjiDojo has a genuinely working core loop: an SRS-style flashcard deck, a meaning quiz that persists results, and a progress screen with streaks, all in a polished light and Sumi Ink theme. It is missing three of the five product pillars entirely (onboarding, paywall and settings) and ships only 8 kanji, so it cannot personalize, monetize or retain anyone past the first session. Next, bundle a full N5/N4 kanji dataset, then add a short level-picking onboarding, a compliant paywall gating N3–N1, and a settings screen with subscription, legal and theme controls.",
+  "renderErrors": [],
+  "costUsd": 0.4
+}
