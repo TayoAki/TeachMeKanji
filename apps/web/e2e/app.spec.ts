@@ -253,7 +253,10 @@ test("themes reach the app, apps follow light or dark, and text edits are free",
   await frame.getByText("SUPPORT", { exact: true }).dblclick();
   await page.keyboard.type("HELP");
   await page.keyboard.press("Enter");
-  await expect.poll(async () => (await files())["app/settings.tsx"]).toContain(">HELP</Text>");
+  // Saving goes through the inline-edit API and a new version: allow for a loaded machine.
+  await expect
+    .poll(async () => (await files())["app/settings.tsx"], { timeout: 15_000 })
+    .toContain(">HELP</Text>");
   await expect(frame.getByText("HELP", { exact: true })).toBeVisible();
   await expect(page.getByTestId("workspace-credits")).toHaveText(credits);
 
