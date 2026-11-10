@@ -130,7 +130,9 @@ export const CONNECTORS: readonly Connector[] = [
     name: "RevenueCat",
     description: "Manage products and offerings, and read subscription metrics.",
     mcpUrl: "https://mcp.revenuecat.ai/mcp",
-    oauth: true,
+    // RevenueCat's MCP sign-in only accepts clients its support team registered; a secret
+    // key works today.
+    oauth: false,
     token: {
       label: "Secret API key (v2)",
       link: "https://app.revenuecat.com/",

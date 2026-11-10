@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { connectorById } from "@appbuilder/contract";
 import { completeAuthorization } from "@appbuilder/core";
 import { backTo, openPending, PENDING_COOKIE, pendingCookie } from "@/lib/connector-oauth";
+import { appOrigin } from "@/lib/auth";
 import { db, requireViewer, route } from "@/lib/server";
 
 /** The connector's authorization server sends the user back here with a code. */
@@ -10,7 +11,8 @@ export const GET = route(async (request: NextRequest) => {
   const params = request.nextUrl.searchParams;
   const pending = openPending(request.cookies.get(PENDING_COOKIE)?.value);
   const finish = (path: string) => {
-    const response = NextResponse.redirect(new URL(path, request.nextUrl.origin));
+    // The public origin: behind Railway's proxy the request's own origin is the internal one.
+    const response = NextResponse.redirect(new URL(path, appOrigin));
     response.cookies.set(PENDING_COOKIE, "", { ...pendingCookie, maxAge: 0 });
     return response;
   };

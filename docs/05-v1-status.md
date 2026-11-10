@@ -175,7 +175,7 @@ image-fetch DNS pinning:
 | Android/iOS builds | A user's Expo token (Settings); Apple account for iOS | Built; never run against EAS |
 | Phone on another network | A wildcard domain for `DEVICE_PREVIEW_DOMAIN` (or `DEVICE_PREVIEW_SINGLE_HOST` to try it on Railway's own address, one preview at a time) | Live on Railway with Railway's address: the session starts in about 5 s from the SDK in the worker image, and over the public internet the manifest (`exposdk:58.0.0`), the 6.6 MB bundle and the fast-refresh WebSocket (101) come through; debugger endpoints return 404. First scan from an iPhone reached the server; Expo Go then required the dev server to be signed in as the phone's Expo account, which previews now do with the user's Expo token |
 | S3 / R2 storage | `S3_*` variables | Adapter written; local files used here |
-| Connectors | A user's account at each service | Sign-in (discovery, registration, PKCE, refresh with rotation) and pasted tokens are tested against a local stand-in MCP + OAuth server, and the endpoints were checked to exist (each answers with an OAuth challenge). Never connected to a real Linear, Notion, etc., and the model's MCP-connector call has not run live yet |
+| Connectors | A user's account at each service | Sign-in (discovery, registration, PKCE, refresh with rotation) and pasted tokens are tested against a local stand-in MCP + OAuth server. On the deployed site, Connect reaches the real sign-in page of Linear, Notion, Miro, Jam, Crowdin, Mobbin, Appllama and Mapbox (registration and discovery work against their servers), and Linear's server refuses a wrong API key. No account was signed in to, and the model's MCP-connector call has not run live yet |
 
 ## Known limits
 

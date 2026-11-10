@@ -351,8 +351,11 @@ available yet".
   spec: protected-resource metadata → authorization-server metadata → dynamic client
   registration (once per connector and redirect URI, kept in `connector_client`) →
   authorization code with PKCE and `resource` = the MCP server. The flow in flight lives in
-  an encrypted cookie scoped to `/api/connectors/callback`. Linear, GitHub, Crowdin, Jam and
-  RevenueCat also take a pasted token, checked by opening an MCP session with it. Tokens are
+  an encrypted cookie scoped to `/api/connectors/callback`. Linear, Crowdin and Jam also take a
+  pasted token; GitHub and RevenueCat take only a token (their MCP sign-in accepts only apps
+  they registered by hand). A token is checked by opening an MCP session with it. Redirects
+  back to the builder use `BETTER_AUTH_URL`, never the request's origin (internal behind a
+  proxy). Tokens are
   encrypted in `integration` (one row per user and connector; GitHub's row also exports apps).
 - **Using:** a plan or chat message that names a connector (by name or link; see `mentions`)
   starts the run with one extra call (`apps/worker/src/agents/connectors.ts`): the named,

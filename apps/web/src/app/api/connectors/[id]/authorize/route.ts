@@ -9,6 +9,7 @@ import {
   safeReturnTo,
   sealPending,
 } from "@/lib/connector-oauth";
+import { appOrigin } from "@/lib/auth";
 import { db, HttpError, requireViewer, route } from "@/lib/server";
 
 /** Start signing in to a connector: register with its server if needed, then redirect there. */
@@ -35,7 +36,7 @@ export const GET = route(
       return NextResponse.redirect(
         new URL(
           backTo(returnTo, "connector_error", `${connector.name}: ${(error as Error).message}`),
-          request.nextUrl.origin,
+          appOrigin,
         ),
       );
     }

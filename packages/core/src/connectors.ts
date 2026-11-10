@@ -133,9 +133,12 @@ export async function connectorClient(
   const body = (await response.json().catch(() => ({}))) as {
     client_id?: string;
     client_secret?: string;
+    error_description?: string;
   };
   if (!response.ok || !body.client_id)
-    throw new Error(`${connector.name} refused to register the app (${response.status}).`);
+    throw new Error(
+      `${connector.name} refused to register the app (${response.status}${body.error_description ? `: ${body.error_description}` : ""}).`,
+    );
   await db
     .insert(schema.connectorClient)
     .values({
