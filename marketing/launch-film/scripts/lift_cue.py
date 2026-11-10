@@ -190,9 +190,9 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
     src = decode(src_path)
     cue, edits = build_cue(src)
-    sf.write(os.path.join(out_dir, "lift-cue.wav"), cue.astype(np.float32), SR, subtype="FLOAT")
+    sf.write(os.path.join(out_dir, "lift-cue.wav"), cue.astype(np.float32), SR, subtype="PCM_24")  # no PEAK chunk: byte-deterministic
     sfx, rows = build_sfx()
-    sf.write(os.path.join(out_dir, "fit-sfx.wav"), sfx.astype(np.float32), SR, subtype="FLOAT")
+    sf.write(os.path.join(out_dir, "fit-sfx.wav"), sfx.astype(np.float32), SR, subtype="PCM_24")  # no PEAK chunk: byte-deterministic
     json.dump({"beat": BEAT, "bar": BAR, "edits": edits, "sfx": rows}, open(os.path.join(out_dir, "lift-edit.json"), "w"), indent=1)
     for e in edits:
         print("music", e)

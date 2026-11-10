@@ -28,8 +28,10 @@ npx remotion studio src/remotion/index.ts
 npx remotion render src/remotion/index.ts ProductFilm out/hero/master-16x9-60fps.mp4 --codec=h264 --crf=16 --pixel-format=yuv420p --image-format=png --muted
 ```
 
-`scripts/release.sh` and `scripts/release-fit.sh` render the masters with audio, master the mix
-(−14 LUFS, ≤ −1 dBTP) and make web previews. `scripts/review.sh` runs the release review.
+`scripts/release-lift.sh` renders the TikTok cut with the "Final Lift" mix, puts the same mix on
+the 16:9 master (a stream copy of the video) and makes web previews; the mix is mastered to
+−14 LUFS, ≤ −1 dBTP. `scripts/review.sh` runs the release review; the last results are in
+`REVIEW.md`.
 Remotion needs a Chrome binary; point it at one with `--browser-executable` if it can't download
 its own.
 

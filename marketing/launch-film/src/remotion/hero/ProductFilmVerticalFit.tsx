@@ -64,7 +64,7 @@ function Captions({ t }: { t: number }) {
         font: `600 52px/1.2 ${FONT.sans}`,
         letterSpacing: "-0.01em",
         color: C.foreground,
-        opacity: ramp(t, cue.s, 0.08),
+        opacity: cue.s === 0 ? 1 : ramp(t, cue.s, 0.08),
         textShadow: "0 2px 12px rgba(0,0,0,0.6)",
       }}
     >

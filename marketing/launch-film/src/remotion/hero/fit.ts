@@ -121,7 +121,8 @@ export const FIT_CUES: Array<{ s: number; e: number; text: string }> = (() => {
   return flat.map((c, i) => {
     let e = Math.min(c.e + 0.5, flat[i + 1]?.s ?? Infinity);
     for (const [a, b] of CARDS) if (e > a && c.e < b) e = Math.max(c.e, Math.min(e, a));
-    return { ...c, e };
+    // The first caption is on screen from frame 0 (the poster), 0.1 s before its first word.
+    return { ...c, s: i === 0 ? 0 : c.s, e };
   });
 })();
 

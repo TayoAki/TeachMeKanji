@@ -182,3 +182,72 @@ K1/K2 kinetic type dropped: the captions carry the words.
 - Licensing: ElevenLabs (voice) and Suno (music) need the paid plans that grant commercial use;
   the user must confirm both before publishing. Geist and Inter are OFL; Remotion needs a company
   licence above 3 people.
+
+---
+
+# v3 (release): the master fit into 9:16, and the master with sound
+
+**Direction (user):** "the tiktok video should just be the master but fit into that vertical view",
+then "put it on the master video". The recomposed v2 vertical stays as `ProductFilmVertical`.
+
+**9:16 fit cut** (`ProductFilmVerticalFit`, `ProductFilmVerticalFit.tsx`): 1080×1920 @ 30 fps,
+40.5 s (no extension needed: the music cue's beat drops out at 39.88 s). The 16:9 composition
+`ProductFilm` unchanged and uncropped, scaled ×0.5625 to 1080×607.5 at y 576 (a little above
+centre). Text hook "Your app idea, paywall included." above it (y 420) from frame 0 until the
+lockup (fades 36.8–37.0, so the end card stands alone). Captions in a band below (y 1228–1408,
+Geist SemiBold 52 px, ≤ 2 lines ≤ 32 chars), clear of the bottom 20% and right 10%. Dark product
+background with the canvas dot grid. The master's K1/K2 cards stay; caption holds never run into
+them.
+
+**16:9 with sound:** `master-16x9-60fps-audio.mp4` = the master's 60 fps video stream copied
+(bitstream MD5 identical to `master-16x9-60fps.mp4`) + the same 40.5 s mix. The silent master stays
+the homepage autoplay version. `master-16x9.srt` carries the same cues (no burned-in captions on
+the 16:9).
+
+## Narration on the master's beats (`fit.ts`)
+Each phrase is cut from `vo_master.wav` in the middle of a measured silence (speed and pitch
+unchanged) and placed so its first word starts at:
+
+| Phrase | First word (film) | Lands on |
+|---|---|---|
+| P1 "What if your app idea came with the paywall… already built?" | 0.10 | hook; "paywall" 2.9–3.8 while the camera settles on the 7 screens |
+| P2 "Describe your app idea, the way you'd tell a friend." | 5.60 | typing starts 5.55 |
+| P3 "First, you get a plan: every screen… and what premium costs." | 9.90 | "plan" ≈ 10.9 as the card arrives (10.45); "premium costs" 13.2–14.0 on the prices hold |
+| P4 "Then it builds the real app — onboarding, a paywall with restore and renewal terms, and settings." | 14.75 | pull-back 14.6; frames arrive 15.6–18.1; ends 20.53 before K2 |
+| P5 "Don't like a headline? Double-click it and type. Your own edits are free." | 23.85 | "Double-click" 25.05 = the double-click; "and type" during typing; "free" after save 27.25 |
+| P6 "It even writes your store listing… and frames your screenshots for both stores." | 31.11 | "store listing" on the dialog; "frames" 33.35 = Make screenshots |
+| P7 "App Builder. Start free with a hundred credits." | 36.90 | lockup lands 36.85–37.25; "Start free" 37.92 with the CTA (37.55–37.95) |
+
+Measured in the encoded files by cross-correlation: every phrase within −12…+15 ms of its target.
+
+## Music: "Final Lift" (Suno), edited on its own grid (`scripts/lift_cue.py`)
+Grid measured with librosa (autocorrelation, refined): beat 0.40700 s (147.4 BPM), 8-beat bar
+3.256 s, bar downbeats at 1.005 + k·3.256 s; beats 1 and 5 carry the 808. Key ≈ C (minor-leaning).
+Whole-beat cuts only, 20 ms equal-power crossfades, no stretch, no pitch change:
+
+| Film | Source | What it is |
+|---|---|---|
+| 0.000–13.024 | 4.261–17.285 | bar 1: the 808 enters on frame 0 (hook); bar 2: thin bass under K1 + "Describe…"; bar 3: thin, its build hit (src 13.0–13.65) at film 8.75–9.4 between P2 and P3; bar 4: sparse percussion under P3 |
+| 13.024–21.978 | 50.659–59.613 | the quiet pre-drop under "…what premium costs"; the 808 slides in at film 14.45 (the Confirm click) and slams at 14.65 (the pull-back); heaviest bars 16–17 through "Ready" (18.25) and the canvas hold |
+| 21.978–36.630 | 23.797–38.449 | bars 7–11a: the groove through K2, the edit and the store listing; bar 8's bass dip sits under "Your own edits are free" |
+| 36.630–40.500 | 62.869–66.739 | the outro bar: big 808 at film 37.03 (lockup), hit at 38.05 (CTA), last 808 at 39.07, beat out at 39.88 (0.6 s after "…credits", 39.28); the rest is the track's near-silent tail |
+
+Ducking as before (−11 dB under speech 120/400 ms, −5 dB in gaps > 0.6 s, −2 dB after the last
+word). No chime exists in the track's ending (only faint C partials at −38 dB), so it is synthesized.
+
+## SFX (synthesized in `lift_cue.py`, 12–20 dB under the VO, on the picture's real events)
+| Film | SFX | Event |
+|---|---|---|
+| 10.12 | tick | prompt send |
+| 13.85–14.70 | whoosh | into the pull-back / the drop |
+| 14.45 | tick | Confirm & build |
+| 18.25 | success (C6→G6) | "Ready" |
+| 25.05, 25.18 | ticks | the headline double-click |
+| 27.25 | tick | click away (save) |
+| 27.37 | success | "Saved" (the toast enters the 16:9 frame during the pull-back from ~27.6) |
+| 29.95, 30.55 | ticks | project menu, Store listing |
+| 33.35 | tick | Make screenshots |
+| 33.55–34.43 | 5 sparkle notes (C minor pentatonic) | each store screenshot appearing |
+| 37.60 | chime (C5+G5+C6, 12 ms attack, ~1.5 s decay) | the CTA card |
+
+No payment, purchase or success screen is sonified: the film never shows one.

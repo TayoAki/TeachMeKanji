@@ -45,6 +45,8 @@ Read this at the start of every job. Save every correction as a rule with its re
 | Tall canvas (9:16 v1 recomposition) | ProductFilmVertical.tsx `TallCanvas` | chrome on/off |
 | 4-column canvas world, window, captions, text hook, toast (9:16 v2) | ProductFilmVerticalV2.tsx | big single-phone shots, marquee grid, scrolled paywall capture |
 | Soundtrack (VO + ducked music) | audio.tsx, vo.ts | ducking envelope, cues |
+| Fit cut (master in 9:16) + FitSoundtrack | ProductFilmVerticalFit.tsx, fit.ts, audio.tsx | phrases on master beats, cues, lift/launchpad music |
+| Music cue editor + SFX synth | scripts/lift_cue.py | beat-grid edits, ticks, whoosh, success, sparkle, chime |
 
 ## Taste (approved)
 - 16:9 board approved as is (2026-11-10): calm eased holds, one marquee (pull back to the whole
@@ -60,6 +62,15 @@ Read this at the start of every job. Save every correction as a rule with its re
   lockup; ducking −11 / −5 / −2 dB.
 - Runtime and aspect defaults: hero 40.5 s 16:9 @ 60 (silent); vertical ≈ 36 s @ 30 with sound,
   ending on the music's ring-out.
+
+- TikTok cut = the master fit into 9:16 with hook band + captions (user preference over a
+  recomposed vertical, 2026-11-10). The recomposed v2 vertical exists but is not the one to ship.
+- Music for the fit cut and the 16:9-with-sound: "Final Lift" (Suno, 147.4 BPM, bar 3.256 s,
+  key ≈ C), edited on its own beat grid into a 40.5 s cue (scripts/lift_cue.py): 808 on frame 0,
+  sparse bars under the dense VO, the drop on the build pull-back, the outro bar on the lockup, beat
+  out after the last word; synthesized SFX on real cursor presses and confirmations, a C chime
+  under the CTA. "Launchpad" was the first choice and is superseded.
+- The silent 16:9 master stays the homepage autoplay file; the with-sound copy is a stream copy.
 
 ## Rules (each with its reason)
 - Keep production's truncated Google Play short description ("…and finish with a") out of frame,
@@ -82,3 +93,4 @@ Read this at the start of every job. Save every correction as a rule with its re
 |---|---|---|---|
 | hero v1 (board) | 2026-11-10 | 16:9 animatic, 9:16 animatic | Kanjiwa; approved |
 | hero v1.1 + vertical v2 | 2026-11-10 | 16:9 master 60 fps (silent), 9:16 30 fps with VO + music, SRT, web previews | listing camera keeps the Google Play field out; vertical re-cut to the VO |
+| fit cut + 16:9 with sound | 2026-11-10 | vertical-fit-9x16-30fps.mp4, master-16x9-60fps-audio.mp4, SRTs, previews (Launchpad version kept as vertical-fit-launchpad) | VO re-placed on the master's beats; Final Lift cue + SFX |
