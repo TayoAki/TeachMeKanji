@@ -36,21 +36,27 @@ describe("error report redaction", () => {
 });
 
 describe("plan pricing", () => {
-  it("keeps every paid plan at the target gross margin, even if all credits are used", async () => {
-    const { PAID_PLANS, planMargin, TARGET_MARGIN, PLANS } = await import("./billing");
-    for (const plan of PAID_PLANS) expect(planMargin(plan)).toBeGreaterThanOrEqual(TARGET_MARGIN);
-    expect(PLANS.studio.mcp && PLANS.pro.mcp && !PLANS.builder.mcp && !PLANS.free.mcp).toBe(true);
-    // The entry plan is priced like other AI app builders and includes a few builds a month.
-    expect(PLANS.builder.priceUsdPerMonth).toBeLessThanOrEqual(25);
-    expect(PLANS.builder.monthlyCredits).toBeGreaterThanOrEqual(200);
+  it("keeps each paid plan at its target gross margin, even if all credits are used", async () => {
+    const { PAID_PLANS, planMargin, PLAN_TARGET_MARGIN, PLANS, creditsForMargin } =
+      await import("./billing");
+    for (const plan of PAID_PLANS)
+      expect(planMargin(plan)).toBeGreaterThanOrEqual(PLAN_TARGET_MARGIN[plan]);
+    // $20 at 60%: 99 credits (about one new app plus edits); $200 at 80%: 610 credits.
+    expect([PLANS.builder.priceUsdPerMonth, PLANS.builder.monthlyCredits]).toEqual([20, 99]);
+    expect([PLANS.pro.priceUsdPerMonth, PLANS.pro.monthlyCredits]).toEqual([200, 610]);
+    // One credit more would break the margin.
+    expect(creditsForMargin(20, 0.6) + 1).toBeGreaterThan(99);
+    expect(PLANS.pro.mcp && !PLANS.builder.mcp && !PLANS.free.mcp).toBe(true);
+    expect(PLANS.free.signupCredits).toBe(100);
   });
 
   it("grants complimentary plans by email, ignoring unknown plans", async () => {
     const { compPlanFor } = await import("./billing");
     process.env.COMP_PLANS =
-      "Owner@Example.com:studio, tester@example.com:pro, x@example.com:toString";
+      "Owner@Example.com:builder, tester@example.com:pro, old@example.com:studio, x@example.com:toString";
     try {
-      expect(compPlanFor("owner@example.com")).toBe("studio");
+      expect(compPlanFor("owner@example.com")).toBe("builder");
+      expect(compPlanFor("old@example.com")).toBeNull(); // Studio no longer exists
       expect(compPlanFor("tester@example.com")).toBe("pro");
       expect(compPlanFor("x@example.com")).toBeNull();
       expect(compPlanFor("nobody@example.com")).toBeNull();

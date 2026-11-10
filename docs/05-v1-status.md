@@ -134,7 +134,7 @@ steps). This page says exactly what was verified here and what wasn't.
   email provider), as viewer or editor. Viewers can look and remix; editors can change; only the
   owner can publish, change visibility, share, switch App Cloud or delete. In production an
   email invite works only for a verified email address.
-- **Build from your own AI (MCP):** Studio and Pro users connect Claude, ChatGPT, Cursor or any
+- **Build from your own AI (MCP):** Pro users connect Claude, ChatGPT, Cursor or any
   MCP client (Settings shows the URL and steps). The assistant signs in with OAuth, the user
   approves it, and it builds through tools: create and list projects, read the app rules,
   read and write files (validated exactly like the built-in agent's output; saved as a version
@@ -144,10 +144,10 @@ steps). This page says exactly what was verified here and what wasn't.
 - **Publish:** a public web URL (`/p/<slug>`) serving the published version, and an option to
   list the app in the community gallery, where anyone can try it or remix a copy.
 - **Plans and credits:** Free ($0: 100 starting credits, 2 projects, 5 screens per app),
-  Builder ($25/month: 200 credits a month, unlimited projects, 12 screens, store builds), Studio
-  ($49/month: 450 credits plus building from your own AI over MCP) and Pro ($99/month: 1,000
-  credits, 20 screens), via Stripe Checkout, the customer portal and webhooks; the plan follows
-  the Stripe price. Every paid plan keeps at least a 40% gross margin even if every included
+  Builder ($20/month: 99 credits a month, unlimited projects, 12 screens, store builds) and Pro
+  ($200/month: 610 credits, 20 screens, building from your own AI over MCP), tax-inclusive, via
+  Stripe Checkout, the customer portal and webhooks; the plan follows the Stripe price. Credits
+  are derived from each plan's target margin (Builder 60%, Pro 80%) even if every included
   credit is spent, after hosting and payment fees (see
   [07-unit-economics.md](07-unit-economics.md); a test enforces it). Chat edits run on Claude
   Sonnet 5.5 (`EDIT_MODEL`), half the price of Opus; plans and builds stay on Opus 5.5
@@ -243,7 +243,7 @@ image-fetch DNS pinning:
 | Verification emails | `RESEND_API_KEY`, `EMAIL_FROM` | Built; sends never run against Resend |
 | AI images | `IMAGEKIT_URL_ENDPOINT` | URL format from ImageKit's docs; never run against ImageKit |
 | Google / GitHub sign-in | OAuth client IDs and secrets | Wired through Better Auth, untested |
-| Studio and Pro upgrades | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_STUDIO`, `STRIPE_PRICE_PRO` | Webhook verified with signed events; Checkout and the portal never run against Stripe |
+| Builder and Pro upgrades | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_BUILDER`, `STRIPE_PRICE_PRO` | Webhook verified with signed events; Checkout and the portal never run against Stripe |
 | Push to GitHub | A user's fine-grained token (Settings) | Request sequence unit-tested; never run against GitHub |
 | Android/iOS builds and store submission | A user's Expo token, App Store Connect API key and Play service account (Settings), apps created in App Store Connect and Play Console | Built from Expo's documented non-interactive flow (`eas build --auto-submit` with `EXPO_ASC_*` and a submit profile); key checks are unit-tested; never run against EAS, Apple or Google |
 | Real purchases | A RevenueCat account (connector or public keys), products in the stores | The purchases module type-checks against react-native-purchases 10.15.1 and the setup run is tested offline; never run against RevenueCat or a store |

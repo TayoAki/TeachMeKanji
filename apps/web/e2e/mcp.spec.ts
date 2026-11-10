@@ -28,7 +28,7 @@ async function sql<T extends Record<string, unknown>>(text: string, values: unkn
   }
 }
 
-async function signUp(page: Page, plan: "free" | "studio") {
+async function signUp(page: Page, plan: "free" | "pro") {
   const email = `mcp-${plan}-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
   await page.goto("/sign-up");
   await page.getByLabel("Name").fill("Assistant user");
@@ -168,7 +168,7 @@ async function fixtureFiles(): Promise<Array<{ path: string; content: string }>>
 test.skip(Boolean(E2E_BASE_URL), "sets the test user's plan in the test database");
 
 test("an AI assistant connects over MCP and builds an app", async ({ page, request }) => {
-  await signUp(page, "studio");
+  await signUp(page, "pro");
 
   // Unauthenticated calls are told where to sign in (RFC 9728).
   const anonymous = await request.post("/api/mcp", {
@@ -313,5 +313,5 @@ test("MCP building needs a paid plan; connecting works from signed out", async (
     description: "x",
   });
   expect(created.isError).toBe(true);
-  expect(created.text).toContain("Studio and Pro");
+  expect(created.text).toContain("part of the Pro plan");
 });

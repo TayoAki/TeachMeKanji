@@ -252,7 +252,7 @@ export function funnelEmail(
           text: [
             `${promo.offer} with code ${promo.code} at checkout. It ends ${ends}.`,
             "",
-            "Builder is $25 a month with 200 credits — about two apps — TestFlight and Google Play builds, and real in-app purchases.",
+            "Builder is $20 a month with 99 credits — about one new app plus edits — TestFlight and Google Play builds, and real in-app purchases.",
             "",
             `${appUrl}/pricing`,
             sign,

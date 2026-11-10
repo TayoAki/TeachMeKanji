@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Create (or find) App Builder's three paid plans in Stripe and print the price ids to put in
- * STRIPE_PRICE_BUILDER / _STUDIO / _PRO. Run it once with a test key, and again with the live key
+ * STRIPE_PRICE_BUILDER / STRIPE_PRICE_PRO. Run it once with a test key, and again with the live key
  * when you switch: test and live prices have different ids.
  *
  *   STRIPE_SECRET_KEY=sk_test_... node scripts/stripe-setup.mjs
@@ -15,9 +15,8 @@ if (!key) {
   process.exit(1);
 }
 const PLANS = [
-  { id: "builder", name: "App Builder — Builder", cents: 2500 },
-  { id: "studio", name: "App Builder — Studio", cents: 4900 },
-  { id: "pro", name: "App Builder — Pro", cents: 9900 },
+  { id: "builder", name: "App Builder — Builder", cents: 2000 },
+  { id: "pro", name: "App Builder — Pro", cents: 20000 },
 ];
 
 async function stripe(method, path, params) {

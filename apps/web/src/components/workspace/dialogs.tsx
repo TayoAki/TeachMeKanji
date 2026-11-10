@@ -167,7 +167,7 @@ export function ShareDialog({
 // --- Export --------------------------------------------------------------------------------
 
 interface Me {
-  plan: "free" | "builder" | "studio" | "pro";
+  plan: "free" | "builder" | "pro";
   limits: { nativeBuilds: boolean };
   integrations: Array<{ provider: "github" | "expo"; label: string | null }>;
 }
@@ -345,7 +345,7 @@ export function ExportDialog({
         <section className="space-y-2 border-t pt-4">
           <h3 className="flex items-center gap-2 text-sm font-medium">
             <Smartphone className="size-4" /> Android & iOS builds{" "}
-            <Badge variant="outline">Studio & Pro</Badge>
+            <Badge variant="outline">Pro</Badge>
           </h3>
           {!me?.limits.nativeBuilds ? (
             <p className="text-sm text-muted-foreground">

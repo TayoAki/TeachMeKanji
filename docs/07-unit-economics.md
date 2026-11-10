@@ -1,30 +1,39 @@
 # Unit economics (COGS)
 
 What it costs to serve one subscriber for a month, and what's left of the price. Prices are
-as of November 2026: Railway, Anthropic (Claude) and Stripe list prices. The worst-case
-numbers are enforced by a test (`planMargin` in `packages/core/src/billing.ts` must stay at or
-above 40% for every paid plan).
+as of November 2026: Railway, Anthropic (Claude) and Stripe list prices. Each paid plan's
+credits are **derived** from its price and target margin (`creditsForMargin` in
+`packages/core/src/billing.ts`), and a test keeps every plan at or above its target with all
+credits spent: Builder 60%, Pro 80%.
 
-Plans are priced against other AI app builders: Rork Pro and a0.dev Pro are $20 a month for 100
-credits, Vibecode Plus $20 for $20 of AI usage at cost, Newly $25 (November 2026). The old Pro
-($99 for 80 credits, about one build a month) lost every side-by-side comparison.
+Plans sit at the same price points as other AI app builders: Rork, a0.dev and Vibecode charge
+$20 and $200 a month, Newly $25 (November 2026).
 
 ## Per subscriber, per month (worst case)
 
 Worst case means a subscriber spends every included credit.
 
-| | Builder $25 | Studio $49 | Pro $99 |
-|---|---:|---:|---:|
-| Credits included | 200 | 450 | 1,000 |
-| AI (all credits used, × $0.05) | $10.00 | $22.50 | $50.00 |
-| Hosting (estimate, see below) | $2.00 | $2.00 | $2.00 |
-| Payments (2.9% + $0.30 card, 0.7% Stripe Billing) | $1.20 | $2.06 | $3.86 |
-| **Cost of goods sold** | **$13.20** | **$26.56** | **$55.86** |
-| **Gross margin** | **47.2%** | **45.8%** | **43.6%** |
+| | Builder $20 | Pro $200 |
+|---|---:|---:|
+| Target margin | 60% | 80% |
+| Credits included (derived) | 99 | 610 |
+| AI (all credits used, × $0.05) | $4.95 | $30.50 |
+| Hosting (estimate, see below) | $2.00 | $2.00 |
+| Payments (2.9% + $0.30 card, 0.7% Stripe Billing) | $1.02 | $7.50 |
+| **Cost of goods sold** | **$7.97** | **$40.00** |
+| **Gross margin** | **60.2%** | **80.0%** |
 
-In a typical month subscribers use part of their credits, so the real margin is higher (about
-70% at half usage). What a credit buys: a new app is about 60–90 credits on Opus 5.5; a chat
-edit on Sonnet 5.5 is usually 5–15.
+At half usage the margins are about 72% and 88%. What a credit buys: a new app is about 60–90
+credits on Opus 5.5, a chat edit on Sonnet 5.5 usually 5–15. So Builder covers about one new app
+plus a few edits a month, and Pro about eight new apps or sixty edits. One more credit on either
+plan would break its target. Free keeps 100 credits once (about one app; up to $5 of AI per
+sign-up, an acquisition cost).
+
+**Tax:** prices include tax (Stripe Tax, inclusive, tax code `txcd_10103001`, SaaS business
+use). With no tax registrations today, the whole price is revenue. Once you register somewhere,
+tax comes out of the price there: at 20% VAT a $20 sale is $16.67 of revenue, which takes
+Builder to about 52% and Pro to about 76% worst case, before Stripe Tax's own fee on taxed
+transactions. Re-derive the credits then, or set the targets per region.
 
 ## The cost lines
 
@@ -70,7 +79,7 @@ egress, $0.15 per GB-month of volume and $0.015 per GB-month of bucket storage. 
 
 Total: about 0.42 GB of RAM ($4.20), a few cents of CPU, and a 0.9 GB volume ($0.13).
 That is about $4.50 a month, inside the Hobby plan's $5 of included usage. Under real traffic,
-expect $10 to $20 a month (Next.js grows to 0.3 to 0.5 GB). One Studio subscriber covers it.
+expect $10 to $20 a month (Next.js grows to 0.3 to 0.5 GB). Two Builder subscribers cover it.
 
 **Per active user:** storage and egress are small:
 - Database rows and images cost under $0.01.
@@ -90,15 +99,12 @@ cards and currency conversion add more. Treat the figure above as a floor.
 ## Free users (acquisition cost, not COGS)
 
 Each sign-up gets 100 credits: at most $5 of AI, typically $3.50 to $4.50 (one app and a few edits).
-At a 5% conversion to Studio, 20 free sign-ups ($40 to $100 of AI) produce one $49 subscriber
-contributing about $45 a month. That pays back in one to two months. Levers if it doesn't:
-- fewer starting credits
-- Sonnet 5.5 for free accounts
-- a cap on free builds per day
+At a 5% conversion to Builder, 20 free sign-ups (up to $5 of AI each, $40 to $100 in all) produce
+one $20 subscriber earning $12.03 a month after costs: three to eight months to pay back.
 
 ## Not in COGS
 
-- **Paid by the user:** their AI subscription for Studio, EAS builds (their Expo account), and
+- **Paid by the user:** their AI subscription for Pro (MCP), EAS builds (their Expo account), and
   GitHub.
 - **Off for now:** ImageKit (see the caveat in [05-v1-status.md](05-v1-status.md)), and Resend
   (it has a free tier; check its pricing when email volume grows).

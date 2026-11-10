@@ -94,7 +94,7 @@ async function requireMcpPlan(userId: string) {
   if (!PLANS[plan].mcp) {
     throw new HttpError(
       403,
-      `Building from an AI assistant is part of the Studio and Pro plans. Upgrade at ${appOrigin}/pricing, then try again.`,
+      `Building from an AI assistant is part of the Pro plan. Upgrade at ${appOrigin}/pricing, then try again.`,
     );
   }
   return plan;

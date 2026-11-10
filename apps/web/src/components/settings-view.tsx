@@ -20,7 +20,7 @@ import { StoreKeys } from "@/components/store-keys";
 export interface SettingsData {
   user: RailUser;
   credits: number;
-  plan: "free" | "builder" | "studio" | "pro";
+  plan: "free" | "builder" | "pro";
   limits: {
     mcp: boolean;
     name: string;
@@ -37,7 +37,7 @@ export interface SettingsData {
     createdAt: string;
   }>;
   integrations: Array<{ provider: string; label: string | null; auth: "token" | "oauth" }>;
-  billing: { studio: boolean; pro: boolean };
+  billing: { builder: boolean; pro: boolean };
   /** The MCP endpoint assistants connect to. */
   mcpUrl: string;
 }

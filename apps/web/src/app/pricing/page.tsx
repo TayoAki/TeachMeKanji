@@ -26,7 +26,7 @@ export default async function PricingPage() {
     },
     {
       id: "builder",
-      tagline: "Build and ship your app.",
+      tagline: "Build and ship your first app.",
       features: [
         `${PLANS.builder.monthlyCredits} credits every month`,
         "Unlimited projects",
@@ -37,21 +37,13 @@ export default async function PricingPage() {
       ],
     },
     {
-      id: "studio",
-      tagline: "More AI, plus the AI you already pay for.",
-      features: [
-        `${PLANS.studio.monthlyCredits} credits every month`,
-        "Build from Claude, ChatGPT or Cursor through MCP, without using credits",
-        "Everything in Builder",
-      ],
-    },
-    {
       id: "pro",
-      tagline: "For apps you're growing.",
+      tagline: "For founders shipping more than one app.",
       features: [
         `${PLANS.pro.monthlyCredits} credits every month`,
         `Up to ${PLANS.pro.maxScreensPerProject} screens per app`,
-        "Everything in Studio",
+        "Build from Claude, ChatGPT or Cursor through MCP, without using credits",
+        "Everything in Builder",
       ],
     },
   ];
@@ -62,10 +54,10 @@ export default async function PricingPage() {
         <h1 className="text-center text-4xl font-semibold tracking-tight">Simple pricing</h1>
         <p className="mx-auto mt-3 max-w-xl text-center text-muted-foreground">
           Pay for the AI work, not for the small stuff: editing text yourself and restoring a
-          version are free, and there are never overage charges. Or connect your own Claude, ChatGPT
-          or Cursor and build without paying for AI twice.
+          version are free, and there are never overage charges. On Pro you can also build from your
+          own Claude, ChatGPT or Cursor without paying for AI twice.
         </p>
-        <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-10 grid gap-6 md:grid-cols-3">
           {tiers.map((tier) => (
             <div
               key={tier.id}
@@ -101,7 +93,8 @@ export default async function PricingPage() {
           1 credit = ${CREDIT_USD.toFixed(2)} of AI usage, charged at what each step actually used.
           A new app uses about 60–90 credits and a chat edit usually 5–15. Editing text and styles
           yourself is free; a step that fails pays only for what it used. When your credits run out,
-          AI steps stop until you have more: no overage charges.
+          AI steps stop until you have more: no overage charges. Prices include any sales tax or VAT
+          that applies.
         </p>
       </main>
       <SiteFooter />

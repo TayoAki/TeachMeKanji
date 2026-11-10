@@ -80,14 +80,14 @@ test("Stripe webhook: verified, ordered either way, and idempotent", async ({ pa
   expect((await send(request, "invoice.paid", firstInvoice, { id: eventIdFirst })).status()).toBe(
     200,
   );
-  expect(await account(page)).toMatchObject({ plan: "pro", credits: 1100 });
+  expect(await account(page)).toMatchObject({ plan: "pro", credits: 710 });
 
   // Stripe retries deliveries: the same invoice never grants twice.
   expect((await send(request, "invoice.paid", firstInvoice, { id: eventIdFirst })).status()).toBe(
     200,
   );
   expect((await send(request, "invoice.paid", firstInvoice)).status()).toBe(200);
-  expect((await account(page)).credits).toBe(1100);
+  expect((await account(page)).credits).toBe(710);
 
   // Checkout completion links the Stripe customer to the user.
   const checkout = await send(request, "checkout.session.completed", {
@@ -103,7 +103,7 @@ test("Stripe webhook: verified, ordered either way, and idempotent", async ({ pa
   const proration = { ...firstInvoice, id: `in_e2e_upd_${Date.now()}`, parent: null };
   proration.billing_reason = "subscription_update";
   expect((await send(request, "invoice.paid", proration)).status()).toBe(200);
-  expect((await account(page)).credits).toBe(1100);
+  expect((await account(page)).credits).toBe(710);
 
   // A renewal is matched by customer and grants the next month's credits.
   const renewal = {
@@ -113,7 +113,7 @@ test("Stripe webhook: verified, ordered either way, and idempotent", async ({ pa
     parent: null,
   };
   expect((await send(request, "invoice.paid", renewal)).status()).toBe(200);
-  expect(await account(page)).toMatchObject({ plan: "pro", credits: 2100 });
+  expect(await account(page)).toMatchObject({ plan: "pro", credits: 1320 });
 
   // An invoice for a customer we don't know yet asks Stripe to retry later.
   const unknown = await send(request, "invoice.paid", {
@@ -123,25 +123,25 @@ test("Stripe webhook: verified, ordered either way, and idempotent", async ({ pa
   });
   expect(unknown.status()).toBe(503);
 
-  // Switching to Studio in the customer portal: the new price decides the plan, and a Studio
-  // renewal grants Studio's credits.
+  // Switching to Builder in the customer portal: the new price decides the plan, and a Builder
+  // renewal grants Builder's credits.
   const switched = await send(request, "customer.subscription.updated", {
     id: subscription,
     object: "subscription",
     customer,
     status: "active",
     metadata: { userId, plan: "pro" },
-    items: { data: [{ price: { id: E2E_STRIPE_PRICES.studio } }] },
+    items: { data: [{ price: { id: E2E_STRIPE_PRICES.builder } }] },
   });
   expect(switched.status()).toBe(200);
-  expect((await account(page)).plan).toBe("studio");
-  const studioRenewal = {
+  expect((await account(page)).plan).toBe("builder");
+  const builderRenewal = {
     ...renewal,
-    id: `in_e2e_studio_${Date.now()}`,
-    ...line(E2E_STRIPE_PRICES.studio),
+    id: `in_e2e_builder_${Date.now()}`,
+    ...line(E2E_STRIPE_PRICES.builder),
   };
-  expect((await send(request, "invoice.paid", studioRenewal)).status()).toBe(200);
-  expect(await account(page)).toMatchObject({ plan: "studio", credits: 2550 });
+  expect((await send(request, "invoice.paid", builderRenewal)).status()).toBe(200);
+  expect(await account(page)).toMatchObject({ plan: "builder", credits: 1419 });
 
   // A price this server doesn't sell can't keep or raise a plan, whatever the old checkout's
   // metadata says: the plan stays, and nothing is granted.
@@ -161,7 +161,7 @@ test("Stripe webhook: verified, ordered either way, and idempotent", async ({ pa
     ...line("price_not_sold_here"),
   };
   expect((await send(request, "invoice.paid", strayInvoice)).status()).toBe(200);
-  expect(await account(page)).toMatchObject({ plan: "studio", credits: 2550 });
+  expect(await account(page)).toMatchObject({ plan: "builder", credits: 1419 });
 
   // Cancelling the subscription returns the user to Free; credits already granted stay.
   const cancelled = await send(request, "customer.subscription.deleted", {
@@ -171,5 +171,5 @@ test("Stripe webhook: verified, ordered either way, and idempotent", async ({ pa
     status: "canceled",
   });
   expect(cancelled.status()).toBe(200);
-  expect(await account(page)).toMatchObject({ plan: "free", credits: 2550 });
+  expect(await account(page)).toMatchObject({ plan: "free", credits: 1419 });
 });

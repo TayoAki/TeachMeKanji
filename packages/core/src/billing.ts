@@ -2,26 +2,32 @@
  * Plans, limits and credit pricing. One credit is worth CREDIT_USD of model cost; a run is
  * charged its measured cost in credits, never less than its minimum.
  *
- * Paid plans keep at least TARGET_MARGIN gross margin even if a subscriber spends every included
- * credit (see planMargin); most don't, so the real margin is higher. Plans are priced against
- * other AI app builders ($20–25 for an entry plan). Check HOSTING_USD_PER_USER_MONTH against real
- * bills after launch.
+ * Each paid plan's monthly credits are derived from its price and its target gross margin
+ * (PLAN_TARGET_MARGIN), assuming a subscriber spends every included credit (see planMargin);
+ * most don't, so the real margin is higher. Prices include tax where it applies (Stripe Tax,
+ * inclusive): with no tax registrations today the whole price is revenue. Check
+ * HOSTING_USD_PER_USER_MONTH against real bills after launch.
  */
 export const CREDIT_USD = 0.05;
-
 /** Estimated hosting cost of one active paying user per month (database, compute, bandwidth). */
 export const HOSTING_USD_PER_USER_MONTH = 2;
-
 /** Card processing (2.9% + $0.30, US cards) plus Stripe Billing (0.7%) on each monthly charge. */
 export const PAYMENT_FEE_RATE = 0.029 + 0.007;
 export const PAYMENT_FEE_FIXED_USD = 0.3;
 
-/** The gross margin every paid plan keeps when all of its credits are spent. */
-export const TARGET_MARGIN = 0.4;
-
-export type PlanId = "free" | "builder" | "studio" | "pro";
+export type PlanId = "free" | "builder" | "pro";
 export type PaidPlanId = Exclude<PlanId, "free">;
-export const PAID_PLANS: readonly PaidPlanId[] = ["builder", "studio", "pro"];
+export const PAID_PLANS: readonly PaidPlanId[] = ["builder", "pro"];
+
+/** The gross margin each paid plan keeps when all of its credits are spent. */
+export const PLAN_TARGET_MARGIN: Record<PaidPlanId, number> = { builder: 0.6, pro: 0.8 };
+
+/** The most credits a plan at `price` can include and still keep `margin` with all of them spent. */
+export function creditsForMargin(price: number, margin: number): number {
+  const fees = price * PAYMENT_FEE_RATE + PAYMENT_FEE_FIXED_USD;
+  const aiBudget = price * (1 - margin) - HOSTING_USD_PER_USER_MONTH - fees;
+  return Math.max(0, Math.floor(aiBudget / CREDIT_USD + 1e-9));
+}
 
 export interface PlanLimits {
   name: string;
@@ -48,29 +54,19 @@ export const PLANS: Record<PlanId, PlanLimits> = {
   },
   builder: {
     name: "Builder",
-    priceUsdPerMonth: 25,
+    priceUsdPerMonth: 20,
     signupCredits: 0,
-    monthlyCredits: 200,
+    monthlyCredits: creditsForMargin(20, PLAN_TARGET_MARGIN.builder), // 99
     maxProjects: null,
     maxScreensPerProject: 12,
     nativeBuilds: true,
     mcp: false,
   },
-  studio: {
-    name: "Studio",
-    priceUsdPerMonth: 49,
-    signupCredits: 0,
-    monthlyCredits: 450,
-    maxProjects: null,
-    maxScreensPerProject: 12,
-    nativeBuilds: true,
-    mcp: true,
-  },
   pro: {
     name: "Pro",
-    priceUsdPerMonth: 99,
+    priceUsdPerMonth: 200,
     signupCredits: 0,
-    monthlyCredits: 1000,
+    monthlyCredits: creditsForMargin(200, PLAN_TARGET_MARGIN.pro), // 610
     maxProjects: null,
     maxScreensPerProject: 20,
     nativeBuilds: true,
@@ -103,7 +99,7 @@ export function planMargin(plan: PaidPlanId): number {
 }
 
 /**
- * Complimentary plans by email, for the team and testers: COMP_PLANS="you@x.com:studio,b@y.com:pro".
+ * Complimentary plans by email, for the team and testers: COMP_PLANS="you@x.com:pro,b@y.com:builder".
  * A real subscription always wins.
  */
 export function compPlanFor(email: string): PlanId | null {

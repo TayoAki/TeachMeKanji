@@ -54,8 +54,8 @@ export default async function TermsPage() {
           </li>
           <li>
             Paid plans renew automatically every month until you cancel. Stripe processes payments;
-            you authorise us to charge your payment method for each period. Prices exclude taxes
-            where those are added at checkout.
+            you authorise us to charge your payment method for each period. Prices include any sales
+            tax or VAT that applies.
           </li>
           <li>
             Credits included in your plan are added each billing period. Credits don&rsquo;t expire

@@ -88,7 +88,7 @@ export default defineConfig({
             STRIPE_SECRET_KEY: E2E_STRIPE_KEY,
             STRIPE_WEBHOOK_SECRET: E2E_STRIPE_WEBHOOK_SECRET,
             // Placeholder prices: checkout itself needs a Stripe account; the webhook is exercised.
-            STRIPE_PRICE_STUDIO: E2E_STRIPE_PRICES.studio,
+            STRIPE_PRICE_BUILDER: E2E_STRIPE_PRICES.builder,
             STRIPE_PRICE_PRO: E2E_STRIPE_PRICES.pro,
             // The suite signs up many users a minute and has no inbox. Production turns both on by
             // default; core.test.ts covers the verified-email rule.

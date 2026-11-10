@@ -14,6 +14,11 @@ export const POST = route(async (request: Request) => {
   const session = await stripe().billingPortal.sessions.create({
     customer: sub.stripeCustomerId,
     return_url: `${new URL(request.url).origin}/settings`,
+    // App Builder's own portal settings (its plans, terms and privacy links), so a Stripe
+    // account shared with another business keeps its default portal untouched.
+    ...(process.env.STRIPE_PORTAL_CONFIGURATION
+      ? { configuration: process.env.STRIPE_PORTAL_CONFIGURATION }
+      : {}),
   });
   return NextResponse.json({ url: session.url });
 });

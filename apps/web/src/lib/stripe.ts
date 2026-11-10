@@ -9,11 +9,10 @@ export function stripe(): Stripe {
   return new Stripe(process.env.STRIPE_SECRET_KEY);
 }
 
-/** The Stripe price (monthly) for each paid plan: STRIPE_PRICE_BUILDER, _STUDIO, _PRO. */
+/** The Stripe price (monthly) for each paid plan: STRIPE_PRICE_BUILDER, STRIPE_PRICE_PRO. */
 export function priceForPlan(plan: PaidPlanId): string | null {
   const prices: Record<PaidPlanId, string | undefined> = {
     builder: process.env.STRIPE_PRICE_BUILDER,
-    studio: process.env.STRIPE_PRICE_STUDIO,
     pro: process.env.STRIPE_PRICE_PRO,
   };
   return prices[plan] || null;
@@ -30,7 +29,6 @@ export function billingAvailability(): Record<PaidPlanId, boolean> {
   const keyed = Boolean(process.env.STRIPE_SECRET_KEY);
   return {
     builder: keyed && Boolean(priceForPlan("builder")),
-    studio: keyed && Boolean(priceForPlan("studio")),
     pro: keyed && Boolean(priceForPlan("pro")),
   };
 }

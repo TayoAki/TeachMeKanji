@@ -30,7 +30,7 @@ export function AssistantsSection({ mcpUrl, allowed }: { mcpUrl: string; allowed
     <section id="assistants">
       <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold">
         <Bot className="size-5" /> Build from your AI assistant
-        {!allowed ? <Badge variant="outline">Studio & Pro</Badge> : null}
+        {!allowed ? <Badge variant="outline">Pro</Badge> : null}
       </h2>
       <p className="mb-3 text-sm text-muted-foreground">
         Use the Claude, ChatGPT or Cursor subscription you already have: it writes the code, your

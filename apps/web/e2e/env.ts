@@ -13,7 +13,7 @@ export const E2E_AUTH_SECRET =
  */
 export const E2E_STRIPE_WEBHOOK_SECRET = "whsec_e2e_0000000000000000000000000000";
 export const E2E_STRIPE_KEY = "sk_test_e2e_placeholder";
-export const E2E_STRIPE_PRICES = { studio: "price_e2e_studio", pro: "price_e2e_pro" };
+export const E2E_STRIPE_PRICES = { builder: "price_e2e_builder", pro: "price_e2e_pro" };
 
 /** E2E_PROD=1 runs the suite against production builds (`next start`, the preview's static server). */
 export const E2E_PROD = process.env.E2E_PROD === "1";
