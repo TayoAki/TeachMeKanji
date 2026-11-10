@@ -79,7 +79,7 @@ describe("core (Postgres)", () => {
     for (const r of runs.filter((r) => r.status === "rejected")) {
       expect((r as PromiseRejectedResult).reason).toBeInstanceOf(RunInProgress);
     }
-    expect(await creditBalance(db, u.id)).toBe(88);
+    expect(await creditBalance(db, u.id)).toBe(76);
   });
 
   it("charges measured usage, capped at the reserve, including for failed runs", async () => {
@@ -110,13 +110,13 @@ describe("core (Postgres)", () => {
     });
     expect(await creditBalance(db, u.id)).toBe(88);
 
-    // Never more than the reserve (12 for an edit), however expensive the run was.
+    // Never more than the reserve (24 for an edit), however expensive the run was.
     const huge = await enqueueRun(db, { projectId: p.id, userId: u.id, kind: "edit" });
     await completeRun(db, huge, {
       model: opus,
       usage: { input: 0, output: 5_000_000, cacheRead: 0, cacheWrite: 0 },
     });
-    expect(await creditBalance(db, u.id)).toBe(76);
+    expect(await creditBalance(db, u.id)).toBe(64);
   });
 
   it("reaps runs abandoned after the last attempt and unblocks the project", async () => {

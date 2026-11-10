@@ -120,7 +120,8 @@ export const RUN_CREDITS: Record<string, { reserve: number; minimum: number }> =
   plan: { reserve: 6, minimum: 1 },
   // An app with onboarding, a paywall, settings and its main screens measured about $3.
   build: { reserve: 90, minimum: 8 },
-  edit: { reserve: 12, minimum: 2 },
+  // Apps with all four parts give an edit more to read and write; two live edits used ~$0.60.
+  edit: { reserve: 24, minimum: 2 },
   // Two judges scoring screenshots and code against the quality rubric.
   review: { reserve: 20, minimum: 1 },
   device_preview: { reserve: 0, minimum: 0 },

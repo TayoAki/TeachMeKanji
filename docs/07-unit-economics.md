@@ -35,7 +35,7 @@ reserves a budget that the worker enforces, so no run can cost more than:
 |---|---:|---:|
 | Plan or plan revision | 6 credits = $0.30 | $0.05 to $0.30 |
 | Build (theme, data, onboarding, paywall, settings and about 4 main screens) | 90 credits = $4.50 | $3 to $3.50 |
-| Chat edit | 12 credits = $0.60 | $0.10 to $0.60 |
+| Chat edit | 24 credits = $1.20 | $0.30 to $0.80 |
 
 Measured on the deployed site (a kanji learning app on Opus 5.5): the plan costs 1 to 2
 credits. Before apps had onboarding, a paywall and settings, the build cost 30 to 32 credits
