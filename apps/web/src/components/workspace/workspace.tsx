@@ -106,10 +106,7 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
   }, [project.id, runId, state.versionId, refresh]);
 
   // With App Cloud, every preview frame acts as the project's stable preview user.
-  const [previewToken, setPreviewToken] = useState<{
-    versionId: string | null;
-    token: string;
-  } | null>(null);
+  const [previewToken, setPreviewToken] = useState<{ token: string } | null>(null);
   useEffect(() => {
     if (
       state.project.backend !== "cloud" ||
@@ -121,9 +118,7 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
       method: "POST",
       quiet: true,
     })
-      .then(
-        (r) => alive && r.token && setPreviewToken({ versionId: state.versionId, token: r.token }),
-      )
+      .then((r) => alive && r.token && setPreviewToken({ token: r.token }))
       .catch(() => {});
     return () => {
       alive = false;
