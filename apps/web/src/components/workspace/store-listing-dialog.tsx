@@ -6,7 +6,9 @@ import JSZip from "jszip";
 import { Check, Copy, Download, Images, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import {
+  appPrivacyPath,
   buildRouteTree,
+  readAppPrivacyUrl,
   screens as listScreens,
   STORE_LIMITS,
   type PreviewTheme,
@@ -60,6 +62,10 @@ export function StoreListingDialog({
   const [runId, setRunId] = useState<string | null>(null);
   const [shots, setShots] = useState<Shot[]>([]);
   const [capturing, setCapturing] = useState<string | null>(null);
+  // The app's own Privacy link, or the policy App Builder hosts for it (filled on the next run).
+  const privacyUrl =
+    readAppPrivacyUrl(files) ||
+    (typeof window === "undefined" ? "" : window.location.origin + appPrivacyPath(projectId));
 
   useEffect(() => {
     if (!open) return;
@@ -89,7 +95,7 @@ export function StoreListingDialog({
   const download = async () => {
     if (!listing) return;
     const zip = new JSZip();
-    zip.file("listing.txt", listingText(listing));
+    zip.file("listing.txt", listingText(listing, privacyUrl));
     for (const [index, shot] of shots.entries()) {
       const name = `${String(index + 1).padStart(2, "0")}-${slug(shot.caption)}.png`;
       zip.file(`${SIZES.appStore.folder}/${name}`, shot.appStore.split(",")[1]!, { base64: true });
@@ -148,6 +154,10 @@ export function StoreListingDialog({
               value={listing.description}
               max={STORE_LIMITS.description}
               long
+            />
+            <Field
+              label="Privacy Policy URL (App Store Connect and Google Play)"
+              value={privacyUrl}
             />
 
             <div className="flex flex-wrap items-center gap-2">
@@ -393,7 +403,7 @@ function slug(text: string): string {
     .slice(0, 40);
 }
 
-function listingText(listing: StoreListing): string {
+function listingText(listing: StoreListing, privacyUrl: string): string {
   return [
     `Name (App Store, ${STORE_LIMITS.name}): ${listing.name}`,
     `Subtitle (App Store, ${STORE_LIMITS.subtitle}): ${listing.subtitle}`,
@@ -401,6 +411,7 @@ function listingText(listing: StoreListing): string {
     `Keywords (App Store, ${STORE_LIMITS.keywords}): ${listing.keywords}`,
     `Short description (Google Play, ${STORE_LIMITS.shortDescription}): ${listing.shortDescription}`,
     `Category: ${listing.category}`,
+    `Privacy Policy URL (both stores): ${privacyUrl}`,
     "",
     "Description (both stores):",
     listing.description,

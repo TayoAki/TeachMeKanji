@@ -104,9 +104,10 @@ export default async function PrivacyPage() {
           hashed password, the records your app saves, push tokens, usage events (with a random
           install id, never names, emails or advertising ids) and the questions they send to the
           app&rsquo;s AI (passed to Anthropic, not stored by us). For that data,{" "}
-          <strong>you</strong> are the controller and we process it on your behalf. You&rsquo;re
-          responsible for your app&rsquo;s own privacy policy and for the disclosures the App Store
-          and Google Play ask for.
+          <strong>you</strong> are the controller and we process it on your behalf. We host a
+          starting privacy policy for each app, written from the features it uses, at a link the app
+          shows by default; you&rsquo;re responsible for reviewing it or replacing it with your own,
+          and for the disclosures the App Store and Google Play ask for.
         </p>
 
         <h2>5. Who we share information with</h2>

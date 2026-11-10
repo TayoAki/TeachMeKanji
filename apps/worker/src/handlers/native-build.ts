@@ -27,6 +27,7 @@ import {
 import { schema } from "@appbuilder/db";
 import { AgentError } from "../agents/agents";
 import { ensureRuntime } from "../device";
+import { withHostedLegalLinks } from "../platform-url";
 import { childEnv, materialize } from "../project";
 import type { HandlerContext, HandlerResult } from "./context";
 import { integrationToken } from "./github";
@@ -86,7 +87,11 @@ export async function handleNativeBuild(ctx: HandlerContext): Promise<HandlerRes
   const token = await integrationToken(ctx, "expo");
   const current = await getCurrentFiles(ctx.db, ctx.run.projectId);
   if (!current.versionId) throw new AgentError("Build the app before creating a native build.");
-  const files = withAppIdentifiers(current.files, ctx.run.projectId);
+  // Store builds always carry Privacy and Terms links (subscriptions need both).
+  const files = withHostedLegalLinks(
+    withAppIdentifiers(current.files, ctx.run.projectId),
+    ctx.run.projectId,
+  );
   const [project] = await ctx.db
     .select()
     .from(schema.project)

@@ -18,6 +18,7 @@ export {
 export * from "./routes";
 export * from "./preview-protocol";
 export * from "./app-plan";
+export * from "./app-privacy";
 export * from "./app-structure";
 export * from "./rubric";
 export * from "./quality";

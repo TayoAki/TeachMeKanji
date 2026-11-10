@@ -57,6 +57,16 @@ export function useAuth() {
     await refresh();
   };
 
+  /**
+   * Delete the account and everything stored for it, then continue as a new anonymous user.
+   * Apple requires apps with sign-up to offer this in the app (Guideline 5.1.1(v)).
+   */
+  const deleteAccount = async () => {
+    await api("/auth/me", { method: "DELETE" });
+    await setToken(null);
+    await refresh();
+  };
+
   return {
     available,
     loading,
@@ -65,5 +75,6 @@ export function useAuth() {
     signUp,
     signIn,
     signOut,
+    deleteAccount,
   };
 }

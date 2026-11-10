@@ -25,6 +25,7 @@ import {
   userPlan,
 } from "@appbuilder/core";
 import { schema } from "@appbuilder/db";
+import { platformUrl, withHostedLegalLinks } from "../platform-url";
 import {
   AgentError,
   buildApp,
@@ -85,11 +86,7 @@ async function withAppCloudForAi(
     ([path, source]) => path !== "data/ai.ts" && /from\s+["'][./]*data\/ai["']/.test(source),
   );
   if (!usesAi || project.backend === "cloud") return { files, enabled: false };
-  const apiUrl = (
-    process.env.APP_PUBLIC_URL ||
-    process.env.BETTER_AUTH_URL ||
-    "http://localhost:3000"
-  ).replace(/\/$/, "");
+  const apiUrl = platformUrl();
   await ctx.db
     .update(schema.project)
     .set({ backend: "cloud" })
@@ -234,7 +231,11 @@ export async function handleBuild(ctx: HandlerContext): Promise<HandlerResult> {
     onEvent: forwardAgentEvent(ctx),
   });
 
-  const cloud = await withAppCloudForAi(ctx, project, built.files);
+  const cloud = await withAppCloudForAi(
+    ctx,
+    project,
+    withHostedLegalLinks(built.files, project.id),
+  );
   const version = await commitVersion(ctx.db, {
     projectId: project.id,
     files: cloud.files,
@@ -268,9 +269,10 @@ export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
   };
   const current = await getCurrentFiles(ctx.db, project.id);
   // Projects made with an older template get the current platform files before editing.
-  const files = refreshTemplate(
-    current.files,
-    await readTree(join(repoRoot(), "templates/expo-app")),
+  // Apps made before the hosted privacy policy get their empty Privacy and Terms links filled.
+  const files = withHostedLegalLinks(
+    refreshTemplate(current.files, await readTree(join(repoRoot(), "templates/expo-app"))),
+    project.id,
   );
   if (!current.versionId) throw new AgentError("Build the app before editing it.");
 

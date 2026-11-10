@@ -232,6 +232,24 @@ export async function findPublished(db: Database, slug: string): Promise<Project
   return row ?? null;
 }
 
+/**
+ * What the hosted privacy policy of a generated app (/apps/<id>/privacy) is made from: the
+ * project's current files, the version the stores get. Null for deleted or unbuilt projects.
+ */
+export async function appPolicySource(
+  db: Database,
+  projectId: string,
+): Promise<{ name: string; updatedAt: Date; files: ProjectFiles } | null> {
+  const [row] = await db
+    .select({ name: project.name, versionId: projectVersion.id, at: projectVersion.createdAt })
+    .from(project)
+    .innerJoin(projectVersion, eq(projectVersion.id, project.currentVersionId))
+    .where(and(eq(project.id, projectId), isNull(project.deletedAt)));
+  if (!row) return null;
+  const { files } = await getCurrentFiles(db, projectId);
+  return { name: row.name, updatedAt: row.at, files };
+}
+
 // --- Chat messages and plans --------------------------------------------------------------
 
 export async function addMessage(

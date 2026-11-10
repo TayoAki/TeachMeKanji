@@ -1,7 +1,13 @@
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { loadProject } from "./node";
-import { formatIssues, hasErrors, validateFile, validateProject } from "./validate";
+import {
+  formatIssues,
+  hasErrors,
+  validateAccountDeletion,
+  validateFile,
+  validateProject,
+} from "./validate";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 
@@ -19,6 +25,23 @@ describe("validateProject", () => {
     expect(issues.filter((i) => i.rule === "project/required-file").map((i) => i.path)).toContain(
       "theme/tokens.ts",
     );
+  });
+});
+
+describe("validateAccountDeletion", () => {
+  const account = `const auth = useAuth(); auth.signUp(email, password);`;
+  it("requires a Delete account action once people can sign up", () => {
+    expect(validateAccountDeletion({ "app/settings.tsx": "export default 1;" })).toEqual([]);
+    const issues = validateAccountDeletion({ "app/(tabs)/account.tsx": account });
+    expect(issues.map((i) => [i.path, i.rule, i.severity])).toEqual([
+      ["app/(tabs)/account.tsx", "structure/account-deletion", "error"],
+    ]);
+    expect(
+      validateAccountDeletion({
+        "app/(tabs)/account.tsx": account,
+        "app/settings.tsx": "onPress={() => auth.deleteAccount()}",
+      }),
+    ).toEqual([]);
   });
 });
 

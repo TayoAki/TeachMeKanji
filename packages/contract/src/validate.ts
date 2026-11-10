@@ -211,7 +211,29 @@ export function validateProject(files: ProjectFiles): Issue[] {
     issues.push(...validateFile(path, source, { paths }));
   }
   issues.push(...validateStructureScreens(files));
+  issues.push(...validateAccountDeletion(files));
   return issues;
+}
+
+/**
+ * Apps where people can create an account must let them delete it in the app (App Review
+ * Guideline 5.1.1(v)): if any screen signs people up, some screen calls deleteAccount().
+ */
+export function validateAccountDeletion(files: ProjectFiles): Issue[] {
+  const code = Object.entries(files).filter(
+    ([path]) => /^(app|components)\//.test(path) && /\.tsx?$/.test(path),
+  );
+  const signUp = code.find(([, source]) => /\bsignUp\s*\(/.test(source));
+  if (!signUp || code.some(([, source]) => /\bdeleteAccount\b/.test(source))) return [];
+  return [
+    {
+      path: signUp[0],
+      rule: "structure/account-deletion",
+      severity: "error",
+      message:
+        'People can create an account, so the app must let them delete it: add a "Delete account" action for signed-in users (in Settings or the account screen) that confirms in the screen and calls deleteAccount() from useAuth().',
+    },
+  ];
 }
 
 /**

@@ -6,6 +6,7 @@ import {
   APP_CLOUD_LIMITS,
   AppCloudError,
   createAnonymousUser,
+  deleteAppUser,
   deleteRecord,
   listRecords,
   putRecords,
@@ -18,6 +19,7 @@ import {
   pruneAppCloud,
   revokePreviewSessions,
 } from "./app-cloud";
+import { registerPushToken } from "./app-push";
 import { createProject, duplicateProject } from "./projects";
 import { commitVersion, getCurrentFiles } from "./versions";
 import { makeUser, testDb } from "./test-db";
@@ -96,6 +98,53 @@ describe("App Cloud (Postgres)", () => {
     const summary = await appDataSummary(db, p.id);
     expect(summary.users).toEqual({ total: 1, signedUp: 1 });
     expect(summary.collections).toEqual([{ name: "notes", records: 1 }]);
+  });
+
+  it("deletes an account with its data, sessions and push tokens, but only empties the preview user", async () => {
+    const p = await cloudProject();
+    const anon = await createAnonymousUser(db, p.id);
+    const { user, token } = await signUpApp(
+      db,
+      p.id,
+      { email: `gone-${Date.now()}@example.com`, password: "long enough" },
+      anon.user,
+    );
+    const other = await createAnonymousUser(db, p.id);
+    await putRecords(db, user, "notes", [{ id: "n1", text: "mine" }]);
+    await putRecords(db, other.user, "notes", [{ id: "n1", text: "theirs" }]);
+    await registerPushToken(db, {
+      projectId: p.id,
+      userId: user.id,
+      token: "ExponentPushToken[gone]",
+      platform: "ios",
+    });
+
+    expect(await deleteAppUser(db, user)).toEqual({ preview: false });
+    expect(await sessionUser(db, p.id, token)).toBeNull();
+    expect(await sessionUser(db, p.id, anon.token)).toBeNull();
+    const left = await db
+      .select()
+      .from(schema.appRecord)
+      .where(eq(schema.appRecord.ownerId, user.id));
+    expect(left).toEqual([]);
+    const tokens = await db
+      .select()
+      .from(schema.appPushToken)
+      .where(eq(schema.appPushToken.userId, user.id));
+    expect(tokens).toEqual([]);
+    // Nobody else's data goes with it, and the email can sign up again.
+    expect(await listRecords(db, other.user, "notes")).toEqual([{ id: "n1", text: "theirs" }]);
+    await expect(
+      signInApp(db, p.id, { email: user.email!, password: "long enough" }),
+    ).rejects.toMatchObject({ status: 401 });
+
+    // The workspace preview's shared user keeps working for the other editors.
+    const previewToken = await previewSession(db, p.id);
+    const preview = (await sessionUser(db, p.id, previewToken))!;
+    await putRecords(db, preview, "notes", [{ id: "n1", text: "preview" }]);
+    expect(await deleteAppUser(db, preview)).toEqual({ preview: true });
+    expect((await sessionUser(db, p.id, previewToken))?.id).toBe(preview.id);
+    expect(await listRecords(db, preview, "notes")).toEqual([]);
   });
 
   it("validates collections, ids and sizes", async () => {

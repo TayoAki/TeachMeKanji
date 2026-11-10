@@ -221,8 +221,9 @@ export function DataView({
               </tr>
             </thead>
             <tbody className="divide-y" data-testid="data-records">
-              {data.recent.map((r) => (
-                <tr key={`${r.collection}/${r.owner}/${r.id}`}>
+              {/* Anonymous owners share a label, so the row's position keeps keys unique. */}
+              {data.recent.map((r, i) => (
+                <tr key={`${i}/${r.collection}/${r.owner}/${r.id}`}>
                   <td className="px-3 py-2">{r.collection}</td>
                   <td className="px-3 py-2">{r.owner}</td>
                   <td className="max-w-md truncate px-3 py-2 font-mono">

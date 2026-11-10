@@ -109,6 +109,15 @@ steps). This page says exactly what was verified here and what wasn't.
   worker sends the sequence (results, then days 1, 3, 5, and two offer emails only while a real
   promotion code runs) when email is set up; one-click unsubscribe; `GET /api/admin/leads` with
   `ADMIN_API_TOKEN` lists leads, scores, survey answers and who signed up.
+- **Account deletion and privacy policies for the apps:** apps with sign-up get a "Delete
+  account" action (`deleteAccount()` in the template's `data/auth.ts`, `DELETE /api/app/<id>/auth/me`)
+  that removes the account with its records, sessions and push tokens, as Apple's Guideline
+  5.1.1(v) requires; the validator refuses an app that signs people up without one. Every app
+  gets a hosted privacy policy at `/apps/<id>/privacy`, written from what its current version
+  uses (App Cloud, accounts, analytics, AI, camera and photos, location, push, reminders,
+  RevenueCat), and its empty Privacy and Terms links are filled with that page and Apple's
+  standard licence agreement on build, edit and store builds (links the owner set are kept).
+  The Store listing dialog shows the URL to paste into App Store Connect and Google Play.
 - **Light and dark in the apps:** each app follows the phone's appearance, using the chosen
   theme's light or dark partner (the nearest theme of the other kind), and Settings has an
   Appearance row (System, Light, Dark) saved on the device. The workspace's Light / Night

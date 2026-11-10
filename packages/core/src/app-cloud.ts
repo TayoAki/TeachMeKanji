@@ -11,7 +11,7 @@ import { schema, type Database } from "@appbuilder/db";
 import { sha256 } from "./crypto";
 import { newId } from "./ids";
 
-const { appRecord, appSession, appUser } = schema;
+const { appPushToken, appRecord, appSession, appUser } = schema;
 const scryptAsync = promisify(scrypt) as (
   password: string,
   salt: Buffer,
@@ -185,6 +185,24 @@ export async function signInApp(
     throw new AppCloudError(401, "Wrong email or password.");
   }
   return { user, token: await createSession(db, user) };
+}
+
+/**
+ * Delete an app user and everything stored for them: their sessions, records and push tokens go
+ * with the row. Apple requires apps that let people create an account to let them delete it
+ * in the app (App Review Guideline 5.1.1(v)). The workspace preview's shared user is emptied
+ * instead of deleted, so the other editors' previews keep working.
+ */
+export async function deleteAppUser(db: Database, user: AppUser): Promise<{ preview: boolean }> {
+  if (isPreviewUser(user)) {
+    await db.delete(appRecord).where(eq(appRecord.ownerId, user.id));
+    await db.delete(appPushToken).where(eq(appPushToken.userId, user.id));
+    return { preview: true };
+  }
+  await db
+    .delete(appUser)
+    .where(and(eq(appUser.id, user.id), eq(appUser.projectId, user.projectId)));
+  return { preview: false };
 }
 
 function checkCollection(collection: string) {

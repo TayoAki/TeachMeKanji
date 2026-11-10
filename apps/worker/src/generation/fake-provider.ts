@@ -1221,6 +1221,7 @@ export default function AccountScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const input = {
     color: theme.colors.text,
     backgroundColor: theme.colors.surface,
@@ -1252,6 +1253,22 @@ export default function AccountScreen() {
           <Pressable onPress={auth.signOut} style={{ borderColor: theme.colors.border, borderWidth: 1, borderRadius: theme.radius.pill, padding: theme.spacing.md, alignItems: "center" }}>
             <Text style={{ color: theme.colors.text, fontWeight: theme.font.weight.bold }}>Sign out</Text>
           </Pressable>
+          {confirmDelete ? (
+            <View style={{ gap: theme.spacing.sm }}>
+              <Text style={{ color: theme.colors.textMuted }}>This deletes your account and everything saved in it. It can't be undone.</Text>
+              <Pressable accessibilityRole="button" onPress={() => void auth.deleteAccount().then(() => setConfirmDelete(false), (e: Error) => setError(e.message))} style={{ backgroundColor: theme.colors.danger, borderRadius: theme.radius.pill, padding: theme.spacing.md, alignItems: "center" }}>
+                <Text style={{ color: theme.colors.onPrimary, fontWeight: theme.font.weight.bold }}>Delete my account</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={() => setConfirmDelete(false)} style={{ padding: theme.spacing.sm, alignItems: "center" }}>
+                <Text style={{ color: theme.colors.textMuted }}>Keep my account</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable accessibilityRole="button" onPress={() => setConfirmDelete(true)} style={{ padding: theme.spacing.sm, alignItems: "center" }}>
+              <Text style={{ color: theme.colors.danger }}>Delete account</Text>
+            </Pressable>
+          )}
+          {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
         </View>
       ) : (
         <View style={{ gap: theme.spacing.sm }}>

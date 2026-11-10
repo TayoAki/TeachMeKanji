@@ -584,6 +584,24 @@ test("App Cloud: accounts and per-user data for the generated app", async ({ pag
   await expect(page.getByTestId("data-accounts")).toContainText("member@example.com");
   await expect(page.getByTestId("data-collection-habits")).not.toHaveText("0");
   await expect(page.getByTestId("data-records")).toContainText("Drink water");
+
+  // People can delete their account in the app (Apple 5.1.1(v)); it leaves the owner's list.
+  await app.getByText("Delete account").click();
+  await app.getByText("Delete my account").click();
+  await expect(app.getByText("Sign up to keep your data on all your devices.")).toBeVisible({
+    timeout: 15_000,
+  });
+  await page.reload();
+  await page.getByTestId("tab-data").click();
+  await expect(page.getByTestId("data-collection-habits")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("data-accounts")).toHaveCount(0);
+
+  // The app's hosted privacy policy describes what it uses, accounts and deletion included.
+  await page.goto(`/apps/${projectId}/privacy`);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Privacy Policy");
+  await expect(page.getByText("Your account:")).toBeVisible();
+  await expect(page.getByText(/Delete your account and everything saved in it/)).toBeVisible();
+  expect((await request.get("/apps/no-such-project/privacy")).status()).toBe(404);
 });
 
 test("analytics: preview taps are test events, phones count, and the funnel adds up", async ({
