@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import { CREDIT_USD, PLANS, userPlan, type PlanId } from "@appbuilder/core";
+import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { UpgradeButton } from "@/components/upgrade-button";
 import { db, getViewer } from "@/lib/server";
@@ -60,8 +61,9 @@ export default async function PricingPage() {
       <main className="mx-auto max-w-5xl px-4 py-16">
         <h1 className="text-center text-4xl font-semibold tracking-tight">Simple pricing</h1>
         <p className="mx-auto mt-3 max-w-xl text-center text-muted-foreground">
-          Use the built-in agent with credits, or connect your own Claude, ChatGPT or Cursor and
-          build without paying for AI twice.
+          Pay for the AI work, not for the small stuff: editing text yourself and restoring a
+          version are free, and there are never overage charges. Or connect your own Claude, ChatGPT
+          or Cursor and build without paying for AI twice.
         </p>
         <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {tiers.map((tier) => (
@@ -98,9 +100,11 @@ export default async function PricingPage() {
         <p className="mt-8 text-center text-xs text-muted-foreground">
           1 credit = ${CREDIT_USD.toFixed(2)} of AI usage, charged at what each step actually used.
           A new app uses about 60–90 credits and a chat edit usually 5–15. Editing text and styles
-          yourself is free; a step that fails pays only for what it used.
+          yourself is free; a step that fails pays only for what it used. When your credits run out,
+          AI steps stop until you have more: no overage charges.
         </p>
       </main>
+      <SiteFooter />
     </>
   );
 }

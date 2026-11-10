@@ -8,3 +8,4 @@ export type { InlinePatch, StyleValue } from "./inline-edit";
 export * from "./routes";
 export * from "./connectors";
 export * from "./store-listing";
+export * from "./store-check";

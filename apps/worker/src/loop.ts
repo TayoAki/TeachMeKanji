@@ -9,7 +9,10 @@ import {
   failRun,
   heartbeat,
   latestPlan,
+  emailProviderSet,
   pruneAnalytics,
+  sendDueFunnelEmails,
+  sendEmail,
   pruneAppCloud,
   reapAbandonedRuns,
   recordWorkerHeartbeat,
@@ -191,6 +194,15 @@ export async function runWorker(
         await pruneAppCloud(db);
         // Analytics events past their retention window.
         await pruneAnalytics(db);
+        // The funnel's launch emails that are due (only when a real email provider is set).
+        if (emailProviderSet())
+          await sendDueFunnelEmails(db, {
+            appUrl: (process.env.APP_PUBLIC_URL || process.env.BETTER_AUTH_URL || "").replace(
+              /\/$/,
+              "",
+            ),
+            send: sendEmail,
+          });
       }
     } catch (error) {
       reportError(error, { where: "worker-loop" });

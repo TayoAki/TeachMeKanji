@@ -8,6 +8,7 @@ import {
 } from "@appbuilder/core";
 import { Dashboard } from "@/components/dashboard";
 import { Landing } from "@/components/marketing/landing";
+import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteHeader } from "@/components/marketing/site-header";
 import type { ProjectCardData } from "@/components/project-card";
 import { plain } from "@/lib/serialize";
@@ -23,6 +24,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
       <>
         <SiteHeader />
         <Landing community={community} />
+        <SiteFooter />
       </>
     );
   }

@@ -20,6 +20,8 @@ export const POST = route(async (request: Request) => {
   const session = await stripe().checkout.sessions.create({
     mode: "subscription",
     line_items: [{ price, quantity: 1 }],
+    // Codes from the funnel's offer emails (FUNNEL_PROMO_CODE) are typed in at checkout.
+    allow_promotion_codes: true,
     client_reference_id: viewer.id,
     customer: existing?.stripeCustomerId ?? undefined,
     customer_email: existing?.stripeCustomerId ? undefined : viewer.email,

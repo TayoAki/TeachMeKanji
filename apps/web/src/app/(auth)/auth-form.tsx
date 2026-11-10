@@ -145,6 +145,19 @@ export function AuthForm({
           {busy ? <Loader2 className="animate-spin" /> : null}
           {mode === "sign-up" ? "Create account" : "Sign in"}
         </Button>
+        {mode === "sign-up" ? (
+          <p className="text-center text-xs text-muted-foreground" data-testid="sign-up-consent">
+            By creating an account you agree to the{" "}
+            <Link href="/terms" className="underline">
+              Terms
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="underline">
+              Privacy Policy
+            </Link>
+            .
+          </p>
+        ) : null}
       </form>
       <p className="text-center text-sm text-muted-foreground">
         {mode === "sign-up" ? (

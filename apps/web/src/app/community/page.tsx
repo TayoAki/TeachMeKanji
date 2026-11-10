@@ -1,4 +1,5 @@
 import { listPublicProjects } from "@appbuilder/core";
+import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { ProjectCard, type ProjectCardData } from "@/components/project-card";
 import { AppShell } from "@/components/shell/app-shell";
@@ -34,6 +35,7 @@ export default async function CommunityPage() {
       <>
         <SiteHeader />
         {grid}
+        <SiteFooter />
       </>
     );
   }

@@ -95,6 +95,20 @@ steps). This page says exactly what was verified here and what wasn't.
   tab says how many arrived (proof tracking works) but doesn't count them. It's free, and the
   tab reminds the owner to declare usage data in the stores' privacy forms. Revenue in money
   (from RevenueCat) isn't shown yet.
+- **Public site:** the landing page leads with predictable cost ("Build a subscription app
+  without the surprise bill": free text edits, free rollbacks, no overages, the credit cost of a
+  build) and the money structure checked on every build, plays the launch film, and answers the
+  five common questions; the empty community block is hidden. **/privacy** and **/terms**
+  describe what App Builder actually does (AI via Anthropic, Stripe, Railway, connectors, App
+  Cloud as processor for the owner's app users), with the operator's details from `LEGAL_*`
+  settings; sign-up states consent to both. Not reviewed by a lawyer.
+- **Funnel:** **/check**, the App Store readiness check: ten yes/no questions tied to App Review
+  Guidelines (3.1.1, 3.1.2, 5.1.1, 4.8, 2.3), email to see results (shown at once), an opt-in
+  for launch emails, then a four-question survey whose answers (stage, hardest part, tools tried,
+  what a win looks like) decide the homepage lead. Leads are one row per email (`lead` table); the
+  worker sends the sequence (results, then days 1, 3, 5, and two offer emails only while a real
+  promotion code runs) when email is set up; one-click unsubscribe; `GET /api/admin/leads` with
+  `ADMIN_API_TOKEN` lists leads, scores, survey answers and who signed up.
 - **Light and dark in the apps:** each app follows the phone's appearance, using the chosen
   theme's light or dark partner (the nearest theme of the other kind), and Settings has an
   Appearance row (System, Light, Dark) saved on the device. The workspace's Light / Night
