@@ -228,7 +228,7 @@ function Field({
 }) {
   const [copied, setCopied] = useState(false);
   return (
-    <div className="rounded-lg border p-3">
+    <div className="min-w-0 rounded-lg border p-3">
       <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
         {label}
         {max ? (
@@ -249,7 +249,9 @@ function Field({
           {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
         </button>
       </div>
-      <p className={long ? "whitespace-pre-wrap text-sm" : "text-sm"}>{value}</p>
+      <p className={`text-sm [overflow-wrap:anywhere] ${long ? "whitespace-pre-wrap" : ""}`}>
+        {value}
+      </p>
     </div>
   );
 }
