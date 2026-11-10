@@ -14,7 +14,13 @@ import {
   type QualityFinding,
 } from "@appbuilder/contract";
 import type { CreateMessage } from "../generation/client";
-import type { Shot } from "./capture";
+/** A screenshot of one screen, as the user sees it in the builder's canvas. */
+export interface Shot {
+  /** The canvas label, e.g. "Paywall paywall.tsx". */
+  label: string;
+  theme: string;
+  png: Buffer;
+}
 
 export interface JudgeIssue {
   severity: "critical" | "major" | "minor";

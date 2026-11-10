@@ -3,15 +3,11 @@
  * screenshot every screen (default theme, then the first dark theme for the key screens), and
  * note any screen that fails to render. Works against a local or deployed web app.
  */
-import { chromium } from "@playwright/test";
+import { chromium, request, type APIRequestContext } from "@playwright/test";
 import type { AppPlan, ProjectFiles } from "@appbuilder/contract";
+import type { Shot } from "./judge";
 
-export interface Shot {
-  /** The canvas label, e.g. "Premium paywall.tsx". */
-  label: string;
-  theme: string;
-  png: Buffer;
-}
+export type { Shot };
 
 export interface Capture {
   appName: string;
@@ -20,6 +16,8 @@ export interface Capture {
   plan: AppPlan | null;
   shots: Shot[];
   renderErrors: string[];
+  /** The signed-in session, for follow-up API calls (see apiSession). */
+  storageState: Awaited<ReturnType<APIRequestContext["storageState"]>>;
 }
 
 export async function captureProject(options: {
@@ -91,6 +89,7 @@ export async function captureProject(options: {
     }
 
     return {
+      storageState: await page.context().storageState(),
       appName: state.project.name,
       versionNumber: state.versionNumber,
       files: state.files,
@@ -131,4 +130,15 @@ function escapeHtml(value: string): string {
     /[&<>"]/g,
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!,
   );
+}
+
+/** An API client signed in as the captured session (through the proxy when there is one). */
+export function apiSession(baseUrl: string, storageState: Capture["storageState"]) {
+  const proxy = process.env.HTTPS_PROXY;
+  const local = /^https?:\/\/(localhost|127\.0\.0\.1)/.test(baseUrl);
+  return request.newContext({
+    baseURL: baseUrl,
+    storageState,
+    ...(proxy && !local ? { proxy: { server: proxy } } : {}),
+  });
 }

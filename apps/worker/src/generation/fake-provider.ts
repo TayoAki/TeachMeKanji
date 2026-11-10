@@ -53,6 +53,9 @@ function systemText(params: Params): string {
 
 function respond(params: Params): string {
   const request = lastUserText(params);
+  // The quality judge also asks for JSON; answer it with a neutral review.
+  if (params.output_config?.format && systemText(params).includes("independent reviewer"))
+    return JSON.stringify(fakeReview(request));
   if (params.output_config?.format) return JSON.stringify(fakePlan(request));
   // The shared layer arrives as two parallel requests: the theme, and everything else.
   if (request.includes("Write the theme of this app")) {
@@ -71,6 +74,21 @@ function respond(params: Params): string {
     });
   if (request.includes("Change request:")) return fakeEdit(request, systemText(params));
   return "<summary>Nothing to change.</summary>";
+}
+
+/** A middling, evidence-free review (offline mode has no eyes): every criterion scores 2. */
+function fakeReview(request: string) {
+  const ids = /Score every criterion \(([^)]+)\)/.exec(request)?.[1]?.split(", ") ?? [];
+  return {
+    criteria: ids.map((id) => ({
+      id,
+      score: 2,
+      evidence: "Offline review: scored without looking at the app.",
+      fix: "Run the review with a real model for specific fixes.",
+    })),
+    issues: [],
+    summary: "Offline review: connect an AI provider for a real one.",
+  };
 }
 
 // --- Domains -------------------------------------------------------------------------------

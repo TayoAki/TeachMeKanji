@@ -186,7 +186,8 @@ export const versionFile = pgTable(
   (t) => [primaryKey({ columns: [t.versionId, t.path] })],
 );
 
-export type RunKind = "plan" | "build" | "edit" | "device_preview" | "github_push" | "native_build";
+export type RunKind =
+  "plan" | "build" | "edit" | "review" | "device_preview" | "github_push" | "native_build";
 export type RunStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
 
 export const agentRun = pgTable(

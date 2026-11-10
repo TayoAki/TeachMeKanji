@@ -120,6 +120,8 @@ export const RUN_CREDITS: Record<string, { reserve: number; minimum: number }> =
   plan: { reserve: 6, minimum: 1 },
   build: { reserve: 60, minimum: 8 },
   edit: { reserve: 12, minimum: 2 },
+  // Two judges scoring screenshots and code against the quality rubric.
+  review: { reserve: 20, minimum: 1 },
   device_preview: { reserve: 0, minimum: 0 },
   github_push: { reserve: 0, minimum: 0 },
   native_build: { reserve: 0, minimum: 0 },

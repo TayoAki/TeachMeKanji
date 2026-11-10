@@ -25,12 +25,14 @@ import { handleBuild, handleEdit, handlePlan } from "./handlers/agent-runs";
 import type { HandlerContext, HandlerResult } from "./handlers/context";
 import { handleGitHubPush } from "./handlers/github";
 import { handleNativeBuild } from "./handlers/native-build";
+import { handleReview } from "./handlers/review";
 import { Cancelled, cancellable, getProvider, metered, type Provider } from "./llm";
 
 const HANDLERS: Record<Run["kind"], (ctx: HandlerContext) => Promise<HandlerResult>> = {
   plan: handlePlan,
   build: handleBuild,
   edit: handleEdit,
+  review: handleReview,
   github_push: handleGitHubPush,
   native_build: handleNativeBuild,
   device_preview: async () => ({ output: {} }),
