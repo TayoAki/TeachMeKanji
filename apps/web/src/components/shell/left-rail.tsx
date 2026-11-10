@@ -26,6 +26,7 @@ import {
 } from "@/lib/theme";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
+  Command,
   CommandDialog,
   CommandEmpty,
   CommandGroup,
@@ -129,27 +130,30 @@ function ProjectSearch({
       title="Search projects"
       description="Jump to a project"
     >
-      <CommandInput placeholder="Search projects…" />
-      <CommandList>
-        <CommandEmpty>No projects found.</CommandEmpty>
-        <CommandGroup heading="Projects">
-          {projects.map((p) => (
-            <CommandItem
-              key={p.id}
-              value={`${p.name} ${p.id}`}
-              onSelect={() => {
-                onOpenChange(false);
-                router.push(`/projects/${p.id}`);
-              }}
-            >
-              {p.name}
-              <span className="ml-auto text-xs text-muted-foreground">
-                {p.status.replace("_", " ")}
-              </span>
-            </CommandItem>
-          ))}
-        </CommandGroup>
-      </CommandList>
+      {/* The input and list need the Command root: without it, opening the dialog crashes. */}
+      <Command>
+        <CommandInput placeholder="Search projects…" />
+        <CommandList>
+          <CommandEmpty>No projects found.</CommandEmpty>
+          <CommandGroup heading="Projects">
+            {projects.map((p) => (
+              <CommandItem
+                key={p.id}
+                value={`${p.name} ${p.id}`}
+                onSelect={() => {
+                  onOpenChange(false);
+                  router.push(`/projects/${p.id}`);
+                }}
+              >
+                {p.name}
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {p.status.replace("_", " ")}
+                </span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </CommandList>
+      </Command>
     </CommandDialog>
   );
 }

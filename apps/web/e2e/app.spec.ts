@@ -269,6 +269,42 @@ test("themes reach the app, apps follow light or dark, and text edits are free",
   await expect(page.getByTestId("inspector")).toContainText("comes from data or code");
 });
 
+test("search jumps to a project", async ({ page }) => {
+  await signUp(page, "Searcher");
+  await page.getByLabel("Describe your app").fill("A plant watering tracker");
+  await page.getByTestId("prompt-submit").click();
+  await page.waitForURL(/\/projects\//);
+  const projectUrl = page.url();
+  await expect(page.getByTestId("confirm-build")).toBeVisible({ timeout: 30_000 });
+  const name = (await (await page.request.get(`/api/projects`)).json()).projects[0].name as string;
+
+  // The rail's Search button (or Cmd/Ctrl+K) opens a project switcher.
+  await page.goto("/");
+  await page.getByTestId("rail-search").click();
+  const dialog = page.getByRole("dialog", { name: "Search projects" });
+  await expect(dialog).toBeVisible();
+  await page.keyboard.type(name.slice(0, 4));
+  await expect(dialog.getByRole("option", { name: new RegExp(name) })).toBeVisible();
+  await page.keyboard.press("Enter");
+  await page.waitForURL(projectUrl);
+
+  await page.goto("/");
+  // The shortcut works once the page is interactive.
+  await expect(async () => {
+    await page.keyboard.press("ControlOrMeta+k");
+    await expect(dialog).toBeVisible({ timeout: 1_000 });
+  }).toPass();
+  await page.keyboard.type("no such project zzz");
+  await expect(dialog).toContainText("No projects found.");
+  await page.keyboard.press("Escape");
+
+  // The sidebar's filter narrows the project list.
+  await page.getByPlaceholder("Filter projects").fill(name.slice(0, 4));
+  await expect(page.getByTestId("project-list")).toContainText(name);
+  await page.getByPlaceholder("Filter projects").fill("no such project zzz");
+  await expect(page.getByTestId("project-list")).toContainText("No projects yet.");
+});
+
 test("the builder switches between night and day", async ({ page }) => {
   await signUp(page, "Night Owl");
   const html = page.locator("html");
