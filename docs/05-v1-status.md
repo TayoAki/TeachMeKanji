@@ -46,6 +46,12 @@ steps). This page says exactly what was verified here and what wasn't.
   text sends you to "Edit with AI" with the element attached.
 - **Themes:** switch between the app's 5 packs instantly in every frame. The pick is saved into
   the app as a "Theme" version, so phone previews, exports and published apps open in it.
+- **Phone features in the apps:** the camera (photos and barcode/QR scanning, `<CameraCapture>`),
+  picking or taking a photo (`pickPhoto()`), the current location with a place name
+  (`useLocation()`), and push notifications: people opt in with `registerForPush()` and the
+  owner sends from the Data tab (through Expo's push service; store and TestFlight builds,
+  not Expo Go). In the web preview the camera and picker return a sample photo and location
+  a sample place; on a phone (Expo Go or a build) the real modules run.
 - **Light and dark in the apps:** each app follows the phone's appearance, using the chosen
   theme's light or dark partner (the nearest theme of the other kind), and Settings has an
   Appearance row (System, Light, Dark) saved on the device. The workspace's Light / Night

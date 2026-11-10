@@ -11,6 +11,13 @@ import {
   notifications,
   shareAsync,
 } from "./shims/native-capabilities";
+import {
+  CameraView,
+  constants,
+  imagePicker,
+  location,
+  useCameraPermissions,
+} from "./shims/device-features";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "./shims/safe-area";
 import { StatusBar } from "./shims/status-bar";
 import { Ionicons } from "./shims/vector-icons";
@@ -49,4 +56,8 @@ export const vendorModules: Readonly<Record<string, unknown>> = {
   "react-native-view-shot": esm({ captureRef }),
   "expo-sharing": esm({ isAvailableAsync, shareAsync }),
   "expo-notifications": esm(notifications),
+  "expo-camera": esm({ CameraView, useCameraPermissions }),
+  "expo-image-picker": esm(imagePicker),
+  "expo-location": esm(location),
+  "expo-constants": esm(constants, constants),
 };

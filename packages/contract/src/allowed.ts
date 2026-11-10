@@ -30,6 +30,20 @@ export const IMPORTABLE_MODULES: Readonly<Record<string, readonly string[] | "*"
   "react-native-view-shot": ["captureRef"],
   "expo-sharing": ["isAvailableAsync", "shareAsync"],
   "expo-notifications": "*",
+  "expo-camera": ["CameraView", "useCameraPermissions"],
+  "expo-image-picker": [
+    "launchCameraAsync",
+    "launchImageLibraryAsync",
+    "requestCameraPermissionsAsync",
+  ],
+  "expo-location": [
+    "Accuracy",
+    "getCurrentPositionAsync",
+    "getForegroundPermissionsAsync",
+    "requestForegroundPermissionsAsync",
+    "reverseGeocodeAsync",
+  ],
+  "expo-constants": "*",
 };
 
 /**
@@ -47,12 +61,19 @@ export const INSTRUMENTED_MODULES: ReadonlySet<string> = new Set([
 
 /**
  * Native modules only the platform's own files import; generated code uses the helpers:
- * useShareImage() (components/share) and useReminder() (data/reminders).
+ * useShareImage() (components/share), useReminder() (data/reminders), <CameraCapture>
+ * (components/camera), pickPhoto() (data/photos), useLocation() (data/location) and
+ * registerForPush() (data/push).
  */
 export const PLATFORM_ONLY_MODULES: Readonly<Record<string, string>> = {
   "react-native-view-shot": "Share a card as an image with useShareImage() from components/share.",
   "expo-sharing": "Share a card as an image with useShareImage() from components/share.",
-  "expo-notifications": "Schedule the daily reminder with useReminder() from data/reminders.",
+  "expo-notifications":
+    "Schedule the daily reminder with useReminder() from data/reminders; register for the owner's notifications with registerForPush() from data/push.",
+  "expo-camera": "Show the camera with <CameraCapture> from components/camera.",
+  "expo-image-picker": "Pick or take a photo with pickPhoto() from data/photos.",
+  "expo-location": "Get the person's location with useLocation() from data/location.",
+  "expo-constants": "The platform's helpers read the app's configuration.",
 };
 
 /** AsyncStorage may only be used by the data layer, never directly by screens. */

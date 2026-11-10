@@ -32,6 +32,9 @@ export const notifications = {
   cancelScheduledNotificationAsync: async () => {},
   cancelAllScheduledNotificationsAsync: async () => {},
   getAllScheduledNotificationsAsync: async () => [],
+  getExpoPushTokenAsync: async () => {
+    throw new Error("Push notifications need a store or development build.");
+  },
   SchedulableTriggerInputTypes: {
     DAILY: "daily",
     WEEKLY: "weekly",

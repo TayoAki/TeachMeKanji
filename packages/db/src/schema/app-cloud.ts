@@ -73,3 +73,36 @@ export const appRecord = pgTable(
     index("app_record_project_collection_idx").on(t.projectId, t.collection),
   ],
 );
+
+/** Expo push tokens of an app's users who allowed notifications (registerForPush()). */
+export const appPushToken = pgTable(
+  "app_push_token",
+  {
+    token: text("token").notNull(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => project.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => appUser.id, { onDelete: "cascade" }),
+    platform: text("platform").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.projectId, t.token] })],
+);
+
+/** Notifications an app's owner sent to its users (history, and the daily limit). */
+export const appPushBroadcast = pgTable(
+  "app_push_broadcast",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => project.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    sent: jsonb("sent").$type<{ ok: number; failed: number; removed: number }>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("app_push_broadcast_project_idx").on(t.projectId, t.createdAt)],
+);

@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Cloud, Database, Loader2, Trash2, Users } from "lucide-react";
+import { Bell, Cloud, Database, Loader2, Send, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { api } from "@/lib/api";
 import { TimeAgo } from "@/components/time-ago";
@@ -173,6 +174,8 @@ export function DataView({
         </section>
       ) : null}
 
+      <PushSection projectId={projectId} canManage={canManage} />
+
       <section>
         <div className="mb-2 flex items-center">
           <h3 className="text-sm font-semibold">Recent records</h3>
@@ -236,5 +239,112 @@ export function DataView({
         </Button>
       ) : null}
     </div>
+  );
+}
+
+interface PushSummary {
+  devices: number;
+  recent: Array<{
+    id: string;
+    title: string;
+    body: string;
+    sent: { ok: number; failed: number; removed: number };
+    createdAt: string;
+  }>;
+}
+
+/** Notifications to the app's users who allowed them (registerForPush() in the app). */
+function PushSection({ projectId, canManage }: { projectId: string; canManage: boolean }) {
+  const [summary, setSummary] = useState<PushSummary | null>(null);
+  const [title, setTitle] = useState("");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    api<PushSummary>(`/api/projects/${projectId}/push`, { quiet: true })
+      .then(setSummary)
+      .catch(() => {});
+  }, [projectId, tick]);
+  if (!summary) return null;
+  return (
+    <section data-testid="data-push">
+      <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold">
+        <Bell className="size-4" /> Notifications
+      </h3>
+      <div className="rounded-xl border bg-background p-4">
+        <p className="text-sm text-muted-foreground">
+          <span className="font-semibold text-foreground" data-testid="push-devices">
+            {summary.devices}
+          </span>{" "}
+          {summary.devices === 1 ? "phone gets" : "phones get"} notifications. People opt in from
+          the app (it asks with registerForPush()); it works in store and TestFlight builds, not in
+          Expo Go.
+        </p>
+        {canManage ? (
+          <form
+            className="mt-3 grid gap-2"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              setSending(true);
+              try {
+                const { sent } = await api<{ sent: PushSummary["recent"][number]["sent"] }>(
+                  `/api/projects/${projectId}/push`,
+                  { method: "POST", json: { title, body: message } },
+                );
+                toast.success(`Sent to ${sent.ok} ${sent.ok === 1 ? "phone" : "phones"}`);
+                setTitle("");
+                setMessage("");
+                setTick((t) => t + 1);
+              } catch {
+                // api() showed why.
+              } finally {
+                setSending(false);
+              }
+            }}
+          >
+            <Input
+              placeholder="Title"
+              value={title}
+              maxLength={80}
+              onChange={(e) => setTitle(e.target.value)}
+              aria-label="Notification title"
+            />
+            <Input
+              placeholder="Message"
+              value={message}
+              maxLength={240}
+              onChange={(e) => setMessage(e.target.value)}
+              aria-label="Notification message"
+            />
+            <Button
+              type="submit"
+              size="sm"
+              className="justify-self-start"
+              disabled={!title.trim() || !message.trim() || sending}
+              data-testid="push-send"
+            >
+              {sending ? <Loader2 className="animate-spin" /> : <Send />} Send to everyone
+            </Button>
+          </form>
+        ) : null}
+        {summary.recent.length ? (
+          <ul className="mt-3 divide-y border-t text-xs" data-testid="push-history">
+            {summary.recent.map((b) => (
+              <li key={b.id} className="flex items-center gap-3 py-2">
+                <span className="min-w-0 flex-1 truncate">
+                  <span className="font-medium">{b.title}</span> · {b.body}
+                </span>
+                <span className="text-muted-foreground">
+                  {b.sent.ok} delivered{b.sent.failed ? `, ${b.sent.failed} failed` : ""}
+                </span>
+                <span className="text-muted-foreground">
+                  <TimeAgo date={b.createdAt} />
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    </section>
   );
 }
