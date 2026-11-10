@@ -52,6 +52,14 @@ steps). This page says exactly what was verified here and what wasn't.
   owner sends from the Data tab (through Expo's push service; store and TestFlight builds,
   not Expo Go). In the web preview the camera and picker return a sample photo and location
   a sample place; on a phone (Expo Go or a build) the real modules run.
+- **Send to the stores:** the build dialog's "Send to TestFlight" and "Send to Google Play"
+  run a production EAS build with auto-submit on the user's Expo account. Settings → Phone
+  builds holds the App Store Connect API key (checked by signing a request Apple accepts; it
+  also lets EAS create the signing certificate and profile) and the Google Play service
+  account key (checked with Google's token exchange), encrypted; they are written into the
+  build folder only for the run. The bundle ID, package and App Store Connect app ID are store
+  settings in app.json. Android releases go to internal testing as drafts (Google's rule
+  until the first review).
 - **Real purchases with RevenueCat:** the Payments panel takes RevenueCat's public SDK keys
   (`appl_…`, `goog_…`) and an entitlement, written into the platform file `data/payments.ts`
   as a version; or "Set up in RevenueCat" runs an agent through the user's RevenueCat connector
@@ -204,7 +212,8 @@ image-fetch DNS pinning:
 | Google / GitHub sign-in | OAuth client IDs and secrets | Wired through Better Auth, untested |
 | Studio and Pro upgrades | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_STUDIO`, `STRIPE_PRICE_PRO` | Webhook verified with signed events; Checkout and the portal never run against Stripe |
 | Push to GitHub | A user's fine-grained token (Settings) | Request sequence unit-tested; never run against GitHub |
-| Android/iOS builds | A user's Expo token (Settings); Apple account for iOS | Built; never run against EAS |
+| Android/iOS builds and store submission | A user's Expo token, App Store Connect API key and Play service account (Settings), apps created in App Store Connect and Play Console | Built from Expo's documented non-interactive flow (`eas build --auto-submit` with `EXPO_ASC_*` and a submit profile); key checks are unit-tested; never run against EAS, Apple or Google |
+| Real purchases | A RevenueCat account (connector or public keys), products in the stores | The purchases module type-checks against react-native-purchases 10.15.1 and the setup run is tested offline; never run against RevenueCat or a store |
 | Phone on another network | A wildcard domain for `DEVICE_PREVIEW_DOMAIN` (or `DEVICE_PREVIEW_SINGLE_HOST` to try it on Railway's own address, one preview at a time) | Live on Railway with Railway's address: the session starts in about 5 s from the SDK in the worker image, and over the public internet the manifest (`exposdk:58.0.0`), the 6.6 MB bundle and the fast-refresh WebSocket (101) come through; debugger endpoints return 404. First scan from an iPhone reached the server; Expo Go then required the dev server to be signed in as the phone's Expo account, which previews now do with the user's Expo token |
 | S3 / R2 storage | `S3_*` variables | Adapter written; local files used here |
 | Connectors | A user's account at each service | Sign-in (discovery, registration, PKCE, refresh with rotation) and pasted tokens are tested against a local stand-in MCP + OAuth server. On the deployed site, Connect reaches the real sign-in page of Linear, Notion, Miro, Jam, Crowdin, Mobbin, Appllama and Mapbox (registration and discovery work against their servers), and Linear's server refuses a wrong API key. No account was signed in to, and the model's MCP-connector call has not run live yet |

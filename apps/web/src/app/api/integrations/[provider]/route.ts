@@ -1,13 +1,34 @@
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { connectorById } from "@appbuilder/contract";
-import { checkConnectorToken, encryptSecret, expoAccount } from "@appbuilder/core";
+import {
+  checkAppStoreConnectKey,
+  checkConnectorToken,
+  checkPlayServiceAccount,
+  encryptSecret,
+  expoAccount,
+  parseAppStoreConnectKey,
+  parsePlayServiceAccount,
+  StoreKeyError,
+} from "@appbuilder/core";
 import { schema } from "@appbuilder/db";
 import { db, HttpError, readJson, requireViewer, route } from "@/lib/server";
 
-/** Expo, plus every connector that takes a pasted token (GitHub's also exports apps). */
+/** Store submission keys: JSON, larger than a token. */
+const STORE_KEYS = new Set(["app-store-connect", "play-console"]);
+
+/** Expo, the store keys, and every connector that takes a pasted token. */
 function knownProvider(provider: string): boolean {
-  return provider === "expo" || Boolean(connectorById(provider)?.token);
+  return provider === "expo" || STORE_KEYS.has(provider) || Boolean(connectorById(provider)?.token);
+}
+
+function parseStoreKey<T>(parse: () => T): T {
+  try {
+    return parse();
+  } catch (error) {
+    if (error instanceof StoreKeyError) throw new HttpError(400, error.message);
+    throw error;
+  }
 }
 
 async function describeToken(provider: string, token: string): Promise<string> {
@@ -23,6 +44,21 @@ async function describeToken(provider: string, token: string): Promise<string> {
       throw new HttpError(400, "GitHub rejected this token.");
     const login = response?.ok ? ((await response.json()) as { login?: string }).login : undefined;
     return login ? `@${login}` : "GitHub token";
+  }
+  if (provider === "app-store-connect") {
+    const key = parseStoreKey(() => parseAppStoreConnectKey(token));
+    if ((await checkAppStoreConnectKey(key)) === false)
+      throw new HttpError(400, "Apple refused this key. Check the key ID, issuer ID and .p8 file.");
+    return `Key ${key.keyId} · team ${key.teamId}`;
+  }
+  if (provider === "play-console") {
+    const key = parseStoreKey(() => parsePlayServiceAccount(token));
+    if ((await checkPlayServiceAccount(key)) === false)
+      throw new HttpError(
+        400,
+        "Google refused this key. Create a new JSON key for the service account.",
+      );
+    return key.client_email;
   }
   if (provider === "expo") {
     // The label is the Expo username: phone previews on iPhone need Expo Go signed in as it.
@@ -44,7 +80,7 @@ export const PUT = route(
     if (!knownProvider(provider)) throw new HttpError(404, "Unknown integration.");
     const { token } = await readJson<{ token: string }>(request);
     const value = String(token ?? "").trim();
-    if (value.length < 10 || value.length > 500)
+    if (value.length < 10 || value.length > (STORE_KEYS.has(provider) ? 10_000 : 500))
       throw new HttpError(400, "That doesn't look like a valid token.");
     const label = await describeToken(provider, value);
     await db()

@@ -15,6 +15,7 @@ import { authClient } from "@/lib/auth-client";
 import { TimeAgo } from "@/components/time-ago";
 import { AssistantsSection } from "@/components/assistants-section";
 import { ConnectorsSection } from "@/components/connectors-section";
+import { StoreKeys } from "@/components/store-keys";
 
 export interface SettingsData {
   user: RailUser;
@@ -230,6 +231,7 @@ export function SettingsView({ initial }: { initial: SettingsData }) {
         <section id="integrations">
           <h2 className="mb-3 text-lg font-semibold">Phone builds</h2>
           <div className="space-y-3">
+            <StoreKeys integrations={data.integrations} onChanged={refresh} />
             <Integration
               provider="expo"
               connected={data.integrations.find((i) => i.provider === "expo")}

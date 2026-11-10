@@ -423,6 +423,8 @@ export function ExportDialog({
             </p>
           ) : null}
         </section>
+
+        {me?.limits.nativeBuilds && expo ? <StoreSubmit projectId={projectId} /> : null}
       </DialogContent>
     </Dialog>
   );
@@ -752,5 +754,150 @@ export function DeviceDialog({ open, onOpenChange, projectId }: DialogProps) {
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// --- Send to the stores ------------------------------------------------------------------
+
+interface StoreState {
+  settings: { ios: string; android: string; ascAppId: string };
+  keys: { expo: boolean; appStore: boolean; play: boolean };
+}
+
+/** One click from the latest version to TestFlight or Google Play's internal testing. */
+function StoreSubmit({ projectId }: { projectId: string }) {
+  const [state, setState] = useState<StoreState | null>(null);
+  const [settings, setSettings] = useState({ ios: "", android: "", ascAppId: "" });
+  const [saving, setSaving] = useState(false);
+  const [run, setRun] = useState<{ id: string; platform: "ios" | "android" } | null>(null);
+  useEffect(() => {
+    api<StoreState>(`/api/projects/${projectId}/store`, { quiet: true })
+      .then((s) => {
+        setState(s);
+        setSettings(s.settings);
+      })
+      .catch(() => {});
+  }, [projectId]);
+  if (!state) return null;
+  const changed =
+    settings.ios !== state.settings.ios ||
+    settings.android !== state.settings.android ||
+    settings.ascAppId !== state.settings.ascAppId;
+
+  const saveSettings = async () => {
+    setSaving(true);
+    try {
+      const r = await api<{ settings: StoreState["settings"] }>(
+        `/api/projects/${projectId}/store`,
+        {
+          method: "PUT",
+          json: settings,
+        },
+      );
+      setState({ ...state, settings: r.settings });
+      toast.success("Store settings saved");
+    } catch {
+      // api() showed why.
+    } finally {
+      setSaving(false);
+    }
+  };
+  const send = async (platform: "ios" | "android") => {
+    const r = await api<{ runId: string }>(`/api/projects/${projectId}/native-build`, {
+      method: "POST",
+      json: { platform, profile: "production", submit: true },
+    });
+    setRun({ id: r.runId, platform });
+  };
+
+  return (
+    <section className="space-y-3 border-t pt-4" data-testid="store-submit">
+      <h3 className="text-sm font-medium">Send to the stores</h3>
+      <p className="text-xs text-muted-foreground">
+        A production build that goes to TestFlight, or to Google Play&rsquo;s internal testing (as a
+        draft release), by itself. Create the app in App Store Connect and Play Console first, with
+        these identifiers.
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <Input
+          value={settings.ios}
+          onChange={(e) => setSettings({ ...settings, ios: e.target.value })}
+          aria-label="iOS bundle ID"
+          placeholder="iOS bundle ID"
+          className="font-mono text-xs"
+        />
+        <Input
+          value={settings.android}
+          onChange={(e) => setSettings({ ...settings, android: e.target.value })}
+          aria-label="Android package"
+          placeholder="Android package"
+          className="font-mono text-xs"
+        />
+        <Input
+          value={settings.ascAppId}
+          onChange={(e) => setSettings({ ...settings, ascAppId: e.target.value })}
+          aria-label="App Store Connect app ID"
+          placeholder="App Store Connect app ID (App Information → Apple ID)"
+          className="col-span-2 text-xs"
+        />
+      </div>
+      {changed ? (
+        <Button size="sm" variant="outline" onClick={saveSettings} disabled={saving}>
+          {saving ? <Loader2 className="animate-spin" /> : null} Save store settings
+        </Button>
+      ) : null}
+      {run ? (
+        <RunStatus
+          runId={run.id}
+          render={(o) => (
+            <span>
+              {run.platform === "ios"
+                ? "Building; it goes to TestFlight when the build finishes (Apple then processes it for a few minutes)."
+                : "Building; it goes to Google Play internal testing as a draft when the build finishes. Roll it out to your testers in Play Console."}{" "}
+              {o.detailsUrl ? (
+                <a
+                  className="underline"
+                  href={String(o.detailsUrl)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Follow it on expo.dev
+                </a>
+              ) : null}
+            </span>
+          )}
+        />
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            onClick={() => send("ios")}
+            disabled={!state.keys.appStore || !state.settings.ascAppId || changed}
+            data-testid="send-testflight"
+          >
+            Send to TestFlight
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => send("android")}
+            disabled={!state.keys.play || changed}
+            data-testid="send-play"
+          >
+            Send to Google Play
+          </Button>
+        </div>
+      )}
+      {!state.keys.appStore || !state.keys.play ? (
+        <p className="text-xs text-muted-foreground">
+          {!state.keys.appStore ? "TestFlight needs your App Store Connect API key" : ""}
+          {!state.keys.appStore && !state.keys.play ? "; " : ""}
+          {!state.keys.play ? "Google Play needs a service account key" : ""}:{" "}
+          <Link href="/settings#integrations" className="underline">
+            add them in Settings
+          </Link>
+          .
+        </p>
+      ) : null}
+    </section>
   );
 }

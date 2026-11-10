@@ -8,11 +8,13 @@ export const POST = route(
     const { viewer, project } = await requireProject(id, "edit");
     if (!project.currentVersionId) throw new HttpError(400, "Build the app first.");
     if (!PLANS[await userPlan(db(), viewer!.id)].nativeBuilds) {
-      throw new HttpError(403, "Android and iOS builds are part of the Pro plan.");
+      throw new HttpError(403, "Android and iOS builds are part of the paid plans.");
     }
-    const body = await readJson<{ platform: "android" | "ios"; profile: "preview" | "production" }>(
-      request,
-    );
+    const body = await readJson<{
+      platform: "android" | "ios";
+      profile: "preview" | "production";
+      submit?: boolean;
+    }>(request);
     if (
       !["android", "ios"].includes(body.platform) ||
       !["preview", "production"].includes(body.profile)
@@ -23,7 +25,7 @@ export const POST = route(
       projectId: id,
       userId: viewer!.id,
       kind: "native_build",
-      input: body,
+      input: { platform: body.platform, profile: body.profile, submit: body.submit === true },
     });
     return NextResponse.json({ runId: run.id });
   },

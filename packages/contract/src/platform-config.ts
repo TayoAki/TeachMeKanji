@@ -208,3 +208,43 @@ export function readAppIdentifiers(files: ProjectFiles): { ios: string; android:
     return { ios: "", android: "" };
   }
 }
+
+export interface StoreSettings {
+  /** iOS bundle identifier (also the App Store Connect app's bundle ID). */
+  ios: string;
+  /** Android package name (also the Google Play app's package). */
+  android: string;
+  /** The App Store Connect app's Apple ID (digits): TestFlight uploads go to this app. */
+  ascAppId: string;
+}
+
+export const IDENTIFIER_PATTERN = /^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9_]*){2,}$/;
+
+export function readStoreSettings(files: ProjectFiles): StoreSettings {
+  const ids = readAppIdentifiers(files);
+  let ascAppId = "";
+  try {
+    const parsed = JSON.parse(files["app.json"] ?? "{}") as {
+      expo?: { extra?: { ascAppId?: string } };
+    };
+    ascAppId = String(parsed.expo?.extra?.ascAppId ?? "");
+  } catch {
+    // keep empty
+  }
+  return { ...ids, ascAppId };
+}
+
+/** Write the store settings into app.json (the identifiers, and the App Store Connect app id). */
+export function withStoreSettings(files: ProjectFiles, settings: StoreSettings): ProjectFiles {
+  const parsed = JSON.parse(files["app.json"] ?? '{"expo":{}}') as {
+    expo: {
+      ios?: Record<string, unknown>;
+      android?: Record<string, unknown>;
+      extra?: Record<string, unknown>;
+    };
+  };
+  parsed.expo.ios = { ...parsed.expo.ios, bundleIdentifier: settings.ios };
+  parsed.expo.android = { ...parsed.expo.android, package: settings.android };
+  parsed.expo.extra = { ...parsed.expo.extra, ascAppId: settings.ascAppId || undefined };
+  return { ...files, "app.json": JSON.stringify(parsed, null, 2) + "\n" };
+}

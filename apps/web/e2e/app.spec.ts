@@ -461,6 +461,55 @@ test("payments: RevenueCat keys by hand, or set up through the RevenueCat connec
     .toContain('"androidApiKey": "goog_OfflineTestKey1234"');
 });
 
+test("store builds: keys are checked before saving, identifiers live in app.json", async ({
+  page,
+}) => {
+  await signUp(page, "Shipper");
+  await createAndBuild(page, "A water reminder");
+  const projectId = page.url().split("/projects/")[1]!;
+
+  // Store settings: valid identifiers and the App Store Connect app id, saved as a version.
+  const store = async () =>
+    (await (await page.request.get(`/api/projects/${projectId}/store`)).json()) as {
+      settings: { ios: string; android: string; ascAppId: string };
+      keys: { expo: boolean; appStore: boolean; play: boolean };
+    };
+  const before = await store();
+  expect(before.settings.ios).toMatch(/^com\.appbuilder\.[a-z0-9]+$/);
+  expect(before.keys).toEqual({ expo: false, appStore: false, play: false });
+  const put = (data: object) => page.request.put(`/api/projects/${projectId}/store`, { data });
+  expect((await put({ ios: "not an id", android: "com.me.water" })).status()).toBe(400);
+  expect(
+    (await put({ ios: "com.me.water", android: "com.me.water", ascAppId: "abc" })).status(),
+  ).toBe(400);
+  expect(
+    (await put({ ios: "com.me.water", android: "com.me.water", ascAppId: "6741234567" })).status(),
+  ).toBe(200);
+  expect((await store()).settings).toEqual({
+    ios: "com.me.water",
+    android: "com.me.water",
+    ascAppId: "6741234567",
+  });
+  const { files } = (await (await page.request.get(`/api/projects/${projectId}`)).json()) as {
+    files: Record<string, string>;
+  };
+  expect(files["app.json"]).toContain('"bundleIdentifier": "com.me.water"');
+
+  // Settings: an incomplete App Store Connect key or Play key is refused before anything is sent.
+  await page.goto("/settings#integrations");
+  const asc = page.getByTestId("integration-app-store-connect");
+  await asc.getByLabel("App Store Connect key ID").fill("ABC123DEFG");
+  await asc.getByLabel("App Store Connect issuer ID").fill("57246542-96fe-1a63-e053-0824d011072a");
+  await asc.getByLabel("Apple team ID").fill("TEAM123456");
+  await asc.getByLabel("App Store Connect private key").fill("not a key");
+  await asc.getByRole("button", { name: "Save key" }).click();
+  await expect(page.getByText("Paste the whole .p8 file")).toBeVisible();
+  const play = page.getByTestId("integration-play-console");
+  await play.getByLabel("Google Play service account key").fill('{"type": "authorized_user"}');
+  await play.getByRole("button", { name: "Save key" }).click();
+  await expect(page.getByText("That isn't a Google service account key")).toBeVisible();
+});
+
 test("App Cloud: accounts and per-user data for the generated app", async ({ page, request }) => {
   await signUp(page, "Cloud");
   await createAndBuild(page, "A habit tracker with streaks");
