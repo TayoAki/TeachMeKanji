@@ -7,7 +7,8 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "tsc --noEmit -p .",
+    "grant-credits": "tsx --env-file-if-exists=../../.env src/grant-credits-cli.ts"
   },
   "dependencies": {
     "@appbuilder/contract": "*",

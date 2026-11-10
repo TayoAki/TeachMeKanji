@@ -22,6 +22,7 @@
     "test:e2e": "npm run test:e2e --workspace @appbuilder/web",
     "db:generate": "npm run generate --workspace @appbuilder/db",
     "db:migrate": "npm run migrate --workspace @appbuilder/db",
+    "credits:grant": "npm run grant-credits --workspace @appbuilder/core --",
     "spike:generate": "npm run spike:generate --workspace @appbuilder/worker --",
     "spike:snack-check": "npm run spike:snack-check --workspace @appbuilder/worker",
     "spike:device": "npm run spike:device --workspace @appbuilder/worker --"

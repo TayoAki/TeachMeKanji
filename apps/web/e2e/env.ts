@@ -24,3 +24,6 @@ export const E2E_PROD = process.env.E2E_PROD === "1";
  * Playwright config passes to its own servers (fake LLM, the Stripe secret above, spikes on).
  */
 export const E2E_BASE_URL = process.env.E2E_BASE_URL;
+
+/** The operator token for /api/admin/* in the local stack (not a real credential). */
+export const E2E_ADMIN_TOKEN = "e2e-admin-token-e2e-admin-token-0123456789";

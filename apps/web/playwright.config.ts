@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import {
+  E2E_ADMIN_TOKEN,
   E2E_AUTH_SECRET,
   E2E_BASE_URL,
   E2E_DATABASE_URL,
@@ -94,6 +95,7 @@ export default defineConfig({
             REQUIRE_VERIFIED_EMAIL: "0",
             // preview-runtime.spec.ts drives the runtime through the (otherwise dev-only) spike page.
             ENABLE_SPIKES: "1",
+            ADMIN_API_TOKEN: E2E_ADMIN_TOKEN,
           },
         },
       ],

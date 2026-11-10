@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { and, eq, isNull } from "drizzle-orm";
 import { schema, type Database } from "@appbuilder/db";
 
@@ -66,4 +67,15 @@ export function canManage(access: Access): boolean {
 /** Who may see the chat, code and history (public visitors only see the running app). */
 export function canSeeSource(access: Access): boolean {
   return access !== "public";
+}
+
+/**
+ * Operator actions (granting credits) authenticate with ADMIN_API_TOKEN, not a user session.
+ * Unset, or shorter than 32 characters, turns them off.
+ */
+export function isAdminToken(authorization: string | null): boolean {
+  const expected = process.env.ADMIN_API_TOKEN || "";
+  if (expected.length < 32 || !authorization?.startsWith("Bearer ")) return false;
+  const digest = (value: string) => createHash("sha256").update(value).digest();
+  return timingSafeEqual(digest(authorization.slice(7)), digest(expected));
 }
