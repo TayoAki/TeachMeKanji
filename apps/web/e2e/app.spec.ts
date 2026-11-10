@@ -158,10 +158,20 @@ test("selecting a screen scopes a chat change to that screen", async ({ page }) 
   await expect(page.getByTestId("status")).toHaveText("Ready", { timeout: 60_000 });
   const projectId = page.url().split("/projects/")[1]!;
 
+  // A press anywhere inside a screen selects it, not only its title.
+  const paywall = page.getByTestId("canvas-screen").filter({ hasText: "paywall.tsx" });
+  await paywall
+    .frameLocator("iframe")
+    .locator("body")
+    .click({ position: { x: 40, y: 200 } });
+  await expect(paywall).toHaveAttribute("data-selected", "true");
+  await expect(page.getByTestId("chat-selection")).toContainText("Editing: Paywall screen");
+
   // Pick the Settings screen on the canvas: the chat is now about that screen.
   const settings = page.getByTestId("canvas-screen").filter({ hasText: "settings.tsx" });
   await settings.getByTestId("canvas-screen-title").click();
   await expect(settings).toHaveAttribute("data-selected", "true");
+  await expect(paywall).not.toHaveAttribute("data-selected", "true");
   await expect(page.getByTestId("chat-selection")).toContainText("Editing: Settings screen");
 
   // "Restore Purchases" is on the paywall too; only the selected screen changes.

@@ -48,6 +48,8 @@ export type FrameToParent =
   | { type: "navigated"; href: string }
   | { type: "navigate-request"; href: string; action: "push" | "replace" | "back" | "navigate" }
   | { type: "select"; element: SelectedElement }
+  /** The user pressed somewhere in the frame (outside select mode). */
+  | { type: "pressed" }
   | { type: "theme-info"; activeThemeId: string; themes: PreviewTheme[] }
   | { type: "storage"; key: string; value: string | null }
   | { type: "error"; message: string; file?: string };

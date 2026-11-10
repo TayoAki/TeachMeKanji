@@ -103,6 +103,15 @@ window.addEventListener("unhandledrejection", (event) =>
   post({ type: "error", message: String((event.reason as Error)?.message ?? event.reason) }),
 );
 
+// A press anywhere in the screen lets the canvas select it (clicks don't cross the iframe).
+window.addEventListener(
+  "pointerdown",
+  () => {
+    if (!selection.enabled) post({ type: "pressed" });
+  },
+  { capture: true },
+);
+
 window.addEventListener("message", (event) => {
   if (event.source !== window.parent || !isEnvelope(event.data) || event.data.frameId !== frameId)
     return;

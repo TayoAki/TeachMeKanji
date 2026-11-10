@@ -127,23 +127,33 @@ export function Canvas({
       >
         {screens.map((screen) => {
           const href = canvasHref(screen);
+          const selected = selectedFile === screen.file;
+          const open = () => {
+            onOpenScreen(href);
+            onSelectScreen?.(screen.file, screenTitle(screen));
+          };
+          // Anywhere on the frame selects it; a second press just uses the screen.
+          const pick = () => {
+            if (onSelectScreen && !selected && !selectMode) open();
+          };
           return (
             <div
               key={screen.file}
               className={cn(
                 "flex flex-col gap-2 rounded-xl",
-                selectedFile === screen.file &&
-                  "outline outline-2 outline-offset-8 outline-primary",
+                onSelectScreen && !selected && !selectMode && "cursor-pointer",
+                selected && "outline outline-2 outline-offset-8 outline-primary",
               )}
               data-testid="canvas-screen"
-              data-selected={selectedFile === screen.file ? "true" : undefined}
+              data-selected={selected ? "true" : undefined}
+              onClick={pick}
             >
               <button
                 type="button"
                 className="self-start rounded px-1 text-left text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-                onClick={() => {
-                  onOpenScreen(href);
-                  onSelectScreen?.(screen.file, screenTitle(screen));
+                onClick={(e) => {
+                  e.stopPropagation();
+                  open();
                 }}
                 title={
                   onSelectScreen
@@ -171,7 +181,10 @@ export function Canvas({
                 height={DEVICE.height}
                 scale={zoom}
                 storage={storage}
-                onMessage={(message) => onFrameMessage(`canvas:${screen.file}`, message)}
+                onMessage={(message) => {
+                  if (message.type === "pressed") pick();
+                  else onFrameMessage(`canvas:${screen.file}`, message);
+                }}
               />
             </div>
           );

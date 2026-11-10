@@ -16,6 +16,7 @@ import {
 import { authClient } from "@/lib/auth-client";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { setThemePreference, useThemePreference, type ThemePreference } from "@/lib/theme";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   CommandDialog,
@@ -30,7 +31,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -297,6 +303,7 @@ export function LeftRail({
               Settings & credits
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => router.push("/pricing")}>Plans</DropdownMenuItem>
+            <ThemeMenu />
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onSelect={async () => {
@@ -312,5 +319,24 @@ export function LeftRail({
       </div>
       <ProjectSearch open={searchOpen} onOpenChange={setSearchOpen} />
     </nav>
+  );
+}
+
+function ThemeMenu() {
+  const theme = useThemePreference();
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger data-testid="theme-menu">Appearance</DropdownMenuSubTrigger>
+      <DropdownMenuSubContent>
+        <DropdownMenuRadioGroup
+          value={theme}
+          onValueChange={(value) => setThemePreference(value as ThemePreference)}
+        >
+          <DropdownMenuRadioItem value="dark">Dark</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="light">Light</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="system">System</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
   );
 }

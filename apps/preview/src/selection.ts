@@ -73,6 +73,9 @@ export function createSelection(
   );
 
   return {
+    get enabled() {
+      return enabled;
+    },
     setEnabled(next: boolean) {
       enabled = next;
       document.body.style.cursor = next ? "crosshair" : "";
