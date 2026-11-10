@@ -78,6 +78,7 @@ export async function planApp(input: {
   images?: ImageInput[];
   previous?: AppPlan;
   feedback?: string;
+  connectorBrief?: string;
   defaultScreens: number;
   maxScreens: number;
   model?: string;
@@ -274,6 +275,7 @@ export async function editApp(input: {
   selection?: { path: string; snippet: string; kind?: "element" | "screen" } | null;
   history?: string[];
   maxScreens: number;
+  connectorBrief?: string;
   onEvent?: (event: AgentEvent) => Promise<void> | void;
   model?: string;
 }): Promise<{

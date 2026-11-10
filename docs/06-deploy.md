@@ -113,7 +113,7 @@ Required in production:
 | Variable | Why |
 |----------|-----|
 | `DATABASE_URL` | Postgres 16 |
-| `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` | Sessions. The URL is the app's public `https://` origin; it is also the OAuth issuer, and AI assistants connect to `$BETTER_AUTH_URL/api/mcp` |
+| `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` | Sessions. The URL is the app's public `https://` origin; it is also the OAuth issuer, and AI assistants connect to `$BETTER_AUTH_URL/api/mcp`. Connectors register `$BETTER_AUTH_URL/api/connectors/callback` as their sign-in redirect, so changing the URL means users sign in to their connectors again |
 | `ENCRYPTION_KEY` | Encrypts users' GitHub and Expo tokens (no fallback in production) |
 | `NEXT_PUBLIC_PREVIEW_ORIGIN` (build time), `PREVIEW_ALLOWED_PARENTS` | The preview origin, and the app origin it trusts |
 | `APP_PUBLIC_URL` | The origin generated apps call for App Cloud; phones must be able to reach it |

@@ -6,3 +6,4 @@ export * from "./app-plan";
 export { journeyRank, STRUCTURE_SCREENS } from "./app-structure";
 export type { InlinePatch, StyleValue } from "./inline-edit";
 export * from "./routes";
+export * from "./connectors";

@@ -12,12 +12,13 @@ import {
   MousePointerClick,
   X,
 } from "lucide-react";
-import type { AppPlan } from "@appbuilder/contract/protocol";
+import { connectorById, type AppPlan } from "@appbuilder/contract/protocol";
 import { useHydrated } from "@/hooks/use-hydrated";
 import type { RunProgress } from "@/hooks/use-run-stream";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "./types";
 
@@ -202,6 +203,7 @@ export function ChatPanel({
 }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const connected = useConnectedNames(!readOnly);
   const end = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
 
@@ -333,8 +335,17 @@ export function ChatPanel({
               disabled={busy}
             />
             <div className="flex items-center justify-between">
-              <span className="text-[11px] text-muted-foreground">
+              <span className="truncate text-[11px] text-muted-foreground">
                 {busy ? "Working…" : "Enter to send"}
+                {!busy && connected.length ? (
+                  <span
+                    title="Name a connected tool in your message and the agent reads from it first"
+                    data-testid="chat-connectors"
+                  >
+                    {" "}
+                    · {connected.join(", ")} connected
+                  </span>
+                ) : null}
               </span>
               <Button
                 size="icon"
@@ -352,4 +363,27 @@ export function ChatPanel({
       )}
     </div>
   );
+}
+
+/** Names of the viewer's connected connectors, for the composer hint. */
+function useConnectedNames(enabled: boolean): string[] {
+  const [names, setNames] = useState<string[]>([]);
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    void api<{ connected: Array<{ provider: string }> }>("/api/connectors", { quiet: true })
+      .then(({ connected }) => {
+        if (cancelled) return;
+        setNames(
+          connected
+            .map((c) => connectorById(c.provider)?.name)
+            .filter((name): name is string => Boolean(name)),
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
+  return names;
 }

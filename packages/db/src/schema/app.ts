@@ -276,12 +276,32 @@ export const integration = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    provider: text("provider").$type<"github" | "expo">().notNull(),
+    /** "expo", or a connector id from the contract ("github" serves both export and the agent). */
+    provider: text("provider").notNull(),
     encryptedToken: text("encrypted_token").notNull(),
     label: text("label"),
+    /** "token" (pasted) or "oauth" (signed in; refreshed by the platform). */
+    auth: text("auth").$type<"token" | "oauth">().notNull().default("token"),
+    encryptedRefreshToken: text("encrypted_refresh_token"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    /** Where and as which client to refresh an OAuth token. */
+    oauth: jsonb("oauth").$type<{ clientId: string; tokenEndpoint: string; resource: string }>(),
     createdAt: createdAt(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.provider] })],
+);
+
+/** OAuth clients the platform registered with a connector's authorization server (RFC 7591). */
+export const connectorClient = pgTable(
+  "connector_client",
+  {
+    connectorId: text("connector_id").notNull(),
+    redirectUri: text("redirect_uri").notNull(),
+    clientId: text("client_id").notNull(),
+    encryptedClientSecret: text("encrypted_client_secret"),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.connectorId, t.redirectUri] })],
 );
 
 export const deviceSession = pgTable("device_session", {

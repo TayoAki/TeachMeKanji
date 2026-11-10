@@ -206,8 +206,9 @@ A tool-using agent loop with these tools:
 - `set_theme`, `validate`
 
 When the user picks an element with the inline editor, the message carries a selection
-reference (`path`, source span, snippet). When they pick a whole screen on the canvas (its
-title; the frame shows which of the four parts it belongs to), the chat says "Editing: <screen>"
+reference (`path`, source span, snippet). When they pick a whole screen on the canvas (a click
+anywhere on its frame: presses inside the preview iframe reach the canvas as a `pressed`
+message; the frame shows which of the four parts it belongs to), the chat says "Editing: <screen>"
 and the message carries `{ kind: "screen", path }`: the agent changes that screen and touches
 other files only when the request needs it. Apps grow this way, one screen and one request at
 a time; more reference content goes into new `data/content/<name>.ts` files that
@@ -338,6 +339,33 @@ SDK ≤ 55, while store Expo Go runs only the latest SDK (58). See
 - Stripe webhooks: verify the signature and store `stripe_event_id` for idempotency.
 - Never log or store prompts or assets anywhere that would share them for third-party
   training.
+
+### 4.5 Connectors (the user's own tools)
+Settings → Connectors lists Linear, Notion, GitHub, Crowdin, Miro, Jam, Google Play,
+RevenueCat, Mobbin, Appllama, Google Maps and Mapbox (`packages/contract/src/connectors.ts`).
+Each connectable one is the service's official remote MCP server; Google Play has none, and
+Google Maps' takes its key in a header the MCP connector can't send, so both show "Not
+available yet".
+
+- **Connecting** (`packages/core/src/connectors.ts`): signing in follows the MCP authorization
+  spec: protected-resource metadata → authorization-server metadata → dynamic client
+  registration (once per connector and redirect URI, kept in `connector_client`) →
+  authorization code with PKCE and `resource` = the MCP server. The flow in flight lives in
+  an encrypted cookie scoped to `/api/connectors/callback`. Linear, GitHub, Crowdin, Jam and
+  RevenueCat also take a pasted token, checked by opening an MCP session with it. Tokens are
+  encrypted in `integration` (one row per user and connector; GitHub's row also exports apps).
+- **Using:** a plan or chat message that names a connector (by name or link; see `mentions`)
+  starts the run with one extra call (`apps/worker/src/agents/connectors.ts`): the named,
+  connected servers are attached through Anthropic's MCP connector (`mcp_servers` +
+  `mcp_toolset`, beta `mcp-client-2025-11-20`), signed in as the user, and the model reads what
+  the message refers to and writes a brief. The plan or code call gets the brief as
+  information, not instructions; it never carries tool definitions itself. Writes to the tools
+  happen only when the message asks for them. Expiring OAuth tokens are refreshed before the
+  call under a row lock (rotating refresh tokens); a refused refresh drops the connection.
+  Problems (not connected, can't refresh, the call failed) become notes in the chat reply and
+  never fail the run.
+- `CONNECTOR_<ID>_URL` points a connector at another server (the e2e suite uses a local
+  stand-in MCP + OAuth server, `apps/web/e2e/mock-mcp-server.mjs`).
 
 ## 9b. Bring your own AI (MCP)
 Users who already pay for Claude, ChatGPT or Cursor build here without credits: their

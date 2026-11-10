@@ -19,6 +19,7 @@ export const GET = route(async () => {
     .select({
       provider: schema.integration.provider,
       label: schema.integration.label,
+      auth: schema.integration.auth,
       createdAt: schema.integration.createdAt,
     })
     .from(schema.integration)

@@ -53,6 +53,9 @@ function systemText(params: Params): string {
 
 function respond(params: Params): string {
   const request = lastUserText(params);
+  // Reading connected tools (MCP connector): offline mode can't reach them; say so as a brief.
+  if (params.mcp_servers?.length)
+    return `Offline mode: ${params.mcp_servers.map((s) => s.name).join(", ")} wasn't called, so there is nothing to add.`;
   // The quality judge also asks for JSON; answer it with a neutral review.
   if (params.output_config?.format && systemText(params).includes("independent reviewer"))
     return JSON.stringify(fakeReview(request));

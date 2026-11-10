@@ -1,11 +1,12 @@
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
-import { refreshTemplate, type AppPlan } from "@appbuilder/contract";
+import { mentionedConnectors, refreshTemplate, type AppPlan } from "@appbuilder/contract";
 import { readTree } from "@appbuilder/contract/node";
 import {
   addMessage,
   commitVersion,
   confirmPlan,
+  connectorAccess,
   getCurrentFiles,
   getStorage,
   latestPlan,
@@ -25,6 +26,8 @@ import {
   type AgentEvent,
   type ImageInput,
 } from "../agents/agents";
+import { readConnectors } from "../agents/connectors";
+import type { UsageTotals } from "../generation/client";
 import type { HandlerContext, HandlerResult } from "./context";
 
 const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
@@ -60,6 +63,51 @@ async function maxScreens(ctx: HandlerContext): Promise<number> {
   return PLANS[await userPlan(ctx.db, ctx.run.userId)].maxScreensPerProject;
 }
 
+const NO_USAGE: UsageTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+
+function sumUsage(a: UsageTotals, b: UsageTotals): UsageTotals {
+  return {
+    input: a.input + b.input,
+    output: a.output + b.output,
+    cacheRead: a.cacheRead + b.cacheRead,
+    cacheWrite: a.cacheWrite + b.cacheWrite,
+  };
+}
+
+/**
+ * When the message names connectors (Linear, Notion, Mobbin…), read what it refers to from the
+ * user's own accounts first. Never fails the run: problems become notes for the chat.
+ */
+async function readNamedConnectors(
+  ctx: HandlerContext,
+  text: string,
+  about: string,
+): Promise<{ brief?: string; usage: UsageTotals; notes: string[] }> {
+  const ids = mentionedConnectors(text);
+  if (!ids.length) return { usage: NO_USAGE, notes: [] };
+  const { connectors, problems } = await connectorAccess(ctx.db, ctx.run.userId, ids);
+  const notes = [...problems];
+  if (!connectors.length) return { usage: NO_USAGE, notes };
+  const names = connectors.map((c) => c.name).join(" and ");
+  await ctx.emit("step", { label: `Reading ${names}` });
+  try {
+    const read = await readConnectors({
+      createMessage: ctx.createMessage,
+      model: ctx.model,
+      connectors,
+      request: text,
+      about,
+    });
+    if (read.brief) notes.unshift(`Read from ${names}.`);
+    return { brief: read.brief || undefined, usage: read.usage, notes };
+  } catch (error) {
+    notes.push(
+      `I couldn't read from ${names} (${(error as Error).message.slice(0, 200)}), so I went ahead without it.`,
+    );
+    return { usage: NO_USAGE, notes };
+  }
+}
+
 function forwardAgentEvent(ctx: HandlerContext) {
   return async (event: AgentEvent) => {
     if (event.type === "files") await ctx.emit("files", { files: event.files });
@@ -79,6 +127,11 @@ export async function handlePlan(ctx: HandlerContext): Promise<HandlerResult> {
     label: previous ? "Revising the plan" : "Understanding your idea and drafting a plan",
   });
 
+  const connectors = await readNamedConnectors(
+    ctx,
+    previous ? (input.feedback ?? "") : project.prompt,
+    previous ? "changes to their app's plan" : "a new app idea",
+  );
   const result = await planApp({
     createMessage: ctx.createMessage,
     model: ctx.model,
@@ -87,11 +140,19 @@ export async function handlePlan(ctx: HandlerContext): Promise<HandlerResult> {
     images: await loadImages(ctx, input.assetIds ?? []),
     previous: previous ? (previous.data as unknown as AppPlan) : undefined,
     feedback: input.feedback,
+    connectorBrief: connectors.brief,
     defaultScreens: Number(process.env.DEFAULT_SCREEN_COUNT || 3),
     maxScreens: await maxScreens(ctx),
   });
 
   const saved = await savePlan(ctx.db, project.id, result.plan);
+  if (connectors.notes.length)
+    await addMessage(ctx.db, {
+      projectId: project.id,
+      role: "assistant",
+      runId: ctx.run.id,
+      content: { text: connectors.notes.join(" ") },
+    });
   await addMessage(ctx.db, {
     projectId: project.id,
     role: "assistant",
@@ -103,7 +164,7 @@ export async function handlePlan(ctx: HandlerContext): Promise<HandlerResult> {
     status: "awaiting_confirmation",
     ...(previous ? {} : { name: result.plan.appName }),
   });
-  return { output: { planId: saved.id }, usage: result.usage };
+  return { output: { planId: saved.id }, usage: sumUsage(connectors.usage, result.usage) };
 }
 
 export async function handleBuild(ctx: HandlerContext): Promise<HandlerResult> {
@@ -172,6 +233,13 @@ export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
     .slice(-7, -1)
     .map((m) => `${m.role}: ${String(m.content.text).slice(0, 300)}`);
 
+  const connectors = await readNamedConnectors(
+    ctx,
+    input.request,
+    input.selection?.kind === "screen"
+      ? `a change to the ${input.selection.path} screen of their app`
+      : "a change to their app",
+  );
   const result = await editApp({
     createMessage: ctx.createMessage,
     model: ctx.model,
@@ -180,6 +248,7 @@ export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
     selection: input.selection ?? null,
     history,
     maxScreens: await maxScreens(ctx),
+    connectorBrief: connectors.brief,
     onEvent: forwardAgentEvent(ctx),
   });
 
@@ -200,7 +269,14 @@ export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
     projectId: project.id,
     role: "assistant",
     runId: ctx.run.id,
-    content: { text: result.summary, changed: result.changed, versionId },
+    content: {
+      text: [result.summary, ...connectors.notes].join("\n\n"),
+      changed: result.changed,
+      versionId,
+    },
   });
-  return { output: { versionId, changed: result.changed }, usage: result.usage };
+  return {
+    output: { versionId, changed: result.changed },
+    usage: sumUsage(connectors.usage, result.usage),
+  };
 }

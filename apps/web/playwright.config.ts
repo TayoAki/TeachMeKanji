@@ -17,6 +17,9 @@ const shared = {
   DATABASE_URL: E2E_DATABASE_URL,
   BETTER_AUTH_SECRET: E2E_AUTH_SECRET,
   ENCRYPTION_KEY: `${E2E_AUTH_SECRET}-tokens`,
+  // Two connectors point at a local stand-in MCP + OAuth server (e2e/mock-mcp-server.mjs).
+  CONNECTOR_LINEAR_URL: "http://localhost:3005/mcp",
+  CONNECTOR_NOTION_URL: "http://localhost:3005/mcp",
 };
 
 export default defineConfig({
@@ -37,6 +40,12 @@ export default defineConfig({
   webServer: E2E_BASE_URL
     ? []
     : [
+        {
+          command: "node e2e/mock-mcp-server.mjs",
+          url: "http://localhost:3005/health",
+          reuseExistingServer: reuse,
+          timeout: 20_000,
+        },
         {
           // The worker runs agent jobs. Tests use the offline template generator, never a paid model.
           command: "npm run start --workspace @appbuilder/worker",

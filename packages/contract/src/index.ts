@@ -25,3 +25,4 @@ export * from "./inline-edit";
 export * from "./platform-config";
 export * from "./rules";
 export * from "./changes";
+export * from "./connectors";

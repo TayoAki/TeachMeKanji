@@ -21,7 +21,11 @@ export default async function SettingsPage() {
     .orderBy(desc(schema.creditLedger.id))
     .limit(30);
   const integrations = await db()
-    .select({ provider: schema.integration.provider, label: schema.integration.label })
+    .select({
+      provider: schema.integration.provider,
+      label: schema.integration.label,
+      auth: schema.integration.auth,
+    })
     .from(schema.integration)
     .where(eq(schema.integration.userId, viewer.id));
   const data = plain({

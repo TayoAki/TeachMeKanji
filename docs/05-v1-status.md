@@ -32,7 +32,14 @@ steps). This page says exactly what was verified here and what wasn't.
   it in chat ("add a settings screen"), then confirm. The build streams progress, and screens
   appear on the canvas as each one finishes.
 - **Edit by chat:** every change is validated against the contract and saved as a new version.
-  Edits are limited by your plan's screen count.
+  Edits are limited by your plan's screen count. Click anywhere on a screen on the canvas to
+  scope the chat to it ("Editing: Paywall screen").
+- **Connectors:** Settings → Connectors connects the user's Linear, Notion, GitHub, Crowdin,
+  Miro, Jam, RevenueCat, Mobbin, Appllama and Mapbox (sign in, or paste a token where the
+  service offers one). Naming one in the chat ("build the paywall from my Linear issue
+  ENG-12") makes the agent read it first, signed in as the user, through Anthropic's MCP
+  connector. Google Play and Google Maps show "Not available yet" (no usable MCP server).
+- **Appearance:** the builder is dark by default; Light and System are in the account menu.
 - **Edit by clicking:** select mode in any preview. The inspector edits literal text, theme
   colors, font size, padding and corners, and writes them back into the exact source. Computed
   text sends you to "Edit with AI" with the element attached.
@@ -168,6 +175,7 @@ image-fetch DNS pinning:
 | Android/iOS builds | A user's Expo token (Settings); Apple account for iOS | Built; never run against EAS |
 | Phone on another network | A wildcard domain for `DEVICE_PREVIEW_DOMAIN` (or `DEVICE_PREVIEW_SINGLE_HOST` to try it on Railway's own address, one preview at a time) | Live on Railway with Railway's address: the session starts in about 5 s from the SDK in the worker image, and over the public internet the manifest (`exposdk:58.0.0`), the 6.6 MB bundle and the fast-refresh WebSocket (101) come through; debugger endpoints return 404. First scan from an iPhone reached the server; Expo Go then required the dev server to be signed in as the phone's Expo account, which previews now do with the user's Expo token |
 | S3 / R2 storage | `S3_*` variables | Adapter written; local files used here |
+| Connectors | A user's account at each service | Sign-in (discovery, registration, PKCE, refresh with rotation) and pasted tokens are tested against a local stand-in MCP + OAuth server, and the endpoints were checked to exist (each answers with an OAuth challenge). Never connected to a real Linear, Notion, etc., and the model's MCP-connector call has not run live yet |
 
 ## Known limits
 

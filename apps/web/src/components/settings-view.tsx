@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Github, KeyRound, Loader2, Smartphone } from "lucide-react";
+import { KeyRound, Loader2, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, PanelSection } from "@/components/shell/app-shell";
 import type { RailUser } from "@/components/shell/left-rail";
@@ -14,6 +14,7 @@ import { api } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import { TimeAgo } from "@/components/time-ago";
 import { AssistantsSection } from "@/components/assistants-section";
+import { ConnectorsSection } from "@/components/connectors-section";
 
 export interface SettingsData {
   user: RailUser;
@@ -34,7 +35,7 @@ export interface SettingsData {
     note: string | null;
     createdAt: string;
   }>;
-  integrations: Array<{ provider: "github" | "expo"; label: string | null }>;
+  integrations: Array<{ provider: string; label: string | null; auth: "token" | "oauth" }>;
   billing: { studio: boolean; pro: boolean };
   /** The MCP endpoint assistants connect to. */
   mcpUrl: string;
@@ -54,26 +55,18 @@ function Integration({
   connected,
   onChanged,
 }: {
-  provider: "github" | "expo";
+  provider: "expo";
   connected: { label: string | null } | undefined;
   onChanged: () => void;
 }) {
   const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
-  const meta =
-    provider === "github"
-      ? {
-          title: "GitHub",
-          icon: <Github className="size-5" />,
-          help: "A fine-grained personal access token with Contents and Pull requests (read & write) and Administration (for creating repos).",
-          link: "https://github.com/settings/personal-access-tokens/new",
-        }
-      : {
-          title: "Expo (EAS Build)",
-          icon: <Smartphone className="size-5" />,
-          help: "A personal Expo access token (expo.dev → Access tokens), so builds run on your own Expo account and phone previews open in Expo Go on iPhone.",
-          link: "https://expo.dev/settings/access-tokens",
-        };
+  const meta = {
+    title: "Expo (EAS Build)",
+    icon: <Smartphone className="size-5" />,
+    help: "A personal Expo access token (expo.dev → Access tokens), so builds run on your own Expo account and phone previews open in Expo Go on iPhone.",
+    link: "https://expo.dev/settings/access-tokens",
+  };
   return (
     <div className="rounded-xl border bg-background p-4" data-testid={`integration-${provider}`}>
       <div className="flex items-center gap-3">
@@ -115,6 +108,8 @@ function Integration({
                 toast.success(`${meta.title} connected`);
                 setToken("");
                 onChanged();
+              } catch {
+                // api() has already shown why (e.g. "Expo rejected this token.").
               } finally {
                 setBusy(false);
               }
@@ -229,14 +224,11 @@ export function SettingsView({ initial }: { initial: SettingsData }) {
 
         <AssistantsSection mcpUrl={data.mcpUrl} allowed={data.limits.mcp} />
 
+        <ConnectorsSection integrations={data.integrations} onChanged={refresh} />
+
         <section id="integrations">
-          <h2 className="mb-3 text-lg font-semibold">Integrations</h2>
+          <h2 className="mb-3 text-lg font-semibold">Phone builds</h2>
           <div className="space-y-3">
-            <Integration
-              provider="github"
-              connected={data.integrations.find((i) => i.provider === "github")}
-              onChanged={refresh}
-            />
             <Integration
               provider="expo"
               connected={data.integrations.find((i) => i.provider === "expo")}

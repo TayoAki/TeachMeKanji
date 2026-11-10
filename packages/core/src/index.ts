@@ -17,3 +17,4 @@ export * from "./invites";
 export * from "./assistants";
 export * from "./workers";
 export * from "./expo-account";
+export * from "./connectors";
