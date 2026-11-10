@@ -102,6 +102,13 @@ through the same client in a local check: valid on the first attempt, 33 seconds
 
 ![KanjiDojo, built live by Claude on the deployed site](images/kanji-live.png)
 
+**App quality:** every generated app now has onboarding, a paywall, the main app and settings,
+and is scored against a 100-point rubric ([08-app-quality-rubric.md](08-app-quality-rubric.md))
+by deterministic checks plus two independent model judges looking at screenshots. On the same
+kanji prompt the score went from 32.5 (before) to 84.6 (four parts) to 93.3 (one round of fixes
+from the judges' findings); builds now cost $3 to $3.35. Details in
+[docs/evals](evals/README.md).
+
 **The automated test runs** use `LLM_PROVIDER=fake`, an offline template generator, so they
 cost nothing and run anywhere. It answers the same
 requests in the same formats, so everything except the model itself (jobs, validation, repair,

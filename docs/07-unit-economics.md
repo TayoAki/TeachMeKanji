@@ -34,15 +34,18 @@ reserves a budget that the worker enforces, so no run can cost more than:
 | Run | Budget (cap) | Estimated typical cost |
 |---|---:|---:|
 | Plan or plan revision | 6 credits = $0.30 | $0.05 to $0.30 |
-| Build (plan, theme, data, about 5 screens) | 60 credits = $3.00 | $1 to $2 |
+| Build (theme, data, onboarding, paywall, settings and about 4 main screens) | 90 credits = $4.50 | $3 to $3.50 |
 | Chat edit | 12 credits = $0.60 | $0.10 to $0.60 |
 
-Measured on the deployed site (a kanji learning app on Opus 5.5): the plan cost 1 credit
-($0.05) and the build 30 to 32 credits ($1.50 to $1.60) over two builds, inside the estimates.
+Measured on the deployed site (a kanji learning app on Opus 5.5): the plan costs 1 to 2
+credits. Before apps had onboarding, a paywall and settings, the build cost 30 to 32 credits
+($1.50 to $1.60); with them (seven screens and 30–60 entries of content) it costs 60 to 67
+credits ($3.00 to $3.35) and scores 93 instead of 33 on the quality rubric
+([docs/evals](evals/README.md)).
 Building screens in parallel made the build about three times faster without costing more. Every run records its real
 token counts and cost (`agent_run`), so a week of real usage will firm these numbers up.
 
-So 80 Pro credits buy roughly two new apps and a dozen edits a month. Ways to give more for
+So 80 Pro credits buy roughly one new app and a few edits a month. Ways to give more for
 the same margin:
 - Run builds on Claude Sonnet 5.5 ($2 / $10): each credit buys twice the work.
 - Run plan revisions on Claude Haiku 5.5 ($0.10 / $0.50).
@@ -83,7 +86,7 @@ cards and currency conversion add more. Treat the figure above as a floor.
 
 ## Free users (acquisition cost, not COGS)
 
-Each sign-up gets 100 credits: at most $5 of AI, typically $2 to $3 (one app and a few edits).
+Each sign-up gets 100 credits: at most $5 of AI, typically $3.50 to $4.50 (one app and a few edits).
 At a 5% conversion to Studio, 20 free sign-ups ($40 to $100 of AI) produce one $49 subscriber
 contributing about $45 a month. That pays back in one to two months. Levers if it doesn't:
 - fewer starting credits
