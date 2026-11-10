@@ -1,10 +1,10 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { grantCredits, isPlanId, PLANS, reportError, type PaidPlanId } from "@appbuilder/core";
+import { grantCredits, isPlanId, PLANS, type PaidPlanId } from "@appbuilder/core";
 import { schema } from "@appbuilder/db";
 import { db, HttpError, route } from "@/lib/server";
-import { planForPrice, stripe } from "@/lib/stripe";
+import { planForPrice, stripe, STRIPE_APP_TAG } from "@/lib/stripe";
 
 const { subscription } = schema;
 
@@ -33,7 +33,12 @@ async function userForCustomer(customerId: string): Promise<string | null> {
   return row?.userId ?? null;
 }
 
-/** Stripe webhooks: signature-verified, and idempotent (credit grants keyed by invoice id). */
+/**
+ * Stripe webhooks: signature-verified, and idempotent (credit grants keyed by invoice id). The
+ * Stripe account may be shared with other products, so only App Builder's events act: checkout
+ * sessions tagged STRIPE_APP_TAG, invoices for a price this server sells, and subscriptions of
+ * customers it knows. Everything else is acknowledged and ignored (never retried).
+ */
 export const POST = route(async (request: Request) => {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!secret) throw new HttpError(501, "Billing isn't configured.");
@@ -49,6 +54,8 @@ export const POST = route(async (request: Request) => {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object;
+      // Another product's checkout on a shared Stripe account: not ours.
+      if (session.metadata?.app !== STRIPE_APP_TAG.app) break;
       const userId = session.client_reference_id ?? session.metadata?.userId;
       const plan = paidPlan(null, session.metadata);
       if (userId && plan) {
@@ -67,6 +74,13 @@ export const POST = route(async (request: Request) => {
     }
     case "invoice.paid": {
       const invoice = event.data.object;
+      const line = invoice.lines?.data?.[0];
+      const price = line?.pricing?.price_details?.price;
+      // Only a price this server sells decides the plan (never metadata from an old checkout).
+      // Any other price is another product's invoice, or a price we no longer sell: acknowledge
+      // it, since retrying won't help.
+      const plan = paidPlan(typeof price === "string" ? price : price?.id);
+      if (!plan) break;
       const customer =
         typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
       // Stripe doesn't order events: this can arrive before checkout.session.completed, so
@@ -74,17 +88,9 @@ export const POST = route(async (request: Request) => {
       const fromMetadata = invoice.parent?.subscription_details?.metadata?.userId;
       const userId = fromMetadata ?? (customer ? await userForCustomer(customer) : null);
       if (!userId) {
-        // Not ours yet: a 5xx makes Stripe retry later instead of dropping the grant.
+        // Our price but not a subscriber we know yet: a 5xx makes Stripe retry later instead of
+        // dropping the grant.
         throw new HttpError(503, "Subscriber not known yet.");
-      }
-      const line = invoice.lines?.data?.[0];
-      const price = line?.pricing?.price_details?.price;
-      // Only a price this server sells decides the plan (never metadata from an old checkout).
-      const plan = paidPlan(typeof price === "string" ? price : price?.id);
-      if (!plan) {
-        // A price this server doesn't sell: retrying won't help, so acknowledge and report it.
-        reportError(new Error("invoice.paid for an unknown price"), { invoice: invoice.id });
-        break;
       }
       const periodEnd = line?.period?.end;
       await setPlan(userId, {

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { PAID_PLANS, type PaidPlanId } from "@appbuilder/core";
 import { schema } from "@appbuilder/db";
 import { db, HttpError, readJson, requireViewer, route } from "@/lib/server";
-import { priceForPlan, stripe } from "@/lib/stripe";
+import { priceForPlan, stripe, STRIPE_APP_TAG } from "@/lib/stripe";
 
 export const POST = route(async (request: Request) => {
   const viewer = await requireViewer();
@@ -27,8 +27,8 @@ export const POST = route(async (request: Request) => {
     customer_email: existing?.stripeCustomerId ? undefined : viewer.email,
     success_url: `${origin}/settings?upgraded=1`,
     cancel_url: `${origin}/pricing`,
-    metadata: { userId: viewer.id, plan },
-    subscription_data: { metadata: { userId: viewer.id, plan } },
+    metadata: { userId: viewer.id, plan, ...STRIPE_APP_TAG },
+    subscription_data: { metadata: { userId: viewer.id, plan, ...STRIPE_APP_TAG } },
   });
   return NextResponse.json({ url: session.url });
 });

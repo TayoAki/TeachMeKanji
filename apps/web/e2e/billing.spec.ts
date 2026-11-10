@@ -89,15 +89,37 @@ test("Stripe webhook: verified, ordered either way, and idempotent", async ({ pa
   expect((await send(request, "invoice.paid", firstInvoice)).status()).toBe(200);
   expect((await account(page)).credits).toBe(710);
 
-  // Checkout completion links the Stripe customer to the user.
+  // Checkout completion links the Stripe customer to the user (App Builder tags its sessions).
   const checkout = await send(request, "checkout.session.completed", {
     id: `cs_e2e_${Date.now()}`,
     object: "checkout.session",
     client_reference_id: userId,
     customer,
     subscription,
+    metadata: { userId, plan: "pro", app: "app_builder" },
   });
   expect(checkout.status()).toBe(200);
+
+  // The Stripe account can be shared with other products: their checkouts (untagged, even with a
+  // "plan" and our user's id) and their invoices (other prices, unknown customers) change nothing
+  // and are acknowledged, so Stripe doesn't retry them forever.
+  const foreignCheckout = await send(request, "checkout.session.completed", {
+    id: `cs_e2e_foreign_${Date.now()}`,
+    object: "checkout.session",
+    client_reference_id: userId,
+    customer: `cus_foreign_${Date.now()}`,
+    metadata: { userId, plan: "builder" },
+  });
+  expect(foreignCheckout.status()).toBe(200);
+  const foreignInvoice = await send(request, "invoice.paid", {
+    ...firstInvoice,
+    id: `in_e2e_foreign_${Date.now()}`,
+    customer: `cus_foreign_${Date.now()}`,
+    parent: null,
+    ...line("price_of_another_product"),
+  });
+  expect(foreignInvoice.status()).toBe(200);
+  expect(await account(page)).toMatchObject({ plan: "pro", credits: 710 });
 
   // A proration invoice keeps the plan but grants nothing.
   const proration = { ...firstInvoice, id: `in_e2e_upd_${Date.now()}`, parent: null };
