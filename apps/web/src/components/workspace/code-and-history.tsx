@@ -95,7 +95,7 @@ export function CodeView({ files, focusPath }: { files: ProjectFiles; focusPath?
 interface VersionRow {
   id: string;
   number: number;
-  kind: "generate" | "ai_edit" | "inline_edit" | "restore";
+  kind: "generate" | "ai_edit" | "inline_edit" | "restore" | "theme";
   summary: string;
   createdAt: string;
 }
@@ -105,6 +105,7 @@ const KIND_LABEL: Record<VersionRow["kind"], string> = {
   ai_edit: "AI edit",
   inline_edit: "Inspector",
   restore: "Restore",
+  theme: "Theme",
 };
 
 export function HistoryView({

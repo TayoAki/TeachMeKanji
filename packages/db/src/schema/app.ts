@@ -146,7 +146,7 @@ export const plan = pgTable(
   (t) => [uniqueIndex("plan_project_number_idx").on(t.projectId, t.number)],
 );
 
-export type VersionKind = "generate" | "ai_edit" | "inline_edit" | "restore";
+export type VersionKind = "generate" | "ai_edit" | "inline_edit" | "restore" | "theme";
 
 export const projectVersion = pgTable(
   "project_version",

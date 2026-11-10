@@ -89,7 +89,12 @@ export function validateFile(path: string, source: string, context: FileContext 
       );
       continue;
     }
-    if (DATA_LAYER_ONLY_MODULES.has(imp.source) && !isDataLayerFile(path)) {
+    // Platform-owned template files may persist their own state (e.g. theme/active.ts).
+    if (
+      DATA_LAYER_ONLY_MODULES.has(imp.source) &&
+      !isDataLayerFile(path) &&
+      !isTemplateFile(path)
+    ) {
       add(
         "imports/data-layer-only",
         `"${imp.source}" may only be used in data/. Read and write data with useCollection() from data/repo.`,

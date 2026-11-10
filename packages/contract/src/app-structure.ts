@@ -120,3 +120,28 @@ export function journeyRank(path: string): number {
   if (path === STRUCTURE_SCREENS.settings) return 3;
   return 2;
 }
+
+const DEFAULT_THEME = /export const defaultThemeId(\s*:\s*string)?\s*=\s*(["'`])([^"'`]+)\2;?/;
+
+/** The theme the app opens in (theme/tokens.ts `defaultThemeId`), or null if it can't be read. */
+export function defaultThemeOf(files: ProjectFiles): string | null {
+  return DEFAULT_THEME.exec(files["theme/tokens.ts"] ?? "")?.[3] ?? null;
+}
+
+/**
+ * The builder's theme picker writes the choice into the app, so phone previews, exports and
+ * published apps open in it. Null when the tokens file has no such theme or no default to set.
+ */
+export function withDefaultTheme(files: ProjectFiles, themeId: string): ProjectFiles | null {
+  const tokens = files["theme/tokens.ts"];
+  if (!tokens || !DEFAULT_THEME.test(tokens) || !/^[\w-]+$/.test(themeId)) return null;
+  if (!new RegExp(`\\bid:\\s*["'\`]${themeId}["'\`]`).test(tokens)) return null;
+  return {
+    ...files,
+    "theme/tokens.ts": tokens.replace(
+      DEFAULT_THEME,
+      (_match, type: string | undefined) =>
+        `export const defaultThemeId${type ?? ""} = "${themeId}";`,
+    ),
+  };
+}

@@ -29,11 +29,7 @@ export function createSelection(
     place(hover, target(event));
   };
 
-  const onClick = (event: Event) => {
-    if (!enabled) return;
-    swallow(event);
-    const el = target(event);
-    if (!el) return;
+  const select = (el: HTMLElement) => {
     selectedEl = el;
     place(selected, el);
     const rect = el.getBoundingClientRect();
@@ -52,6 +48,27 @@ export function createSelection(
     });
   };
 
+  const onClick = (event: Event) => {
+    if (!enabled) return;
+    swallow(event);
+    const el = target(event);
+    if (el) select(el);
+  };
+
+  // Outside select mode, a double-click on text opens it in the editor straight away: the
+  // nearest element whose text is written in the source, else the nearest element at all.
+  const onDoubleClick = (event: Event) => {
+    if (enabled) return;
+    let el = target(event);
+    const first = el;
+    while (el && literalTextFor(el.dataset.fid!) === null)
+      el = el.parentElement?.closest("[data-fid]") as HTMLElement | null;
+    const chosen = el ?? first;
+    if (!chosen) return;
+    window.getSelection()?.removeAllRanges();
+    select(chosen);
+  };
+
   for (const type of [
     "pointerdown",
     "pointerup",
@@ -63,6 +80,7 @@ export function createSelection(
     window.addEventListener(type, swallow, { capture: true });
   }
   window.addEventListener("click", onClick, { capture: true });
+  window.addEventListener("dblclick", onDoubleClick, { capture: true });
   window.addEventListener("pointermove", onMove, { capture: true });
   window.addEventListener(
     "scroll",

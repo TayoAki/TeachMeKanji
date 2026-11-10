@@ -4,8 +4,10 @@ import {
   APP_INFO_FILE,
   APP_STRUCTURE_FILE,
   countLimitedScreens,
+  defaultThemeOf,
   MONETIZATION_FILE,
   withAppStructure,
+  withDefaultTheme,
 } from "./app-structure";
 import { refreshTemplate } from "./platform-config";
 import { validateStructureScreens } from "./validate";
@@ -153,5 +155,32 @@ describe("incremental content", () => {
     expect(isWritablePath("data/content/nested/x.ts")).toBe(false);
     expect(isWritablePath("data/reminders.ts")).toBe(false);
     expect(isWritablePath("components/share.ts")).toBe(false);
+  });
+});
+
+describe("the theme the app opens in", () => {
+  const tokens = `export const themes: Theme[] = [
+  { id: "washi", name: "Washi", dark: false, colors },
+  { id: "sumi-night", name: "Sumi Night", dark: true, colors },
+];
+
+export const defaultThemeId = "washi";
+`;
+  it("is written into theme/tokens.ts when the builder picks one", () => {
+    const files = { "theme/tokens.ts": tokens, "app/index.tsx": "x" };
+    expect(defaultThemeOf(files)).toBe("washi");
+    const next = withDefaultTheme(files, "sumi-night")!;
+    expect(defaultThemeOf(next)).toBe("sumi-night");
+    expect(next["theme/tokens.ts"]).toContain('{ id: "washi", name: "Washi"');
+    expect(next["app/index.tsx"]).toBe("x");
+  });
+
+  it("refuses a theme the app doesn't have, or a file without a default", () => {
+    expect(withDefaultTheme({ "theme/tokens.ts": tokens }, "matcha")).toBeNull();
+    expect(withDefaultTheme({ "theme/tokens.ts": tokens }, 'x"; evil()')).toBeNull();
+    expect(
+      withDefaultTheme({ "theme/tokens.ts": "export const themes = [];" }, "washi"),
+    ).toBeNull();
+    expect(withDefaultTheme({}, "washi")).toBeNull();
   });
 });

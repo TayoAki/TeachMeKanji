@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronLeft,
   Copy,
@@ -147,17 +147,21 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
   const latestPlanId = state.plan?.id ?? null;
   const canBuild = canEdit && !state.versionId && state.plan?.status === "proposed" && !busy;
 
-  const onFrameMessage = useCallback((frameId: string, message: FrameToParent) => {
-    if (message.type === "theme-info" && frameId === "app") setThemes(message.themes);
-    if (message.type === "select") {
-      setSelected(message.element);
-      setCodeFocus(parseFid(message.element.fid)?.path ?? null);
-    }
-    if (message.type === "navigate-request" && message.action !== "back" && message.href) {
-      setAppHref(message.href);
-      setAppKey((k) => k + 1);
-    }
-  }, []);
+  const onFrameMessage = useCallback(
+    (frameId: string, message: FrameToParent) => {
+      if (message.type === "theme-info" && frameId === "app") setThemes(message.themes);
+      // Select mode, or a double-click on text in any screen (editors only).
+      if (message.type === "select" && canEdit) {
+        setSelected(message.element);
+        setCodeFocus(parseFid(message.element.fid)?.path ?? null);
+      }
+      if (message.type === "navigate-request" && message.action !== "back" && message.href) {
+        setAppHref(message.href);
+        setAppKey((k) => k + 1);
+      }
+    },
+    [canEdit],
+  );
 
   const startRun = (id: string) => {
     setRunId(id);
@@ -201,14 +205,21 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
     if (runId) await api(`/api/runs/${runId}/cancel`, { method: "POST" });
   };
 
-  const chooseTheme = async (id: string) => {
+  // The preview switches at once; the pick is saved into the app (a "Theme" version) once the
+  // user settles on one, so clicking through themes doesn't make a version per click.
+  const themeSave = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chooseTheme = (id: string) => {
     setThemeId(id);
-    if (canEdit)
-      await api(`/api/projects/${project.id}`, {
+    if (!canEdit) return;
+    if (themeSave.current) clearTimeout(themeSave.current);
+    themeSave.current = setTimeout(async () => {
+      const result = await api<{ versionId: string | null }>(`/api/projects/${project.id}`, {
         method: "PATCH",
         json: { activeThemeId: id },
         quiet: true,
-      }).catch(() => {});
+      }).catch(() => null);
+      if (result?.versionId) await refresh();
+    }, 800);
   };
 
   const applyInline = async (patch: InlinePatch) => {

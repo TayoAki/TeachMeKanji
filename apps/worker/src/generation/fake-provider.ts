@@ -1020,7 +1020,7 @@ import { Stack } from "expo-router";
 import { appInfo } from "${root}data/app-info";
 import { useAppState } from "${root}data/app-state";
 import { usePurchases } from "${root}data/purchases";
-import { useTheme } from "${root}theme/ThemeProvider";
+import { useAppearance, useTheme } from "${root}theme/ThemeProvider";
 
 const MANAGE_URL = Platform.OS === "ios" ? "https://apps.apple.com/account/subscriptions" : "https://play.google.com/store/account/subscriptions";
 
@@ -1028,6 +1028,7 @@ export default function SettingsScreen() {
   const theme = useTheme();
   const { isPremium, activeOffer, status, error, restorePurchases, openPaywall } = usePurchases();
   const { resetOnboarding } = useAppState();
+  const [appearance, setAppearance] = useAppearance();
   const row = { paddingVertical: theme.spacing.md, borderBottomWidth: 1, borderBottomColor: theme.colors.border };
   const label = { color: theme.colors.text, fontSize: theme.font.size.body };
   const header = { color: theme.colors.textMuted, fontSize: theme.font.size.caption, marginTop: theme.spacing.lg };
@@ -1051,6 +1052,20 @@ export default function SettingsScreen() {
       <Pressable accessibilityRole="button" onPress={() => Linking.openURL(MANAGE_URL)} style={row}>
         <Text style={label}>Manage subscription</Text>
       </Pressable>
+      <Text style={header}>APPEARANCE</Text>
+      <View style={{ ...row, flexDirection: "row", gap: theme.spacing.sm }}>
+        {(["system", "light", "dark"] as const).map((option) => (
+          <Pressable
+            key={option}
+            accessibilityRole="button"
+            accessibilityState={{ selected: appearance === option }}
+            onPress={() => setAppearance(option)}
+            style={{ flex: 1, alignItems: "center", paddingVertical: theme.spacing.sm, borderRadius: theme.radius.md, borderWidth: 1, borderColor: appearance === option ? theme.colors.primary : theme.colors.border }}
+          >
+            <Text style={label}>{option === "system" ? "System" : option === "light" ? "Light" : "Dark"}</Text>
+          </Pressable>
+        ))}
+      </View>
       <Text style={header}>SUPPORT</Text>
       {appInfo.supportEmail ? (
         <Pressable accessibilityRole="button" onPress={() => Linking.openURL("mailto:" + appInfo.supportEmail)} style={row}>

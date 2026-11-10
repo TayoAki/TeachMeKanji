@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { defaultThemeOf, withDefaultTheme } from "@appbuilder/contract";
 import {
   activeRun,
   canSeeSource,
+  commitVersion,
   creditBalance,
   deleteProject,
   getCurrentFiles,
@@ -9,6 +11,7 @@ import {
   listMessages,
   updateProject,
   userPlan,
+  VersionConflict,
   versionNumbers,
 } from "@appbuilder/core";
 import { db, HttpError, readJson, requireProject, route } from "@/lib/server";
@@ -57,7 +60,7 @@ export const PATCH = route(async (request: Request, ctx: RouteContext<"/api/proj
     activeThemeId?: string;
   }>(request);
   const needsOwner = body.visibility !== undefined;
-  await requireProject(id, needsOwner ? "manage" : "edit");
+  const { viewer } = await requireProject(id, needsOwner ? "manage" : "edit");
   const patch: Parameters<typeof updateProject>[2] = {};
   if (body.name !== undefined) {
     const name = body.name.trim();
@@ -70,10 +73,37 @@ export const PATCH = route(async (request: Request, ctx: RouteContext<"/api/proj
       throw new HttpError(400, "Invalid visibility.");
     patch.visibility = body.visibility;
   }
-  if (body.activeThemeId !== undefined)
-    patch.activeThemeId = String(body.activeThemeId).slice(0, 60);
+  let versionId: string | null = null;
+  if (body.activeThemeId !== undefined) {
+    const themeId = String(body.activeThemeId).slice(0, 60);
+    patch.activeThemeId = themeId;
+    // The pick becomes the theme the app opens in (phone, export, publish), as a version. While
+    // a run is writing files the pick only changes the preview, so the run doesn't undo it.
+    const current = await getCurrentFiles(db(), id);
+    const next = current.versionId ? withDefaultTheme(current.files, themeId) : null;
+    if (next && defaultThemeOf(current.files) !== themeId && !(await activeRun(db(), id))) {
+      const tokens = next["theme/tokens.ts"]!;
+      const name = new RegExp(`id:\\s*["'\`]${themeId}["'\`][^}]*?name:\\s*["'\`]([^"'\`]+)`).exec(
+        tokens,
+      )?.[1];
+      try {
+        const version = await commitVersion(db(), {
+          projectId: id,
+          files: next,
+          kind: "theme",
+          summary: `Theme: ${name ?? themeId}`,
+          createdBy: viewer?.id,
+          expectedParentId: current.versionId!,
+        });
+        versionId = version.id;
+      } catch (error) {
+        // Another change landed first; the preview still shows the pick.
+        if (!(error instanceof VersionConflict)) throw error;
+      }
+    }
+  }
   await updateProject(db(), id, patch);
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, versionId });
 });
 
 export const DELETE = route(async (_request: Request, ctx: RouteContext<"/api/projects/[id]">) => {

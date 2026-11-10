@@ -7,7 +7,7 @@ import {
   validateFile,
   type InlinePatch,
 } from "@appbuilder/contract";
-import { activeRun, commitVersion, getCurrentFiles } from "@appbuilder/core";
+import { activeRun, commitVersion, fileAtVersion, getCurrentFiles } from "@appbuilder/core";
 import { db, HttpError, readJson, requireProject, route } from "@/lib/server";
 
 export const POST = route(
@@ -18,12 +18,17 @@ export const POST = route(
     if (await activeRun(db(), id)) throw new HttpError(409, "Wait for the current step to finish.");
 
     const { versionId, files } = await getCurrentFiles(db(), id);
-    if (!versionId || body.versionId !== versionId) {
-      throw new HttpError(409, "The app changed since you selected this element. Select it again.");
-    }
     const target = parseFid(String(body.fid));
     const source = target ? files[target.path] : undefined;
-    if (!target || source === undefined) throw new HttpError(400, "Unknown element.");
+    if (!versionId || !target || source === undefined) throw new HttpError(400, "Unknown element.");
+    // The element's position is only valid in the file it was selected in. Other changes since
+    // (a theme pick, an edit to another screen) don't matter.
+    if (
+      body.versionId !== versionId &&
+      (await fileAtVersion(db(), id, String(body.versionId), target.path)) !== source
+    ) {
+      throw new HttpError(409, "The app changed since you selected this element. Select it again.");
+    }
 
     let next: string;
     try {

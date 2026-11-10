@@ -1,4 +1,4 @@
-import { asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { BACKEND_CONFIG_FILE, type ProjectFiles } from "@appbuilder/contract";
 import { schema, type Database } from "@appbuilder/db";
 import { sha256 } from "./crypto";
@@ -104,6 +104,28 @@ export async function getVersionFiles(db: Database, versionId: string): Promise<
     .where(eq(versionFile.versionId, versionId))
     .orderBy(asc(versionFile.path));
   return Object.fromEntries(rows.map((r) => [r.path, r.content]));
+}
+
+/** One file as it was in one of the project's versions (undefined if there's no such file). */
+export async function fileAtVersion(
+  db: Database,
+  projectId: string,
+  versionId: string,
+  path: string,
+): Promise<string | undefined> {
+  const [row] = await db
+    .select({ content: blob.content })
+    .from(versionFile)
+    .innerJoin(projectVersion, eq(projectVersion.id, versionFile.versionId))
+    .innerJoin(blob, eq(blob.hash, versionFile.blobHash))
+    .where(
+      and(
+        eq(versionFile.versionId, versionId),
+        eq(projectVersion.projectId, projectId),
+        eq(versionFile.path, path),
+      ),
+    );
+  return row?.content;
 }
 
 export async function getCurrentFiles(

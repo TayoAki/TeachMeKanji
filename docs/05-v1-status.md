@@ -40,10 +40,15 @@ steps). This page says exactly what was verified here and what wasn't.
   ENG-12") makes the agent read it first, signed in as the user, through Anthropic's MCP
   connector. Google Play and Google Maps show "Not available yet" (no usable MCP server).
 - **Appearance:** the builder is dark by default; Light and System are in the account menu.
-- **Edit by clicking:** select mode in any preview. The inspector edits literal text, theme
+- **Edit by clicking (free, no AI):** double-click any text on a screen, or use select mode in
+  any preview. The inspector edits literal text, theme
   colors, font size, padding and corners, and writes them back into the exact source. Computed
   text sends you to "Edit with AI" with the element attached.
-- **Themes:** switch between the app's 5 packs instantly in every frame; the choice is saved.
+- **Themes:** switch between the app's 5 packs instantly in every frame. The pick is saved into
+  the app as a "Theme" version, so phone previews, exports and published apps open in it.
+- **Light and dark in the apps:** each app follows the phone's appearance, using the chosen
+  theme's light or dark partner (the nearest theme of the other kind), and Settings has an
+  Appearance row (System, Light, Dark) saved on the device.
 - **App Cloud (generated-app backend):** one switch gives the app cloud data per user and
   accounts, with no setup. Devices start as anonymous users; "add a sign in screen" makes the
   agent add email sign-up and sign-in, and signing up keeps the device's data. The **Data** tab

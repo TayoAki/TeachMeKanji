@@ -150,6 +150,7 @@ export function Inspector({
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 data-testid="inspector-text"
+                autoFocus
               />
             ) : (
               <p className="rounded-md bg-muted px-2 py-1.5 text-xs text-muted-foreground">
@@ -220,7 +221,7 @@ export function Inspector({
                 }
               }}
             >
-              {busy ? <Loader2 className="animate-spin" /> : null} Apply
+              {busy ? <Loader2 className="animate-spin" /> : null} Apply · free
             </Button>
             <Button
               size="sm"

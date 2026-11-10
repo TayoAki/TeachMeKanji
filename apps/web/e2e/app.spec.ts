@@ -73,12 +73,13 @@ test("from idea to published app", async ({ page, browser }) => {
   await expect(app.getByText("Spending", { exact: true }).first()).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId("bottom-bar")).toContainText("Version 2");
 
-  // Instant theme switch, no regeneration.
+  // Instant theme switch, no regeneration; the pick is then saved into the app as a version.
   await page.getByTestId("theme-harbor").click();
   await expect(app.getByText("Spending", { exact: true }).first()).toHaveCSS(
     "color",
     /rgb\(238, 241, 246\)/,
   );
+  await expect(page.getByTestId("bottom-bar")).toContainText("Version 3", { timeout: 15_000 });
 
   // Click-to-edit: change a heading's text and color in the inspector.
   await page.getByTestId("select-toggle").click();
@@ -87,7 +88,7 @@ test("from idea to published app", async ({ page, browser }) => {
   await page.getByLabel("Text color: accent").click();
   await page.getByTestId("inspector-apply").click();
   await expect(app.getByText("My spending")).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByTestId("bottom-bar")).toContainText("Version 3");
+  await expect(page.getByTestId("bottom-bar")).toContainText("Version 4");
   await page.getByTestId("select-toggle").click();
 
   // Computed text is not editable inline; it routes to "Edit with AI".
@@ -100,7 +101,7 @@ test("from idea to published app", async ({ page, browser }) => {
   // History: restore version 1.
   await page.getByTestId("tab-history").click();
   await page.getByTestId("restore-v1").click();
-  await expect(page.getByTestId("bottom-bar")).toContainText("Version 4", { timeout: 15_000 });
+  await expect(page.getByTestId("bottom-bar")).toContainText("Version 5", { timeout: 15_000 });
   await page.getByRole("tab", { name: "Canvas" }).click();
   await expect(app.getByText("Expenses", { exact: true }).first()).toBeVisible({ timeout: 15_000 });
 
@@ -160,6 +161,9 @@ test("selecting a screen scopes a chat change to that screen", async ({ page }) 
 
   // A press anywhere inside a screen selects it, not only its title.
   const paywall = page.getByTestId("canvas-screen").filter({ hasText: "paywall.tsx" });
+  await expect(paywall.frameLocator("iframe").getByText("Restore Purchases")).toBeVisible({
+    timeout: 15_000,
+  });
   await paywall
     .frameLocator("iframe")
     .locator("body")
@@ -189,6 +193,60 @@ test("selecting a screen scopes a chat change to that screen", async ({ page }) 
   expect(files["app/paywall.tsx"]).toContain("Restore Purchases");
   expect(files["app/paywall.tsx"]).not.toContain("Restore my plan");
   await expect(page.getByTestId("chat-selection")).toHaveCount(0);
+});
+
+test("themes reach the app, apps follow light or dark, and text edits are free", async ({
+  page,
+}) => {
+  await signUp(page, "Theme Picker");
+  await createAndBuild(page, "An expense tracker");
+  const projectId = page.url().split("/projects/")[1]!;
+  const files = async () =>
+    (
+      (await (await page.request.get(`/api/projects/${projectId}`)).json()) as {
+        files: Record<string, string>;
+      }
+    ).files;
+  expect((await files())["theme/tokens.ts"]).toContain('export const defaultThemeId = "mint";');
+
+  // Picking a theme saves it into the app (phone, export and publish open in it).
+  await page.getByTestId("theme-harbor").click();
+  await expect
+    .poll(async () => (await files())["theme/tokens.ts"], { timeout: 15_000 })
+    .toContain('export const defaultThemeId = "harbor";');
+
+  // The app's own Settings has Appearance: Light shows the light partner of Harbor Night.
+  const settings = page.getByTestId("canvas-screen").filter({ hasText: "settings.tsx" });
+  const frame = settings.frameLocator("iframe");
+  const background = () =>
+    frame.getByText("APPEARANCE").evaluate((el) => {
+      let node: Element | null = el;
+      while (node) {
+        const color = getComputedStyle(node).backgroundColor;
+        if (color && color !== "rgba(0, 0, 0, 0)" && color !== "transparent") return color;
+        node = node.parentElement;
+      }
+      return "";
+    });
+  const lightness = (rgb: string) =>
+    rgb
+      .match(/\d+/g)!
+      .slice(0, 3)
+      .reduce((sum, v) => sum + Number(v), 0) / 3;
+  await expect.poll(async () => lightness(await background())).toBeLessThan(100);
+  await frame.getByRole("button", { name: "Light" }).click();
+  await expect.poll(async () => lightness(await background())).toBeGreaterThan(180);
+  await frame.getByRole("button", { name: "Dark" }).click();
+  await expect.poll(async () => lightness(await background())).toBeLessThan(100);
+
+  // Double-click text to edit it yourself: no AI, no credits.
+  const credits = await page.getByTestId("workspace-credits").innerText();
+  await frame.getByText("SUPPORT", { exact: true }).dblclick();
+  await expect(page.getByTestId("inspector-text")).toHaveValue("SUPPORT");
+  await page.getByTestId("inspector-text").fill("HELP");
+  await page.getByTestId("inspector-apply").click();
+  await expect.poll(async () => (await files())["app/settings.tsx"]).toContain(">HELP</Text>");
+  await expect(page.getByTestId("workspace-credits")).toHaveText(credits);
 });
 
 test("sharing and permissions", async ({ browser }) => {

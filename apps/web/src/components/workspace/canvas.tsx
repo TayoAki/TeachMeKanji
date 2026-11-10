@@ -199,6 +199,14 @@ export function Canvas({
         ) : null}
       </div>
 
+      {onSelectScreen ? (
+        <div
+          className="pointer-events-none absolute left-1/2 top-2 -translate-x-1/2 rounded-full border bg-background/90 px-3 py-1 text-[11px] text-muted-foreground shadow-sm"
+          data-testid="canvas-hint"
+        >
+          Click a screen to change it in the chat · Double-click text to edit it yourself (free)
+        </div>
+      ) : null}
       <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-lg border bg-background p-1 shadow-sm">
         <Button
           size="icon"
