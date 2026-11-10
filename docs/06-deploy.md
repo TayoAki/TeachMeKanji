@@ -145,6 +145,11 @@ set up.
   two monthly prices, Builder ($20) and Pro ($200), tax-inclusive, in `STRIPE_PRICE_BUILDER`
   and `STRIPE_PRICE_PRO` (`scripts/stripe-setup.mjs` does it). The plan always follows the
   price, so upgrades and downgrades in the customer portal just work.
+  On a Stripe account shared with other products, App Builder tags its checkouts and
+  subscriptions (`metadata.app = app_builder`) and the webhook ignores everything else, so other
+  products' events are acknowledged, never retried. Pin the endpoint's API version to one the
+  account already uses if Stripe refuses a new one (accounts allow three versions); the handler
+  needs `2025-03-31.basil` or later.
 - **AI assistants (MCP):** nothing to register. Assistants discover everything from
   `https://app.example.com/.well-known/oauth-protected-resource/api/mcp` and register
   themselves. Users find the URL in Settings → Build from your AI assistant.
