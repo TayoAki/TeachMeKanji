@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { Hand, Loader2, Maximize, Minus, MousePointer2, Plus } from "lucide-react";
 import {
   buildRouteTree,
+  journeyRank,
   screens as listScreens,
   type FrameToParent,
   type ProjectFiles,
@@ -59,7 +60,10 @@ export function Canvas({
   const screens = useMemo(() => {
     const paths = Object.keys(files);
     if (!paths.some((p) => p.startsWith("app/") && !p.endsWith("_layout.tsx"))) return [];
-    return listScreens(buildRouteTree(paths)).map((s) => s.screen);
+    // In the user's journey: onboarding, paywall, the main app, then settings.
+    return listScreens(buildRouteTree(paths))
+      .map((s) => s.screen)
+      .sort((a, b) => journeyRank(a.file) - journeyRank(b.file));
   }, [files]);
 
   if (screens.length === 0) {

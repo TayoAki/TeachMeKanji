@@ -112,3 +112,11 @@ export function appInfoFile(info: AppInfo): string {
 export const appInfo = ${JSON.stringify(info, null, 2)};
 `;
 }
+
+/** Sort screen files in the user's journey: onboarding, paywall, the main app, settings. */
+export function journeyRank(path: string): number {
+  if (path === STRUCTURE_SCREENS.onboarding) return 0;
+  if (path === STRUCTURE_SCREENS.paywall) return 1;
+  if (path === STRUCTURE_SCREENS.settings) return 3;
+  return 2;
+}

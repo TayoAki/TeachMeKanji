@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import type { AppPlan } from "@appbuilder/contract/protocol";
+import { useHydrated } from "@/hooks/use-hydrated";
 import type { RunProgress } from "@/hooks/use-run-stream";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,8 @@ function PlanCard({
   onBuild: () => void;
   building: boolean;
 }) {
+  // A click before hydration would do nothing; keep the button disabled until it works.
+  const hydrated = useHydrated();
   return (
     <div className="rounded-xl border bg-background p-3 text-sm shadow-sm" data-testid="plan-card">
       <div className="flex items-center gap-2">
@@ -118,7 +121,12 @@ function PlanCard({
       </div>
       {canBuild ? (
         <div className="mt-3 flex flex-col gap-1.5">
-          <Button size="sm" onClick={onBuild} disabled={building} data-testid="confirm-build">
+          <Button
+            size="sm"
+            onClick={onBuild}
+            disabled={building || !hydrated}
+            data-testid="confirm-build"
+          >
             {building ? <Loader2 className="animate-spin" /> : <Check />} Confirm & build
           </Button>
           <span className="text-center text-[11px] text-muted-foreground">

@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit -p .",
     "spike:snack-check": "tsx --env-file-if-exists=../../.env src/spikes/snack-runtime-check.ts",
     "spike:device": "tsx --env-file-if-exists=../../.env src/spikes/device-preview.ts",
-    "spike:generate": "tsx --env-file-if-exists=../../.env src/spikes/generate-screen.ts"
+    "spike:generate": "tsx --env-file-if-exists=../../.env src/spikes/generate-screen.ts",
+    "eval": "tsx --env-file-if-exists=../../.env src/eval/cli.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",
