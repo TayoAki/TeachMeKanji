@@ -78,15 +78,33 @@ createServer(async (req, res) => {
         },
       );
     const body = JSON.parse(await readBody(req));
-    return send(res, 200, {
-      jsonrpc: "2.0",
-      id: body.id,
-      result: {
-        protocolVersion: "2025-06-18",
-        capabilities: { tools: {} },
-        serverInfo: { name: "e2e-mcp", version: "1.0.0" },
+    // Notifications get no response body, as in the MCP spec.
+    if (body.id === undefined) return send(res, 202, {});
+    if (body.method === "tools/list")
+      return send(res, 200, {
+        jsonrpc: "2.0",
+        id: body.id,
+        result: {
+          tools: [
+            { name: "search_issues", inputSchema: { type: "object" } },
+            { name: "get_issue", inputSchema: { type: "object" } },
+          ],
+        },
+      });
+    return send(
+      res,
+      200,
+      {
+        jsonrpc: "2.0",
+        id: body.id,
+        result: {
+          protocolVersion: "2025-06-18",
+          capabilities: { tools: {} },
+          serverInfo: { name: "e2e-mcp", version: "1.0.0" },
+        },
       },
-    });
+      { "mcp-session-id": "e2e-session" },
+    );
   }
   send(res, 404, { error: "not found" });
 }).listen(MOCK_MCP_PORT, () => console.log(`mock MCP server on ${base}`));

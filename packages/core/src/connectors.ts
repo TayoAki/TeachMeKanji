@@ -364,6 +364,82 @@ export async function checkConnectorToken(
   }
 }
 
+/** A JSON-RPC result from an MCP server, sent as JSON or as a server-sent event. */
+function rpcResult(text: string): Record<string, unknown> | null {
+  const json = text.trim().startsWith("{")
+    ? text
+    : (text
+        .split("\n")
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice(5))
+        .find((line) => line.includes('"result"') || line.includes('"error"')) ?? "");
+  try {
+    return JSON.parse(json) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+export type ConnectorTest =
+  { ok: true; server: string | null; tools: string[] } | { ok: false; error: string };
+
+/**
+ * Settings → Connectors → Test: open an MCP session with the connection's (fresh) token and
+ * list its tools, the same way builds reach it. Reads nothing from the user's data.
+ */
+export async function testConnector(
+  access: ConnectorAccess,
+  fetchImpl: Fetch = fetch,
+): Promise<ConnectorTest> {
+  let sessionId: string | null = null;
+  const call = async (id: number | null, method: string, params: object = {}) => {
+    const response = await fetchImpl(access.url, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${access.token}`,
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+        ...(sessionId ? { "mcp-session-id": sessionId } : {}),
+        ...(method !== "initialize" ? { "mcp-protocol-version": "2025-06-18" } : {}),
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", ...(id === null ? {} : { id }), method, params }),
+      signal: AbortSignal.timeout(TIMEOUT),
+    });
+    sessionId = response.headers.get("mcp-session-id") ?? sessionId;
+    return response;
+  };
+  try {
+    const init = await call(1, "initialize", {
+      protocolVersion: "2025-06-18",
+      capabilities: {},
+      clientInfo: { name: "app-builder", version: "1.0.0" },
+    });
+    if (init.status === 401 || init.status === 403)
+      return { ok: false, error: `${access.name} rejected the connection: connect it again.` };
+    if (!init.ok) return { ok: false, error: `${access.name} answered ${init.status}.` };
+    const hello = rpcResult(await init.text()) as {
+      result?: { serverInfo?: { name?: string } };
+    } | null;
+    await call(null, "notifications/initialized");
+    const list = await call(2, "tools/list");
+    if (!list.ok)
+      return { ok: false, error: `${access.name} answered ${list.status} to tools/list.` };
+    const tools = rpcResult(await list.text()) as {
+      result?: { tools?: Array<{ name?: string }> };
+      error?: { message?: string };
+    } | null;
+    if (!tools?.result)
+      return { ok: false, error: tools?.error?.message ?? `${access.name} didn't list its tools.` };
+    return {
+      ok: true,
+      server: hello?.result?.serverInfo?.name ?? null,
+      tools: (tools.result.tools ?? []).map((t) => String(t.name ?? "")).filter(Boolean),
+    };
+  } catch (error) {
+    return { ok: false, error: `Couldn't reach ${access.name} (${(error as Error).message}).` };
+  }
+}
+
 export interface ConnectorAccess {
   id: ConnectorId;
   name: string;

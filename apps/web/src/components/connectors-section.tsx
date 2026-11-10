@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { KeyRound, Loader2 } from "lucide-react";
+import { CircleCheck, CircleX, KeyRound, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { CONNECTORS, connectorById, type Connector } from "@appbuilder/contract/protocol";
 import { Badge } from "@/components/ui/badge";
@@ -76,6 +76,20 @@ function ConnectorRow({
   const [tokenForm, setTokenForm] = useState(false);
   const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [test, setTest] = useState<
+    { ok: true; tools: string[] } | { ok: false; error: string } | null
+  >(null);
+  const runTest = async () => {
+    setTesting(true);
+    try {
+      setTest(await api(`/api/connectors/${connector.id}/test`, { method: "POST" }));
+    } catch {
+      // api() already showed the error
+    } finally {
+      setTesting(false);
+    }
+  };
   const saveToken = async () => {
     setBusy(true);
     try {
@@ -122,17 +136,29 @@ function ConnectorRow({
           ) : null}
         </div>
         {connection ? (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={async () => {
-              await api(`/api/integrations/${connector.id}`, { method: "DELETE" });
-              toast.success(`${connector.name} disconnected`);
-              onChanged();
-            }}
-          >
-            Disconnect
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={testing}
+              onClick={runTest}
+              data-testid="connector-test"
+            >
+              {testing ? <Loader2 className="animate-spin" /> : null} Test
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                await api(`/api/integrations/${connector.id}`, { method: "DELETE" });
+                toast.success(`${connector.name} disconnected`);
+                setTest(null);
+                onChanged();
+              }}
+            >
+              Disconnect
+            </Button>
+          </div>
         ) : connector.unavailable ? (
           <Button variant="outline" size="sm" disabled>
             Not available yet
@@ -148,6 +174,31 @@ function ConnectorRow({
           </Button>
         )}
       </div>
+
+      {connection && test ? (
+        <p
+          className="ml-12 mt-2 flex items-start gap-1.5 text-xs text-muted-foreground"
+          data-testid="connector-test-result"
+        >
+          {test.ok ? (
+            <>
+              <CircleCheck className="mt-px size-3.5 shrink-0 text-green-600" />
+              <span>
+                Works: {test.tools.length} {test.tools.length === 1 ? "tool" : "tools"}
+                {test.tools.length
+                  ? ` (${test.tools.slice(0, 6).join(", ")}${test.tools.length > 6 ? ", …" : ""})`
+                  : ""}
+                . Builds can read from it when you mention {connector.name} in the chat.
+              </span>
+            </>
+          ) : (
+            <>
+              <CircleX className="mt-px size-3.5 shrink-0 text-destructive" />
+              <span>{test.error}</span>
+            </>
+          )}
+        </p>
+      ) : null}
 
       {!connection && !connector.unavailable && connector.token ? (
         tokenForm ? (

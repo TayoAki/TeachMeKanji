@@ -9,6 +9,7 @@ import {
   connectorAccess,
   discoverAuthServer,
   startAuthorization,
+  testConnector,
 } from "./connectors";
 import { encryptSecret } from "./crypto";
 import { makeUser, testDb } from "./test-db";
@@ -133,6 +134,45 @@ describe("connector sign-in", () => {
       server: "Example MCP",
     });
     delete process.env.CONNECTOR_LINEAR_URL;
+  });
+
+  it("tests a connection by listing tools over a session, as server-sent events", async () => {
+    const seen: Array<{ method: string; session: string | null }> = [];
+    const fetchImpl = (async (_url: string, init: RequestInit) => {
+      const headers = init.headers as Record<string, string>;
+      const body = JSON.parse(String(init.body)) as { id?: number; method: string };
+      seen.push({ method: body.method, session: headers["mcp-session-id"] ?? null });
+      if (headers.authorization !== "Bearer good") return new Response("", { status: 401 });
+      if (body.id === undefined) return new Response(null, { status: 202 });
+      const result =
+        body.method === "initialize"
+          ? { serverInfo: { name: "Linear" } }
+          : { tools: [{ name: "list_issues" }, { name: "get_issue" }, { name: "save_issue" }] };
+      return new Response(
+        `event: message\ndata: ${JSON.stringify({ jsonrpc: "2.0", id: body.id, result })}\n\n`,
+        {
+          status: 200,
+          headers: { "content-type": "text/event-stream", "mcp-session-id": "s-1" },
+        },
+      );
+    }) as typeof fetch;
+    const access = { id: "linear" as const, name: "Linear", url: "https://mcp.example.com/mcp" };
+    expect(await testConnector({ ...access, token: "good" }, fetchImpl)).toEqual({
+      ok: true,
+      server: "Linear",
+      tools: ["list_issues", "get_issue", "save_issue"],
+    });
+    // Every request after initialize carries the session the server handed out.
+    expect(seen.map((s) => s.session)).toEqual([null, "s-1", "s-1"]);
+    expect(seen.map((s) => s.method)).toEqual([
+      "initialize",
+      "notifications/initialized",
+      "tools/list",
+    ]);
+    expect(await testConnector({ ...access, token: "expired" }, fetchImpl)).toEqual({
+      ok: false,
+      error: "Linear rejected the connection: connect it again.",
+    });
   });
 });
 

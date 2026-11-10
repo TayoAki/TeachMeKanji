@@ -76,7 +76,7 @@ export async function handlePaymentsSetup(ctx: HandlerContext): Promise<HandlerR
   const prompt = `App: "${name}". iOS bundle identifier: ${ids.ios}. Android package: ${ids.android}.
 
 Do this in RevenueCat:
-1. Use the project named "${name}" (create it if it doesn't exist).
+1. Use the RevenueCat project you can see: a secret API key belongs to one project. If several are listed, use the one named "${name}"; create a project only if none is listed.
 2. In it, use an App Store app with bundle identifier ${ids.ios} and a Play Store app with package ${ids.android} (create them if needed).
 3. For each plan below, create the product in both apps (store product identifier shown; auto-renewing subscription with the duration shown, or a non-consumable for lifetime), with the display name.
 ${offers

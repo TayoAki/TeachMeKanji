@@ -48,6 +48,14 @@ test("connect tools in Settings and use one from the chat", async ({ page }) => 
   await expect(notion.getByTestId("connector-status")).toHaveText("Connected");
   await expect(linear.getByTestId("connector-status")).toHaveText("Connected");
 
+  // Test opens a session the way builds do and lists the server's tools.
+  await notion.getByTestId("connector-test").click();
+  await expect(notion.getByTestId("connector-test-result")).toContainText(
+    "Works: 2 tools (search_issues, get_issue)",
+  );
+  await linear.getByTestId("connector-test").click();
+  await expect(linear.getByTestId("connector-test-result")).toContainText("Works: 2 tools");
+
   // A chat change that names Linear reads it first; one that names Mobbin says it isn't connected.
   await page.goto("/");
   await page.getByLabel("Describe your app").fill("A habit tracker");

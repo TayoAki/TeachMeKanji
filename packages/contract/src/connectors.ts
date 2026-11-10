@@ -136,7 +136,7 @@ export const CONNECTORS: readonly Connector[] = [
     token: {
       label: "Secret API key (v2)",
       link: "https://app.revenuecat.com/",
-      help: "RevenueCat → your project → API keys → + New secret API key (v2). The key is for one project.",
+      help: "RevenueCat → your project → API keys → + New secret API key (v2), with write access to project configuration. The key is for one project.",
     },
     mentions: /revenue ?cat/i,
   },
