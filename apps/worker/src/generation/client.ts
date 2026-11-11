@@ -19,7 +19,10 @@ export const DEFAULT_EFFORT = (process.env.GENERATION_EFFORT || "high") as
  * message. Server-side refusal fallback is enabled: if the model's safety classifier declines,
  * the API re-runs the request on Anthropic's recommended fallback model in the same call.
  */
-export function anthropicCreateMessage(client = new Anthropic()): CreateMessage {
+export function anthropicCreateMessage(
+  // Rate-limit (429) and overload (529) answers are retried with the API's own back-off.
+  client = new Anthropic({ maxRetries: Number(process.env.MODEL_MAX_RETRIES) || 4 }),
+): CreateMessage {
   return (params, hooks) => {
     // Haiku has no server-side fallback (a fallbacks field is a 400).
     const fallback = !String(params.model).startsWith("claude-haiku");

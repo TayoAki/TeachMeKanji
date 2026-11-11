@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import {
   canEdit,
   canManage,
+  EmailNotVerified,
   FeedbackError,
   InsufficientCredits,
   isAdminEmail,
@@ -103,6 +104,8 @@ export function route<Args extends unknown[]>(handler: (...args: Args) => Promis
       if (error instanceof RunInProgress || error instanceof VersionConflict) {
         return NextResponse.json({ error: error.message, code: "conflict" }, { status: 409 });
       }
+      if (error instanceof EmailNotVerified)
+        return NextResponse.json({ error: error.message, code: "verify_email" }, { status: 403 });
       if (error instanceof RateLimited) {
         return NextResponse.json({ error: error.message, code: "rate_limited" }, { status: 429 });
       }

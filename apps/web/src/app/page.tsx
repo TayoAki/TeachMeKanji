@@ -1,4 +1,5 @@
 import {
+  aiNeedsVerifiedEmail,
   creditBalance,
   listProjectsFor,
   listPublicProjects,
@@ -39,8 +40,14 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         plan,
         limits: PLANS[plan],
         pendingPrompt: typeof prompt === "string" ? prompt.slice(0, 4000) : "",
-        // The "verify your email" banner only matters when invites need it and email can be sent.
-        emailVerified: viewer.emailVerified || !emailConfigured() || !invitesNeedVerifiedEmail(),
+        // The "verify your email" banner: building needs it (free credits), or invites do.
+        verifyEmail: viewer.emailVerified
+          ? null
+          : aiNeedsVerifiedEmail()
+            ? "build"
+            : emailConfigured() && invitesNeedVerifiedEmail()
+              ? "invites"
+              : null,
       }}
     />
   );

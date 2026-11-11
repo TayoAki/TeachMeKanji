@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gt, inArray, lt, sql } from "drizzle-orm";
 import { schema, type Database } from "@appbuilder/db";
 import { chargeForRun, costUsd, RUN_CREDITS, type TokenUsage } from "./billing";
+import { emailProviderSet } from "./email";
 import { reserveCredits, settleCredits } from "./credits";
 import { newId } from "./ids";
 
@@ -15,6 +16,24 @@ const MAX_ATTEMPTS = 3;
 
 /** Agent runs change the project's files, so a project has at most one at a time. */
 export const AGENT_RUN_KINDS: ReadonlyArray<Run["kind"]> = ["plan", "build", "edit"];
+
+/**
+ * Free credits are real money, so a step that spends them needs a verified email: one inbox,
+ * one set of free credits. On only once email can actually be delivered (a real provider is
+ * set); REQUIRE_VERIFIED_EMAIL_FOR_AI=1 forces it on, =0 off.
+ */
+export function aiNeedsVerifiedEmail(): boolean {
+  const flag = process.env.REQUIRE_VERIFIED_EMAIL_FOR_AI;
+  if (flag === "0") return false;
+  if (flag === "1") return true;
+  return emailProviderSet();
+}
+
+export class EmailNotVerified extends Error {
+  constructor() {
+    super("Verify your email to start building: we sent you a link when you signed up.");
+  }
+}
 
 export class RunInProgress extends Error {
   constructor() {
@@ -32,6 +51,13 @@ export async function enqueueRun(
   input: { projectId: string; userId: string; kind: Run["kind"]; input?: Record<string, unknown> },
 ): Promise<Run> {
   const reserve = RUN_CREDITS[input.kind]?.reserve ?? 0;
+  if (reserve > 0 && aiNeedsVerifiedEmail()) {
+    const [owner] = await db
+      .select({ verified: schema.user.emailVerified })
+      .from(schema.user)
+      .where(eq(schema.user.id, input.userId));
+    if (!owner?.verified) throw new EmailNotVerified();
+  }
   return db.transaction(async (tx) => {
     if (AGENT_RUN_KINDS.includes(input.kind)) {
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"runs:" + input.projectId}))`);

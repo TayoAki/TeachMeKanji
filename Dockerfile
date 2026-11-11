@@ -64,6 +64,21 @@ RUN if [ "$INSTALL_VIDEO_RENDERER" = "1" ]; then \
     && if [ ! -e /opt/chrome-headless-shell/chrome-headless-shell ]; then \
       ln -s headless_shell /opt/chrome-headless-shell/chrome-headless-shell; fi; \
   fi
+# Daily database backups (worker only): pg_dump from the PostgreSQL project's own repository,
+# because it must be at least the server's major version (18 on Railway) and Debian ships 15.
+# Set INSTALL_PG_CLIENT=1 on the worker service.
+ARG INSTALL_PG_CLIENT=0
+ARG PG_CLIENT_VERSION=18
+RUN if [ "$INSTALL_PG_CLIENT" = "1" ]; then \
+    apt-get update && apt-get install -y --no-install-recommends curl \
+    && install -d /usr/share/postgresql-common/pgdg \
+    && curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+      https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" \
+      > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update && apt-get install -y --no-install-recommends postgresql-client-$PG_CLIENT_VERSION \
+    && rm -rf /var/lib/apt/lists/* && pg_dump --version; \
+  fi
 ENV VIDEO_BUNDLE_DIR=/opt/video-bundle
 ENV VIDEO_BROWSER_EXECUTABLE=/opt/chrome-headless-shell/chrome-headless-shell
 ENV NODE_ENV=production

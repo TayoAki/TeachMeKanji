@@ -90,7 +90,13 @@ test("bug reports: sent from anywhere with a screenshot, triaged by the operator
   await item.getByLabel(`Reply to ${title}`).fill("Thanks! We can reproduce it and it's next up.");
   await item.getByRole("button", { name: "Save" }).click();
   await expect(item.getByTestId("feedback-status")).toHaveText("Planned");
+  // The operator's funnel: the reporter counts as a sign-up; everyone else gets a 404.
+  await admin.goto("/admin/funnel?days=7");
+  await expect(admin.getByTestId("funnel-steps")).toContainText("Signed up");
+  expect(Number(await admin.getByTestId("funnel-signed_up").innerText())).toBeGreaterThanOrEqual(1);
+  await expect(admin.getByTestId("funnel-daily")).toBeVisible();
   await operator.close();
+  expect((await page.goto("/admin/funnel"))?.status()).toBe(404);
 
   // The sender sees the new status and the reply.
   await page.goto("/settings#feedback");

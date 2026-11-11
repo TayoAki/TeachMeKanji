@@ -76,4 +76,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: docker build -t appbuilder .
+      # With the worker's optional parts, so their install steps are checked too.
+      - run: docker build -t appbuilder --build-arg INSTALL_PG_CLIENT=1 .
+      - run: docker run --rm appbuilder pg_dump --version

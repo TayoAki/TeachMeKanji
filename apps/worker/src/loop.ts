@@ -3,6 +3,8 @@ import { hostname } from "node:os";
 import { eq } from "drizzle-orm";
 import {
   addEvent,
+  backupIfDue,
+  getStorage,
   addMessage,
   claimNextRun,
   completeRun,
@@ -158,13 +160,16 @@ export async function runWorker(
   let lastReap = 0;
   let lastPrune = 0;
   let lastHeartbeat = 0;
+  let backingUp = false;
   // Only one worker should manage phone-preview dev servers (they are local processes).
   const manageDevices = process.env.DEVICE_PREVIEW_ENABLED !== "0";
   const workerId = `${hostname()}-${process.pid}-${randomUUID().slice(0, 8)}`;
   if (manageDevices) devices.listen();
   let active = 0;
   let rendering = false;
-  const concurrency = Number(process.env.WORKER_CONCURRENCY || 4);
+  // Runs mostly wait on the model, so many fit on one worker; the model-request cap
+  // (MAX_MODEL_REQUESTS, see llm.ts) is what protects the account's rate limit.
+  const concurrency = Number(process.env.WORKER_CONCURRENCY || 12);
   // Video renders use every CPU they get: one at a time per worker, the rest of the queue flows.
   const allKinds = Object.keys(HANDLERS) as Run["kind"][];
   const withoutRenders = allKinds.filter((kind) => kind !== "promo_render");
@@ -209,6 +214,12 @@ export async function runWorker(
         await pruneAppCloud(db);
         // Analytics events past their retention window.
         await pruneAnalytics(db);
+        // Today's database backup into the bucket, if it isn't there yet (in the background:
+        // a dump takes seconds and never blocks the run queue; it reports its own errors).
+        if (!backingUp) {
+          backingUp = true;
+          void backupIfDue(getStorage()).finally(() => (backingUp = false));
+        }
         // The funnel's launch emails that are due (only when a real email provider is set).
         if (emailProviderSet())
           await sendDueFunnelEmails(db, {
