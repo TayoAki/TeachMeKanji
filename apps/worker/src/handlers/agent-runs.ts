@@ -25,6 +25,7 @@ import {
   userPlan,
 } from "@appbuilder/core";
 import { schema } from "@appbuilder/db";
+import { loadTestDesign } from "../design-test";
 import { platformUrl, withHostedLegalLinks } from "../platform-url";
 import {
   AgentError,
@@ -229,6 +230,7 @@ export async function handleBuild(ctx: HandlerContext): Promise<HandlerResult> {
       imageEndpoint: process.env.IMAGEKIT_URL_ENDPOINT || "",
     },
     onEvent: forwardAgentEvent(ctx),
+    design: await loadTestDesign(ctx.db, project.id),
   });
 
   const cloud = await withAppCloudForAi(

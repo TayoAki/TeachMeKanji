@@ -2,7 +2,9 @@ import type Anthropic from "@anthropic-ai/sdk";
 import {
   APP_INFO_FILE,
   APP_PLAN_JSON_SCHEMA,
+  appImagesFile,
   appInfoFile,
+  IMAGES_FILE,
   applyAppName,
   withAppIdentifiers,
   BACKEND_CONFIG_FILE,
@@ -38,8 +40,12 @@ import {
   planSystem,
   dataLayerRequest,
   screenComponentDir,
+  screenFromMockup,
   screenRequest,
+  themeFromMockup,
   themeRequest,
+  withMockup,
+  type BuildDesign,
 } from "./prompts";
 import { fanOut } from "../generation/fan-out";
 
@@ -123,8 +129,10 @@ export async function buildApp(input: {
   platform?: PlatformConfig;
   onEvent?: (event: AgentEvent) => Promise<void> | void;
   model?: string;
+  /** Approved mockups (design-first builds): the theme and every screen follow them. */
+  design?: BuildDesign;
 }): Promise<{ files: ProjectFiles; usage: UsageTotals; model: string; warnings: string[] }> {
-  const { createMessage } = input;
+  const { createMessage, design } = input;
   // Plans saved before the four-part structure get their onboarding, paywall and settings here.
   const plan = normalizePlan(input.plan, { maxScreens: Number.MAX_SAFE_INTEGER }).plan;
   const emit = async (event: AgentEvent) => input.onEvent?.(event);
@@ -148,6 +156,12 @@ export async function buildApp(input: {
       termsUrl: "",
     }),
   };
+  if (design?.images && Object.keys(design.images).length > 0)
+    files = { ...files, [IMAGES_FILE]: appImagesFile(design.images) };
+  // The theme follows the mockup of the main screen.
+  const mainPath =
+    plan.screens.find((s) => s.path === "app/(tabs)/index.tsx")?.path ?? plan.screens[0]?.path;
+  const keyMockup = design && mainPath ? design.mockups[mainPath] : undefined;
 
   // 1. Shared layer: the theme and the data layer are independent, so they run in parallel.
   await emit({ type: "step", label: "Designing the theme, data and shared components" });
@@ -158,7 +172,9 @@ export async function buildApp(input: {
   const tabsLayout = "app/(tabs)/_layout.tsx";
   const sharedParts = [
     {
-      request: themeRequest(plan),
+      request: keyMockup
+        ? withMockup(`${themeRequest(plan)}\n\n${themeFromMockup(plan)}`, keyMockup)
+        : themeRequest(plan),
       expectPaths: ["theme/tokens.ts"],
       allowWrite: {
         test: (path: string) => path === "theme/tokens.ts",
@@ -226,7 +242,12 @@ export async function buildApp(input: {
         createMessage,
         model: input.model,
         system: screenSystem,
-        request: screenRequest(plan, screen),
+        request: design?.mockups[screen.path]
+          ? withMockup(
+              `${screenRequest(plan, screen)}\n\n${screenFromMockup(design.images)}`,
+              design.mockups[screen.path],
+            )
+          : screenRequest(plan, screen),
         baseFiles: sharedFiles,
         expectPaths: [screen.path],
         allowWrite: {

@@ -82,6 +82,52 @@ ${JSON.stringify(plan, null, 2)}`;
  * The shared layer is written in two parallel steps that don't depend on each other: the
  * theme packs, and the data layer with the tab layout and shared components.
  */
+// --- Design-first builds: the user approved a mockup of each screen before building ---------
+
+export interface MockupImage {
+  mediaType: "image/png" | "image/jpeg";
+  /** Base64, no data: prefix. */
+  data: string;
+}
+
+export interface BuildDesign {
+  /** The approved mockup of each screen, by screen path. */
+  mockups: Record<string, MockupImage>;
+  /** Images added to the app for the build (mascot poses, illustrations): name → URL. */
+  images?: Record<string, string>;
+}
+
+/** A request with the approved mockup attached in front of it, when there is one. */
+export function withMockup(
+  text: string,
+  mockup: MockupImage | undefined,
+):
+  | string
+  | Array<
+      | {
+          type: "image";
+          source: { type: "base64"; media_type: MockupImage["mediaType"]; data: string };
+        }
+      | { type: "text"; text: string }
+    > {
+  if (!mockup) return text;
+  return [
+    { type: "image", source: { type: "base64", media_type: mockup.mediaType, data: mockup.data } },
+    { type: "text", text },
+  ];
+}
+
+export function themeFromMockup(plan: AppPlan): string {
+  return `The user approved a mockup of the app's main screen (the image above). The first pack ("${plan.themes[0]?.name}") must match it: take background, surface, text, muted text, primary and accent from the mockup, and the corner radius from its cards. The other packs keep their own moods but use the same radius.`;
+}
+
+export function screenFromMockup(images: Record<string, string> | undefined): string {
+  const names = Object.keys(images ?? {});
+  return `The user approved a mockup of this screen (the image above). Build it to match: the same sections in the same order, the same hierarchy (what is big, bold or colored), card shapes, spacing and icons (the nearest @expo/vector-icons), and its copy where it fits the plan. Colors come from the theme, which already matches the mockup. Leave out the iOS status bar and the home indicator: the system draws them.
+${names.length ? `Pictures: these images are added to the app; show them with <AiImage name="..." /> where the mockup shows them, choosing the pose or picture that fits the moment: ${names.map((n) => `"${n}"`).join(", ")}. Size them like the mockup and use resizeMode "contain" for characters. For any other picture in the mockup use <AiImage prompt="..." />.` : `For pictures in the mockup use <AiImage prompt="..." />.`}
+Where the mockup shows something the allowed imports can't do, build the closest thing that works.`;
+}
+
 export function themeRequest(plan: AppPlan): string {
   const themes = plan.themes
     .map(

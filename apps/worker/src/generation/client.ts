@@ -24,8 +24,9 @@ export function anthropicCreateMessage(
   client = new Anthropic({ maxRetries: Number(process.env.MODEL_MAX_RETRIES) || 4 }),
 ): CreateMessage {
   return (params, hooks) => {
-    // Haiku has no server-side fallback (a fallbacks field is a 400).
-    const fallback = !String(params.model).startsWith("claude-haiku");
+    // Haiku has no server-side fallback (a fallbacks field is a 400), and gateways in front of
+    // the API (ANTHROPIC_BASE_URL, e.g. OpenRouter) read `fallbacks` as their own setting.
+    const fallback = !String(params.model).startsWith("claude-haiku") && !gatewayInUse();
     const stream = client.beta.messages.stream({
       ...params,
       ...(fallback
@@ -38,6 +39,12 @@ export function anthropicCreateMessage(
     if (hooks?.onStreamStart) stream.once("streamEvent", () => hooks.onStreamStart?.());
     return stream.finalMessage();
   };
+}
+
+/** True when model requests go through a gateway instead of Anthropic's own API. */
+export function gatewayInUse(): boolean {
+  const base = process.env.ANTHROPIC_BASE_URL || "";
+  return base !== "" && !/^https:\/\/api\.anthropic\.com\/?$/.test(base);
 }
 
 export function textOf(message: Anthropic.Beta.Messages.BetaMessage): string {
