@@ -1,9 +1,10 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { dirname, join, relative, resolve } from "node:path";
 import { dataDir } from "./paths";
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -17,6 +18,8 @@ export interface Storage {
   put(key: string, data: Buffer, contentType: string): Promise<void>;
   get(key: string): Promise<StoredObject | null>;
   delete(key: string): Promise<void>;
+  /** Keys under a prefix (e.g. "backups/"), in no particular order. */
+  list(prefix: string): Promise<string[]>;
 }
 
 /** Local filesystem storage for development and tests. */
@@ -50,6 +53,14 @@ export function fileStorage(root: string): Storage {
       const path = pathFor(key);
       await rm(path, { force: true });
       await rm(`${path}.type`, { force: true });
+    },
+    async list(prefix) {
+      const dir = dirname(pathFor(`${prefix}x`));
+      const entries = await readdir(dir, { recursive: true, withFileTypes: true }).catch(() => []);
+      return entries
+        .filter((entry) => entry.isFile() && !entry.name.endsWith(".type"))
+        .map((entry) => relative(base, join(entry.parentPath, entry.name)))
+        .filter((key) => key.startsWith(prefix));
     },
   };
 }
@@ -95,6 +106,22 @@ export function s3Storage(config: {
     },
     async delete(key) {
       await client.send(new DeleteObjectCommand({ Bucket: config.bucket, Key: key }));
+    },
+    async list(prefix) {
+      const keys: string[] = [];
+      let token: string | undefined;
+      do {
+        const page = await client.send(
+          new ListObjectsV2Command({
+            Bucket: config.bucket,
+            Prefix: prefix,
+            ContinuationToken: token,
+          }),
+        );
+        for (const item of page.Contents ?? []) if (item.Key) keys.push(item.Key);
+        token = page.IsTruncated ? page.NextContinuationToken : undefined;
+      } while (token);
+      return keys;
     },
   };
 }

@@ -24,4 +24,6 @@ export * from "./app-analytics";
 export * from "./email";
 export * from "./funnel";
 export * from "./feedback";
+export * from "./funnel-report";
+export * from "./backup";
 export * from "./store-credentials";

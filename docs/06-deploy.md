@@ -188,8 +188,31 @@ set up.
 - **Errors:** every server error (web requests and worker jobs) is one JSON line on stderr.
   Set `ERROR_WEBHOOK_URL` to also POST them to a Slack/Discord incoming webhook or a
   collector.
+- **Releases:** production deploys from `main`. Work happens on a branch; a pull request into
+  `main` runs CI (format, lint, types, unit tests, a production build, the end-to-end suite
+  against production builds, and the Docker image with the worker's optional parts), and
+  merging deploys. Protect `main` in GitHub (Settings → Branches: require the CI checks) so
+  nothing reaches production without them.
 - **Backups:** everything, including generated apps' App Cloud data, is in Postgres (plus
-  uploads in S3 or the `/data` volume). Back up both, for example a nightly `pg_dump`.
+  uploads in the S3 bucket). The worker takes a `pg_dump` once a day into the bucket under
+  `backups/postgres/` and keeps the newest 14 (`DB_BACKUP_KEEP`); on by default in production,
+  `DB_BACKUP_ENABLED=0/1` to change that. It needs `INSTALL_PG_CLIENT=1` on the worker (a build
+  argument: pg_dump 18 from the PostgreSQL repository; `PG_CLIENT_VERSION` must be at least the
+  server's major version). To restore: download a dump from the bucket and run
+  `pg_restore --clean --if-exists --no-owner --no-acl -d "$DATABASE_URL" <file>.dump`. Also
+  turn on Railway's own volume backups for the Postgres service (its Backups tab) as a second
+  copy, and keep `ENCRYPTION_KEY` and `BETTER_AUTH_SECRET` somewhere safe outside Railway:
+  without `ENCRYPTION_KEY` every saved Expo, GitHub and store key is unreadable.
+- **AI throughput:** the worker runs up to `WORKER_CONCURRENCY` jobs at once (default 12) and
+  at most `MAX_MODEL_REQUESTS` model requests at once across them (default 24; a build writes
+  all its screens in parallel), retrying rate-limited requests `MODEL_MAX_RETRIES` times
+  (default 4). Raise `MAX_MODEL_REQUESTS` only as far as your Anthropic rate-limit tier allows.
+- **Free credits:** once real email is set up, a step that spends credits needs a verified
+  email (one inbox, one set of free credits); `REQUIRE_VERIFIED_EMAIL_FOR_AI=1/0` forces it on
+  or off.
+- **Your funnel:** `/admin/funnel` (for `ADMIN_EMAILS`) shows, for people who signed up in a
+  period, how many verified, started a project, got a plan, built, edited, opened it on a phone,
+  shipped something and pay, plus daily sign-ups, return visits and time to the first app.
 - **Limits:** credits, run concurrency, the per-user run and project limits and App Cloud's
   storage caps are enforced in the database, so they hold across instances. The sign-in,
   sign-up and new-device rate limits (Better Auth and App Cloud) are kept in memory per web

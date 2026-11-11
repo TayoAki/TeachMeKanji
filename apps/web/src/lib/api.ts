@@ -35,7 +35,23 @@ export async function api<T = unknown>(
       `${init.method ?? "GET"} ${path.split("?")[0]} → ${response.status} ${error.message}`,
     );
     if (!quiet) {
-      if (response.status === 402) {
+      if (error.code === "verify_email") {
+        toast.error(error.message, {
+          action: {
+            label: "Send the link again",
+            onClick: () =>
+              void fetch("/api/auth/send-verification-email", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ callbackURL: "/" }),
+              }).then((r) =>
+                r.ok
+                  ? toast.success("Sent. Check your inbox.")
+                  : toast.error("Couldn't send it. Try again in a minute."),
+              ),
+          },
+        });
+      } else if (response.status === 402) {
         toast.error(error.message, {
           action: {
             label: "Get credits",

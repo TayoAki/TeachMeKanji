@@ -26,7 +26,8 @@ export interface DashboardData {
   limits: { name: string; maxProjects: number | null; maxScreensPerProject: number };
   /** A prompt typed on the landing page before signing up. */
   pendingPrompt: string;
-  emailVerified: boolean;
+  /** Why to ask for a verified email: to start building (free credits), or for invites. */
+  verifyEmail: "build" | "invites" | null;
 }
 
 interface ActivityItem {
@@ -253,12 +254,14 @@ export function Dashboard({ initial }: { initial: DashboardData }) {
       bottomRight={<span>Expo SDK 58</span>}
     >
       <div className="mx-auto max-w-5xl p-6">
-        {!data.emailVerified ? (
+        {data.verifyEmail ? (
           <div
             className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-amber-300/60 bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
             data-testid="verify-banner"
           >
-            Verify your email ({data.user.email}) to accept projects people share with you.
+            {data.verifyEmail === "build"
+              ? `Verify your email (${data.user.email}) to start building. Your free credits are waiting: open the link we sent you.`
+              : `Verify your email (${data.user.email}) to accept projects people share with you.`}
             <Button
               size="sm"
               variant="outline"

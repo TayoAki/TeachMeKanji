@@ -64,7 +64,12 @@ jobs:
           cache: npm
       - run: npm install -g npm@11.21.2
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      # The system packages come from Ubuntu's mirrors, which sometimes fail to resolve on the
+      # runner: retry once, then install just the browser (the runner image has its libraries).
+      - run: >-
+          npx playwright install --with-deps chromium ||
+          (sleep 20 && npx playwright install --with-deps chromium) ||
+          npx playwright install chromium
         working-directory: apps/web
       - run: npm run db:migrate
       # Against production builds (next build + next start, the preview's static server).
@@ -76,4 +81,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: docker build -t appbuilder .
+      # With the worker's optional parts, so their install steps are checked too.
+      - run: docker build -t appbuilder --build-arg INSTALL_PG_CLIENT=1 .
+      - run: docker run --rm appbuilder pg_dump --version

@@ -31,10 +31,37 @@ export function getProvider(): Provider {
       offline: true,
     };
   return {
-    createMessage: anthropicCreateMessage(),
+    // One cap for every run on this worker: a build writes all its screens at once, so many
+    // builds together would otherwise exceed the account's rate limit and fail.
+    createMessage: limitConcurrency(
+      anthropicCreateMessage(),
+      Number(process.env.MAX_MODEL_REQUESTS) || 24,
+    ),
     model: process.env.GENERATION_MODEL || "claude-opus-5-5",
     editModel: process.env.EDIT_MODEL || "claude-sonnet-5-5",
     offline: false,
+  };
+}
+
+/**
+ * At most `max` model requests in flight at once; the rest wait their turn (first come, first
+ * served). Waiting costs nothing: a request is only sent, and billed, once it gets a slot.
+ */
+export function limitConcurrency(createMessage: CreateMessage, max: number): CreateMessage {
+  let active = 0;
+  const waiting: Array<() => void> = [];
+  const release = () => {
+    active -= 1;
+    waiting.shift()?.();
+  };
+  return async (params, hooks) => {
+    if (active >= max) await new Promise<void>((resolve) => waiting.push(resolve));
+    active += 1;
+    try {
+      return await createMessage(params, hooks);
+    } finally {
+      release();
+    }
   };
 }
 

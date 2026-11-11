@@ -70,7 +70,10 @@ export function AdminFeedback() {
           <h1 className="text-2xl font-semibold">Feedback</h1>
           <p className="text-sm text-muted-foreground">
             Bug reports and feature requests. Senders see the status and your reply in Settings, and
-            get an email when they change (with email set up).
+            get an email when they change (with email set up).{" "}
+            <a href="/admin/funnel" className="underline">
+              Funnel →
+            </a>
           </p>
         </div>
         <div className="flex gap-2 text-sm">
