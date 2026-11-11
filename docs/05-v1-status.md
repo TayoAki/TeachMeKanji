@@ -159,7 +159,9 @@ steps). This page says exactly what was verified here and what wasn't.
 - **History:** every build, AI edit, inspector edit, restore and App Cloud switch is a version;
   restore any of them.
 - **Phone preview:** a per-project Expo dev server and a QR code for Expo Go (SDK 58), with
-  live updates. Idle servers stop after 15 minutes.
+  live updates. Idle servers stop after 15 minutes. On Railway without a custom domain, each
+  preview takes one address from a pool (the worker's own and four relay services, so five
+  testers at once); when all are taken the dialog says so instead of ending someone's preview.
 - **Export:** zip download (Expo project with README and `eas.json`); push to GitHub (new repo,
   or an existing repo via a branch and pull request); Android/iOS builds with EAS (Pro, uses
   your Expo token).
@@ -280,7 +282,7 @@ image-fetch DNS pinning:
 | Push to GitHub | A user's fine-grained token (Settings) | Request sequence unit-tested; never run against GitHub |
 | Android/iOS builds and store submission | A user's Expo token, App Store Connect API key and Play service account (Settings), apps created in App Store Connect and Play Console | Built from Expo's documented non-interactive flow (`eas build --auto-submit` with `EXPO_ASC_*` and a submit profile); key checks are unit-tested; never run against EAS, Apple or Google |
 | Real purchases | A RevenueCat account (connector or public keys), products in the stores | The purchases module type-checks against react-native-purchases 10.15.1 and the setup run is tested offline; never run against RevenueCat or a store |
-| Phone on another network | A wildcard domain for `DEVICE_PREVIEW_DOMAIN` (or `DEVICE_PREVIEW_SINGLE_HOST` to try it on Railway's own address, one preview at a time) | Live on Railway with Railway's address: the session starts in about 5 s from the SDK in the worker image, and over the public internet the manifest (`exposdk:58.0.0`), the 6.6 MB bundle and the fast-refresh WebSocket (101) come through; debugger endpoints return 404. First scan from an iPhone reached the server; Expo Go then required the dev server to be signed in as the phone's Expo account, which previews now do with the user's Expo token |
+| Phone on another network | A wildcard domain for `DEVICE_PREVIEW_DOMAIN`, or a pool of Railway addresses (`DEVICE_PREVIEW_HOSTS`: the worker's own plus relay services, one preview each; production runs 5) | Live on Railway with Railway's address: the session starts in about 5 s from the SDK in the worker image, and over the public internet the manifest (`exposdk:58.0.0`), the 6.6 MB bundle and the fast-refresh WebSocket (101) come through; debugger endpoints return 404. First scan from an iPhone reached the server; Expo Go then required the dev server to be signed in as the phone's Expo account, which previews now do with the user's Expo token |
 | S3 / R2 storage | `S3_*` variables | Adapter written; local files used here |
 | Connectors | A user's account at each service | Sign-in (discovery, registration, PKCE, refresh with rotation) and pasted tokens are tested against a local stand-in MCP + OAuth server. On the deployed site, Connect reaches the real sign-in page of Linear, Notion, Miro, Jam, Crowdin, Mobbin, Appllama and Mapbox (registration and discovery work against their servers), and Linear's server refuses a wrong API key. No account was signed in to, and the model's MCP-connector call has not run live yet. **Test** in Settings (open a session with a fresh token, list the tools) and the live checklist for Linear, Notion and RevenueCat ([09-connector-tests.md](09-connector-tests.md)) are how to check each one with a real account |
 
