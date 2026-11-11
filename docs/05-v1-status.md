@@ -31,6 +31,13 @@ steps). This page says exactly what was verified here and what wasn't.
 - **Plan → revise → build:** the agent proposes a plan (screens, data, 5 themes). You revise
   it in chat ("add a settings screen"), then confirm. The build streams progress, and screens
   appear on the canvas as each one finishes.
+- **Design first:** a first plan starts from web research (competitors and what their users
+  complain about). After the plan, "Design my screens" draws a mockup of every screen and, when
+  the app suits one, a mascot in three poses; the canvas shows them for approval. Each can be
+  approved or redrawn from a note ("a warmer palette"). "Approve all & build" builds from them:
+  each screen's code is written from its mockup, the mascot's poses are added as app images,
+  and the app opens in the mockups' theme. "Skip mockups and build now" keeps the old path.
+  Needs `OPENROUTER_API_KEY` on the worker (images); offline mode draws simple placeholders.
 - **Edit by chat:** every change is validated against the contract and saved as a new version.
   Edits are limited by your plan's screen count. Click anywhere on a screen on the canvas to
   scope the chat to it ("Editing: Paywall screen").

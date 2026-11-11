@@ -3,10 +3,12 @@ import { eq } from "drizzle-orm";
 import {
   backendConfigFile,
   mentionedConnectors,
+  normalizeResearch,
   readPlatformConfig,
   refreshTemplate,
   type AppPlan,
   type ProjectFiles,
+  type ResearchBrief,
 } from "@appbuilder/contract";
 import { readTree } from "@appbuilder/contract/node";
 import {
@@ -25,6 +27,9 @@ import {
   userPlan,
 } from "@appbuilder/core";
 import { schema } from "@appbuilder/db";
+import { approvedDesignFor, DESIGN_BUILD_MODEL } from "../design/build-design";
+import { researchIdea } from "../design/research";
+import { researchForPlanner } from "../design/prompts";
 import { platformUrl, withHostedLegalLinks } from "../platform-url";
 import {
   AgentError,
@@ -174,6 +179,20 @@ export async function handlePlan(ctx: HandlerContext): Promise<HandlerResult> {
     previous ? (input.feedback ?? "") : project.prompt,
     previous ? "changes to their app's plan" : "a new app idea",
   );
+  // A first plan starts from what the web says about the idea; a revision reuses that research.
+  let research: ResearchBrief | null = previous ? normalizeResearch(previous.research) : null;
+  let researchUsage: UsageTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+  if (!previous && process.env.RESEARCH !== "0") {
+    await ctx.emit("step", { label: "Researching similar apps and what their users say" });
+    const found = await researchIdea({
+      createMessage: ctx.createMessage,
+      idea: project.prompt,
+      model: ctx.offline ? ctx.model : undefined,
+    });
+    research = found.research;
+    researchUsage = found.usage;
+    await ctx.emit("step", { label: "Drafting the plan" });
+  }
   const result = await planApp({
     createMessage: ctx.createMessage,
     model: ctx.model,
@@ -183,11 +202,17 @@ export async function handlePlan(ctx: HandlerContext): Promise<HandlerResult> {
     previous: previous ? (previous.data as unknown as AppPlan) : undefined,
     feedback: input.feedback,
     connectorBrief: connectors.brief,
+    research: research ? researchForPlanner(research) : undefined,
     defaultScreens: Number(process.env.DEFAULT_SCREEN_COUNT || 3),
     maxScreens: await maxScreens(ctx),
   });
 
-  const saved = await savePlan(ctx.db, project.id, result.plan);
+  const saved = await savePlan(
+    ctx.db,
+    project.id,
+    result.plan,
+    research as unknown as Record<string, unknown> | null,
+  );
   if (connectors.notes.length)
     await addMessage(ctx.db, {
       projectId: project.id,
@@ -206,7 +231,10 @@ export async function handlePlan(ctx: HandlerContext): Promise<HandlerResult> {
     status: "awaiting_confirmation",
     ...(previous ? {} : { name: result.plan.appName }),
   });
-  return { output: { planId: saved.id }, usage: sumUsage(connectors.usage, result.usage) };
+  return {
+    output: { planId: saved.id, researched: Boolean(research) },
+    usage: sumUsage(sumUsage(connectors.usage, result.usage), researchUsage),
+  };
 }
 
 export async function handleBuild(ctx: HandlerContext): Promise<HandlerResult> {
@@ -218,9 +246,12 @@ export async function handleBuild(ctx: HandlerContext): Promise<HandlerResult> {
   await updateProject(ctx.db, project.id, { status: "building" });
 
   const template = await readTree(join(repoRoot(), "templates/expo-app"));
+  // Approved mockups carry the design, so a cheaper model can write the code (offline: the same).
+  const approved = await approvedDesignFor(ctx.db, project.id, planRow.id);
+  if (approved) await ctx.emit("step", { label: "Building from your approved mockups" });
   const built = await buildApp({
     createMessage: ctx.createMessage,
-    model: ctx.model,
+    model: approved && !ctx.offline ? DESIGN_BUILD_MODEL() : ctx.model,
     plan,
     template,
     platform: {
@@ -229,6 +260,7 @@ export async function handleBuild(ctx: HandlerContext): Promise<HandlerResult> {
       imageEndpoint: process.env.IMAGEKIT_URL_ENDPOINT || "",
     },
     onEvent: forwardAgentEvent(ctx),
+    design: approved?.design,
   });
 
   const cloud = await withAppCloudForAi(

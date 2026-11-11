@@ -15,10 +15,11 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",
     "@appbuilder/contract": "*",
-    "@appbuilder/db": "*",
-    "drizzle-orm": "^0.45.4",
     "@appbuilder/core": "*",
-    "@appbuilder/video": "*"
+    "@appbuilder/db": "*",
+    "@appbuilder/video": "*",
+    "drizzle-orm": "^0.45.4",
+    "sharp": "0.35.5"
   },
   "exports": {
     "./client": "./src/generation/client.ts",

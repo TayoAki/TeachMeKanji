@@ -297,7 +297,13 @@ export async function latestPlan(db: Database, projectId: string): Promise<PlanR
   return row ?? null;
 }
 
-export async function savePlan(db: Database, projectId: string, data: AppPlan): Promise<PlanRow> {
+export async function savePlan(
+  db: Database,
+  projectId: string,
+  data: AppPlan,
+  /** The market research behind it; a revision without its own keeps the previous plan's. */
+  research?: Record<string, unknown> | null,
+): Promise<PlanRow> {
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"plans:" + projectId}))`);
     await tx
@@ -305,7 +311,7 @@ export async function savePlan(db: Database, projectId: string, data: AppPlan): 
       .set({ status: "superseded" })
       .where(and(eq(plan.projectId, projectId), eq(plan.status, "proposed")));
     const [last] = await tx
-      .select({ number: plan.number })
+      .select({ number: plan.number, research: plan.research })
       .from(plan)
       .where(eq(plan.projectId, projectId))
       .orderBy(desc(plan.number))
@@ -317,6 +323,7 @@ export async function savePlan(db: Database, projectId: string, data: AppPlan): 
         projectId,
         number: (last?.number ?? 0) + 1,
         data: data as unknown as Record<string, unknown>,
+        research: research ?? last?.research ?? null,
       })
       .returning();
     return row!;

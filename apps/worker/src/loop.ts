@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import {
   addEvent,
   backupIfDue,
+  workerCanDesign,
   getStorage,
   addMessage,
   claimNextRun,
@@ -35,6 +36,7 @@ import type { HandlerContext, HandlerResult } from "./handlers/context";
 import { handleGitHubPush } from "./handlers/github";
 import { handleNativeBuild } from "./handlers/native-build";
 import { handleReview } from "./handlers/review";
+import { handleDesign, handleMockup } from "./handlers/design";
 import { Cancelled, cancellable, getProvider, metered, type Provider } from "./llm";
 
 const HANDLERS: Record<Run["kind"], (ctx: HandlerContext) => Promise<HandlerResult>> = {
@@ -48,6 +50,8 @@ const HANDLERS: Record<Run["kind"], (ctx: HandlerContext) => Promise<HandlerResu
   store_listing: handleStoreListing,
   promo_storyboard: handlePromoStoryboard,
   promo_render: handlePromoRender,
+  design: handleDesign,
+  mockup: handleMockup,
   device_preview: async () => ({ output: {} }),
 };
 
@@ -100,6 +104,8 @@ export async function processRun(db: Database, run: Run, provider: Provider): Pr
     editModel: provider.editModel,
     offline: provider.offline,
     emit: (type, payload) => addEvent(db, run.id, type, payload),
+    charge: meter.charge,
+    overBudget: meter.overBudget,
   };
 
   try {
@@ -199,10 +205,11 @@ export async function runWorker(
       }
       if (Date.now() - lastHeartbeat > 30_000) {
         lastHeartbeat = Date.now();
-        // Tells the web app whether "Open on your phone" can work on this deployment.
-        void recordWorkerHeartbeat(db, workerId, { devicePreviews: manageDevices }).catch((error) =>
-          reportError(error, { where: "worker-heartbeat" }),
-        );
+        // Tells the web app whether "Open on your phone" and the design step work here.
+        void recordWorkerHeartbeat(db, workerId, {
+          devicePreviews: manageDevices,
+          design: workerCanDesign(),
+        }).catch((error) => reportError(error, { where: "worker-heartbeat" }));
       }
       if (Date.now() - lastReap > 30_000) {
         lastReap = Date.now();

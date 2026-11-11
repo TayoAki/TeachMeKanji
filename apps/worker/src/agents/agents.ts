@@ -2,7 +2,9 @@ import type Anthropic from "@anthropic-ai/sdk";
 import {
   APP_INFO_FILE,
   APP_PLAN_JSON_SCHEMA,
+  appImagesFile,
   appInfoFile,
+  IMAGES_FILE,
   applyAppName,
   withAppIdentifiers,
   BACKEND_CONFIG_FILE,
@@ -38,8 +40,12 @@ import {
   planSystem,
   dataLayerRequest,
   screenComponentDir,
+  screenFromMockup,
   screenRequest,
+  themeFromMockup,
   themeRequest,
+  withMockup,
+  type BuildDesign,
 } from "./prompts";
 import { fanOut } from "../generation/fan-out";
 
@@ -80,6 +86,8 @@ export async function planApp(input: {
   previous?: AppPlan;
   feedback?: string;
   connectorBrief?: string;
+  /** Web research for the idea, condensed for the planner (researchForPlanner). */
+  research?: string;
   defaultScreens: number;
   maxScreens: number;
   model?: string;
@@ -123,8 +131,10 @@ export async function buildApp(input: {
   platform?: PlatformConfig;
   onEvent?: (event: AgentEvent) => Promise<void> | void;
   model?: string;
+  /** Approved mockups (design-first builds): the theme and every screen follow them. */
+  design?: BuildDesign;
 }): Promise<{ files: ProjectFiles; usage: UsageTotals; model: string; warnings: string[] }> {
-  const { createMessage } = input;
+  const { createMessage, design } = input;
   // Plans saved before the four-part structure get their onboarding, paywall and settings here.
   const plan = normalizePlan(input.plan, { maxScreens: Number.MAX_SAFE_INTEGER }).plan;
   const emit = async (event: AgentEvent) => input.onEvent?.(event);
@@ -148,6 +158,12 @@ export async function buildApp(input: {
       termsUrl: "",
     }),
   };
+  if (design?.images && Object.keys(design.images).length > 0)
+    files = { ...files, [IMAGES_FILE]: appImagesFile(design.images) };
+  // The theme follows the mockup of the main screen.
+  const mainPath =
+    plan.screens.find((s) => s.path === "app/(tabs)/index.tsx")?.path ?? plan.screens[0]?.path;
+  const keyMockup = design && mainPath ? design.mockups[mainPath] : undefined;
 
   // 1. Shared layer: the theme and the data layer are independent, so they run in parallel.
   await emit({ type: "step", label: "Designing the theme, data and shared components" });
@@ -158,7 +174,9 @@ export async function buildApp(input: {
   const tabsLayout = "app/(tabs)/_layout.tsx";
   const sharedParts = [
     {
-      request: themeRequest(plan),
+      request: keyMockup
+        ? withMockup(`${themeRequest(plan)}\n\n${themeFromMockup(plan)}`, keyMockup)
+        : themeRequest(plan),
       expectPaths: ["theme/tokens.ts"],
       allowWrite: {
         test: (path: string) => path === "theme/tokens.ts",
@@ -200,6 +218,7 @@ export async function buildApp(input: {
     );
   }
   for (const result of shared) files = { ...files, ...result.files };
+  files = withPlanDefaultTheme(files, plan);
   await emit({ type: "files", files });
 
   // 2. Screens, in parallel. They share one cached prefix (template + shared layer); each
@@ -226,7 +245,12 @@ export async function buildApp(input: {
         createMessage,
         model: input.model,
         system: screenSystem,
-        request: screenRequest(plan, screen),
+        request: design?.mockups[screen.path]
+          ? withMockup(
+              `${screenRequest(plan, screen)}\n\n${screenFromMockup(design.images)}`,
+              design.mockups[screen.path],
+            )
+          : screenRequest(plan, screen),
         baseFiles: sharedFiles,
         expectPaths: [screen.path],
         allowWrite: {
@@ -263,6 +287,21 @@ export async function buildApp(input: {
   if (hasErrors(issues))
     throw new AgentError(`The generated app fails validation:\n${formatIssues(issues)}`);
   return { files, usage, model: input.model ?? DEFAULT_MODEL, warnings };
+}
+
+/**
+ * The app opens in the plan's first theme (the one its mockups use). The model sometimes picks
+ * another pack as the default; the platform sets it instead of trusting that.
+ */
+export function withPlanDefaultTheme(files: ProjectFiles, plan: AppPlan): ProjectFiles {
+  const id = plan.themes[0]?.id;
+  const tokens = files["theme/tokens.ts"];
+  if (!id || !tokens || !tokens.includes(`"${id}"`)) return files;
+  const fixed = tokens.replace(
+    /export const defaultThemeId\s*=\s*["'][^"']*["']/,
+    `export const defaultThemeId = "${id}"`,
+  );
+  return fixed === tokens ? files : { ...files, "theme/tokens.ts": fixed };
 }
 
 // --- Edit ----------------------------------------------------------------------------------

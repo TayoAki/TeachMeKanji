@@ -10,15 +10,16 @@ export const WORKER_FRESH_MS = 90_000;
 export async function recordWorkerHeartbeat(
   db: Database,
   id: string,
-  capabilities: { devicePreviews: boolean },
+  capabilities: { devicePreviews: boolean; design?: boolean },
 ): Promise<void> {
   const seenAt = new Date();
+  const design = capabilities.design ?? false;
   await db
     .insert(workerHeartbeat)
-    .values({ id, devicePreviews: capabilities.devicePreviews, seenAt })
+    .values({ id, devicePreviews: capabilities.devicePreviews, design, seenAt })
     .onConflictDoUpdate({
       target: workerHeartbeat.id,
-      set: { devicePreviews: capabilities.devicePreviews, seenAt },
+      set: { devicePreviews: capabilities.devicePreviews, design, seenAt },
     });
   // Workers that stopped long ago (restarts, redeploys).
   await db
@@ -34,6 +35,21 @@ export async function devicePreviewsAvailable(db: Database): Promise<boolean> {
     .where(
       and(
         eq(workerHeartbeat.devicePreviews, true),
+        gt(workerHeartbeat.seenAt, new Date(Date.now() - WORKER_FRESH_MS)),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
+}
+
+/** A running worker can draw mockups, so the design-first step is offered after a plan. */
+export async function designStepAvailable(db: Database): Promise<boolean> {
+  const [row] = await db
+    .select({ id: workerHeartbeat.id })
+    .from(workerHeartbeat)
+    .where(
+      and(
+        eq(workerHeartbeat.design, true),
         gt(workerHeartbeat.seenAt, new Date(Date.now() - WORKER_FRESH_MS)),
       ),
     )

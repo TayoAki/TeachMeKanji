@@ -15,7 +15,13 @@ const STALE_AFTER = "2 minutes";
 const MAX_ATTEMPTS = 3;
 
 /** Agent runs change the project's files, so a project has at most one at a time. */
-export const AGENT_RUN_KINDS: ReadonlyArray<Run["kind"]> = ["plan", "build", "edit"];
+export const AGENT_RUN_KINDS: ReadonlyArray<Run["kind"]> = [
+  "plan",
+  "build",
+  "edit",
+  "design",
+  "mockup",
+];
 
 /**
  * Free credits are real money, so a step that spends them needs a verified email: one inbox,
@@ -48,9 +54,16 @@ export class RunInProgress extends Error {
  */
 export async function enqueueRun(
   db: Database,
-  input: { projectId: string; userId: string; kind: Run["kind"]; input?: Record<string, unknown> },
+  input: {
+    projectId: string;
+    userId: string;
+    kind: Run["kind"];
+    input?: Record<string, unknown>;
+    /** Reserve this many credits instead of the kind's default (e.g. a build from mockups). */
+    reserve?: number;
+  },
 ): Promise<Run> {
-  const reserve = RUN_CREDITS[input.kind]?.reserve ?? 0;
+  const reserve = input.reserve ?? RUN_CREDITS[input.kind]?.reserve ?? 0;
   if (reserve > 0 && aiNeedsVerifiedEmail()) {
     const [owner] = await db
       .select({ verified: schema.user.emailVerified })

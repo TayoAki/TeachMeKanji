@@ -1,4 +1,4 @@
-import type { AppPlan, ProjectFiles } from "@appbuilder/contract/protocol";
+import type { AppPlan, DesignView, ProjectFiles } from "@appbuilder/contract/protocol";
 
 export interface ChatMessage {
   id: string;
@@ -44,4 +44,7 @@ export interface ProjectState {
   activeRun: { id: string; kind: string; status: string } | null;
   credits: number | null;
   plan_tier: "free" | "pro" | null;
+  /** Mockups for the latest plan (editors only), and whether this deployment can draw them. */
+  design: DesignView | null;
+  designAvailable: boolean;
 }

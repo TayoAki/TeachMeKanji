@@ -47,6 +47,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, ApiError } from "@/lib/api";
 import { Canvas } from "./canvas";
+import { DesignReview } from "./design-review";
 import { ChatPanel, type ChatSelection } from "./chat-panel";
 import { AppCloudPanel, DataView } from "./app-cloud";
 import { CodeView, HistoryView } from "./code-and-history";
@@ -220,12 +221,26 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
     }
   };
 
-  const build = async () => {
+  const build = async (options?: { skipDesign?: boolean }) => {
     const result = await api<{ runId: string }>(`/api/projects/${project.id}/build`, {
       method: "POST",
+      json: options?.skipDesign ? { skipDesign: true } : {},
     });
     startRun(result.runId);
   };
+
+  // Mockups before the build: draw them, then the canvas shows them for approval.
+  const startDesign = async () => {
+    const result = await api<{ runId: string }>(`/api/projects/${project.id}/design`, {
+      method: "POST",
+    });
+    startRun(result.runId);
+    void refresh();
+  };
+  const setDesign = useCallback(
+    (design: ProjectState["design"]) => setState((s) => ({ ...s, design })),
+    [],
+  );
 
   const cancel = async () => {
     if (runId) await api(`/api/runs/${runId}/cancel`, { method: "POST" });
@@ -409,6 +424,11 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
               onSend={send}
               onBuild={build}
               onCancel={cancel}
+              design={{
+                available: state.designAvailable,
+                exists: Boolean(state.design),
+                onDesign: () => void startDesign().catch(() => {}),
+              }}
               userInitial={(user?.name ?? "Y").slice(0, 1).toUpperCase()}
             />
           </>
@@ -631,7 +651,17 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
         </>
       }
     >
-      {tab === "canvas" ? (
+      {tab === "canvas" && !hasApp && state.design && canEdit ? (
+        <DesignReview
+          projectId={project.id}
+          design={state.design}
+          canEdit={canEdit}
+          busy={busy}
+          onDesignChange={setDesign}
+          onStartRun={startRun}
+          onBuild={() => build()}
+        />
+      ) : tab === "canvas" ? (
         <Canvas
           key={canvasKey}
           files={files}
