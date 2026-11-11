@@ -19,7 +19,12 @@ export async function testDb(): Promise<{ db: Database; close: () => Promise<voi
     return null;
   }
   const exists = await admin.query("select 1 from pg_database where datname = $1", [dbName]);
-  if (exists.rowCount === 0) await admin.query(`create database "${dbName}"`);
+  if (exists.rowCount === 0) {
+    // Test files start in parallel: on a fresh server (CI) several race to create it.
+    await admin.query(`create database "${dbName}"`).catch((error: { code?: string }) => {
+      if (error.code !== "42P04" && error.code !== "23505") throw error;
+    });
+  }
   await admin.end();
 
   const { db, pool } = createDb(TEST_URL);
