@@ -110,6 +110,15 @@ steps). This page says exactly what was verified here and what wasn't.
   tab says how many arrived (proof tracking works) but doesn't count them. It's free, and the
   tab reminds the owner to declare usage data in the stores' privacy forms. Revenue in money
   (from RevenueCat) isn't shown yet.
+- **Bug reports and feature requests:** the left rail's feedback button (and the account menu's
+  "Report a bug" / "Request a feature", and "Report this" under any failed step in the chat)
+  opens one dialog: bug, feature request or other, a title, details, up to three screenshots
+  (attach or paste) and, unless the sender switches it off, technical details: the page, the
+  browser and window size, the builder's last ten errors in that tab (uncaught errors and failed
+  API calls; never the generated app's) and the project's last failed step. Ten reports an hour
+  per user. Settings → Your reports shows each one with its status and the team's reply. The
+  operator (`ADMIN_EMAILS`) triages at /admin/feedback; new reports go to a Slack or Discord
+  webhook and an email address when set.
 - **Public site:** the landing page leads with predictable cost ("Build a subscription app
   without the surprise bill": free text edits, free rollbacks, no overages, the credit cost of a
   build) and the money structure checked on every build, plays the launch film, and answers the

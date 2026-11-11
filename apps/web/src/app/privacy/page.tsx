@@ -48,6 +48,12 @@ export default async function PrivacyPage() {
             <strong>Messages to us</strong> and answers you give in our surveys, such as the App
             Store check.
           </li>
+          <li>
+            <strong>Bug reports and feature requests:</strong> what you write, any screenshots you
+            attach and, unless you switch it off, technical details that help us reproduce a bug:
+            the page you were on, your browser and window size, the builder&rsquo;s recent errors in
+            that tab and the project&rsquo;s last failed step. Never your apps&rsquo; data.
+          </li>
         </ul>
         <h3>We collect automatically</h3>
         <ul>
@@ -148,6 +154,10 @@ export default async function PrivacyPage() {
             must keep for tax or legal reasons.
           </li>
           <li>Usage events from apps with analytics on: 90 days.</li>
+          <li>
+            Bug reports and feature requests: while your account is open, so you can follow their
+            status.
+          </li>
           <li>
             App Cloud sessions expire after 90 days; anonymous app users who never saved anything
             are removed after 30 days.

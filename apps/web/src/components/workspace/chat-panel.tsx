@@ -18,6 +18,7 @@ import type { RunProgress } from "@/hooks/use-run-stream";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { openFeedback } from "@/components/feedback-dialog";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "./types";
@@ -261,6 +262,22 @@ export function ChatPanel({
                 >
                   {m.kind === "error" ? <AlertTriangle className="mr-1 inline size-4" /> : null}
                   {m.content.text}
+                  {m.kind === "error" ? (
+                    <button
+                      type="button"
+                      className="mt-1 block text-xs underline underline-offset-2 opacity-80 hover:opacity-100"
+                      onClick={() =>
+                        openFeedback({
+                          kind: "bug",
+                          title: "A step failed in my project",
+                          body: `The chat said: "${String(m.content.text ?? "").slice(0, 300)}"\n\nWhat I was doing: `,
+                        })
+                      }
+                      data-testid="report-error"
+                    >
+                      Report this
+                    </button>
+                  ) : null}
                   {m.content.selection ? (
                     <span className="mt-1 block font-mono text-[10px] opacity-75">
                       on {m.content.selection.path}

@@ -9,6 +9,7 @@ import {
   CircleX,
   Home,
   LayoutGrid,
+  MessageSquarePlus,
   Loader2,
   Moon,
   Search,
@@ -16,6 +17,8 @@ import {
   Sun,
 } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import { installClientErrorBuffer } from "@/lib/client-errors";
+import { FeedbackDialog, openFeedback } from "@/components/feedback-dialog";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
@@ -243,6 +246,9 @@ export function LeftRail({
   const router = useRouter();
   const [searchOpen, setSearchOpen] = useState(false);
 
+  // Bug reports carry the builder's recent errors in this tab.
+  useEffect(() => installClientErrorBuffer(), []);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
@@ -290,6 +296,13 @@ export function LeftRail({
         <Settings className="size-5" />
       </RailButton>
       <div className="mt-auto flex flex-col items-center gap-2">
+        <RailButton
+          label="Report a bug or request a feature"
+          onClick={() => openFeedback()}
+          testId="rail-feedback"
+        >
+          <MessageSquarePlus className="size-5" />
+        </RailButton>
         <ThemeToggle />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -317,6 +330,13 @@ export function LeftRail({
             <DropdownMenuItem onSelect={() => router.push("/pricing")}>Plans</DropdownMenuItem>
             <ThemeMenu />
             <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => openFeedback({ kind: "bug" })}>
+              Report a bug
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => openFeedback({ kind: "request" })}>
+              Request a feature
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem
               onSelect={async () => {
                 await authClient.signOut();
@@ -330,6 +350,7 @@ export function LeftRail({
         </DropdownMenu>
       </div>
       <ProjectSearch open={searchOpen} onOpenChange={setSearchOpen} />
+      <FeedbackDialog />
     </nav>
   );
 }

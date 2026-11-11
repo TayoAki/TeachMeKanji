@@ -15,6 +15,7 @@ import { authClient } from "@/lib/auth-client";
 import { TimeAgo } from "@/components/time-ago";
 import { AssistantsSection } from "@/components/assistants-section";
 import { ConnectorsSection } from "@/components/connectors-section";
+import { FeedbackSection } from "@/components/feedback-section";
 import { StoreKeys } from "@/components/store-keys";
 
 export interface SettingsData {
@@ -239,6 +240,8 @@ export function SettingsView({ initial }: { initial: SettingsData }) {
             />
           </div>
         </section>
+
+        <FeedbackSection />
 
         <section>
           <h2 className="mb-3 text-lg font-semibold">Account</h2>

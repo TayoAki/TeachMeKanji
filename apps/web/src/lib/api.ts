@@ -1,6 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
+import { noteClientError } from "./client-errors";
 
 export class ApiError extends Error {
   constructor(
@@ -29,6 +30,9 @@ export async function api<T = unknown>(
       response.status,
       body.error ?? `Request failed (${response.status})`,
       body.code,
+    );
+    noteClientError(
+      `${init.method ?? "GET"} ${path.split("?")[0]} → ${response.status} ${error.message}`,
     );
     if (!quiet) {
       if (response.status === 402) {

@@ -4,7 +4,10 @@ import { NextResponse } from "next/server";
 import {
   canEdit,
   canManage,
+  FeedbackError,
   InsufficientCredits,
+  isAdminEmail,
+  isAdminToken,
   LimitReached,
   projectAccess,
   RateLimited,
@@ -52,6 +55,17 @@ export async function requireViewer(): Promise<SessionUser> {
   return viewer;
 }
 
+/**
+ * The operator: a signed-in user listed in ADMIN_EMAILS, or a request carrying ADMIN_API_TOKEN.
+ * Anyone else gets a 404, so the admin surface doesn't advertise itself.
+ */
+export async function requireAdmin(request?: Request): Promise<SessionUser | null> {
+  if (request && isAdminToken(request.headers.get("authorization"))) return null;
+  const viewer = await getViewer();
+  if (!viewer || !isAdminEmail(viewer.email)) throw new HttpError(404, "Not found.");
+  return viewer;
+}
+
 /** Load a project the viewer may access at the given level, or throw a 404/403. */
 export async function requireProject(projectId: string, need: "view" | "edit" | "manage" = "view") {
   const viewer = await getViewer();
@@ -75,7 +89,7 @@ export function route<Args extends unknown[]>(handler: (...args: Args) => Promis
     try {
       return await handler(...args);
     } catch (error) {
-      if (error instanceof HttpError)
+      if (error instanceof HttpError || error instanceof FeedbackError)
         return NextResponse.json({ error: error.message }, { status: error.status });
       if (error instanceof InsufficientCredits) {
         return NextResponse.json(

@@ -1,7 +1,7 @@
 import "server-only";
 
 /** When the privacy policy and terms last changed (shown on both pages). */
-export const LEGAL_UPDATED = "November 10, 2026";
+export const LEGAL_UPDATED = "November 11, 2026";
 
 /**
  * Who stands behind the service, from the environment so the pages need no code change:

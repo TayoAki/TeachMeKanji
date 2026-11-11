@@ -27,3 +27,6 @@ export const E2E_BASE_URL = process.env.E2E_BASE_URL;
 
 /** The operator token for /api/admin/* in the local stack (not a real credential). */
 export const E2E_ADMIN_TOKEN = "e2e-admin-token-e2e-admin-token-0123456789";
+
+/** The operator's email in the local stack (ADMIN_EMAILS): triages bug reports and requests. */
+export const E2E_FEEDBACK_ADMIN = "feedback-admin@example.com";

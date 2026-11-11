@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 import {
   E2E_ADMIN_TOKEN,
+  E2E_FEEDBACK_ADMIN,
   E2E_AUTH_SECRET,
   E2E_BASE_URL,
   E2E_DATABASE_URL,
@@ -99,6 +100,7 @@ export default defineConfig({
             // preview-runtime.spec.ts drives the runtime through the (otherwise dev-only) spike page.
             ENABLE_SPIKES: "1",
             ADMIN_API_TOKEN: E2E_ADMIN_TOKEN,
+            ADMIN_EMAILS: E2E_FEEDBACK_ADMIN,
             // App Cloud's AI endpoint answers with the offline generator too.
             LLM_PROVIDER: "fake",
           },
