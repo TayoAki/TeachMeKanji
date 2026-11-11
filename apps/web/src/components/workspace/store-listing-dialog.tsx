@@ -267,16 +267,19 @@ function Field({
 }
 
 /** One screen rendered off-screen at full device size, captured once it has rendered. */
-function Capturer({
+export function Capturer({
   files,
   screen,
   themeId,
+  scale = 3,
   onCaptured,
   onFailed,
 }: {
   files: ProjectFiles;
   screen: string;
   themeId?: string;
+  /** Pixel ratio of the capture (3 = the device's own). */
+  scale?: number;
   onCaptured: (png: string) => void;
   onFailed: (message: string) => void;
 }) {
@@ -307,7 +310,7 @@ function Capturer({
           // Let images and fonts settle before the picture is taken.
           setTimeout(() => {
             ref.current
-              ?.capture(3)
+              ?.capture(scale)
               .then(onCaptured)
               .catch((e: Error) => onFailed(e.message));
           }, 1200);

@@ -27,6 +27,7 @@ import { DeviceManager } from "./device";
 import { GenerationStopped } from "./generation/generate-file";
 import { handleBuild, handleEdit, handlePlan } from "./handlers/agent-runs";
 import { handlePaymentsSetup } from "./handlers/payments-setup";
+import { handlePromoRender, handlePromoStoryboard } from "./handlers/promo-video";
 import { handleStoreListing } from "./handlers/store-listing";
 import type { HandlerContext, HandlerResult } from "./handlers/context";
 import { handleGitHubPush } from "./handlers/github";
@@ -43,6 +44,8 @@ const HANDLERS: Record<Run["kind"], (ctx: HandlerContext) => Promise<HandlerResu
   native_build: handleNativeBuild,
   payments_setup: handlePaymentsSetup,
   store_listing: handleStoreListing,
+  promo_storyboard: handlePromoStoryboard,
+  promo_render: handlePromoRender,
   device_preview: async () => ({ output: {} }),
 };
 
@@ -160,17 +163,29 @@ export async function runWorker(
   const workerId = `${hostname()}-${process.pid}-${randomUUID().slice(0, 8)}`;
   if (manageDevices) devices.listen();
   let active = 0;
+  let rendering = false;
   const concurrency = Number(process.env.WORKER_CONCURRENCY || 4);
+  // Video renders use every CPU they get: one at a time per worker, the rest of the queue flows.
+  const allKinds = Object.keys(HANDLERS) as Run["kind"][];
+  const withoutRenders = allKinds.filter((kind) => kind !== "promo_render");
 
   while (!options.signal?.aborted) {
     let worked = false;
     try {
-      const run = active < concurrency ? await claimNextRun(db) : null;
+      const run =
+        active < concurrency
+          ? await claimNextRun(db, rendering ? withoutRenders : undefined)
+          : null;
       if (run) {
         worked = true;
         active += 1;
+        const render = run.kind === "promo_render";
+        if (render) rendering = true;
         // Runs are independent; don't let one slow build block the queue.
-        void processRun(db, run, provider).finally(() => (active -= 1));
+        void processRun(db, run, provider).finally(() => {
+          active -= 1;
+          if (render) rendering = false;
+        });
       }
       if (manageDevices && Date.now() - lastDeviceTick > 2_000) {
         lastDeviceTick = Date.now();

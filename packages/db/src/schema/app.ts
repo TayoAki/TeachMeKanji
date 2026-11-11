@@ -199,7 +199,11 @@ export type RunKind =
   /** Create the app's products, entitlement and offering in the user's RevenueCat. */
   | "payments_setup"
   /** Write the App Store / Google Play listing (name, description, keywords, captions). */
-  | "store_listing";
+  | "store_listing"
+  /** Write a promo video's storyboard (hook, screens with captions, tagline, call to action). */
+  | "promo_storyboard"
+  /** Render a promo video of the app from its storyboard and captured screens. */
+  | "promo_render";
 export type RunStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
 
 export const agentRun = pgTable(

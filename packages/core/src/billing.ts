@@ -135,6 +135,9 @@ export const RUN_CREDITS: Record<string, { reserve: number; minimum: number }> =
   native_build: { reserve: 0, minimum: 0 },
   payments_setup: { reserve: 40, minimum: 1 },
   store_listing: { reserve: 8, minimum: 1 },
+  promo_storyboard: { reserve: 6, minimum: 1 },
+  // No model: a few minutes of the worker's CPU, well under a credit.
+  promo_render: { reserve: 1, minimum: 1 },
 };
 
 /** Credits for a measured cost, before minimums and caps. */

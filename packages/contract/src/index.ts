@@ -29,3 +29,4 @@ export * from "./changes";
 export * from "./connectors";
 export * from "./store-listing";
 export * from "./store-check";
+export * from "./promo-video";

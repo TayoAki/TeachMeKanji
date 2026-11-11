@@ -1,0 +1,24 @@
+{
+  "name": "@appbuilder/video",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Promo videos of generated apps: a Remotion Product Film rendered by the worker.",
+  "exports": {
+    ".": "./src/render.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "prepare-renderer": "tsx src/prepare.ts",
+    "sample": "tsx src/sample.ts"
+  },
+  "dependencies": {
+    "@appbuilder/contract": "*",
+    "@remotion/bundler": "4.0.539",
+    "@remotion/renderer": "4.0.539",
+    "geist": "1.8.2",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "remotion": "4.0.539"
+  }
+}

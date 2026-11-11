@@ -56,6 +56,9 @@ function respond(params: Params): string {
   // Store listing (structured output): fixed copy that fits the stores' limits.
   if (params.output_config?.format && systemText(params).startsWith("You write App Store"))
     return JSON.stringify(fakeListing(request));
+  // Promo video storyboard (structured output): the first screens with fixed captions.
+  if (params.output_config?.format && systemText(params).startsWith("You storyboard"))
+    return JSON.stringify(fakeStoryboard(request));
   // RevenueCat setup through the connector: offline mode can't reach RevenueCat; fake keys.
   if (params.mcp_servers?.length && systemText(params).startsWith("You set up in-app purchases"))
     return `Offline mode: RevenueCat wasn't called.\n\n\`\`\`json\n${JSON.stringify({
@@ -1330,6 +1333,23 @@ export default function AskScreen() {
   );
 }
 `;
+}
+
+function fakeStoryboard(request: string) {
+  const screens = (/these paths exactly\): ([^\n]+)/.exec(request)?.[1] ?? "")
+    .split(", ")
+    .filter(Boolean);
+  const captions = ["Start in seconds", "See your progress", "Everything in one place"];
+  return {
+    hook: "Your day, sorted in a minute",
+    beats: screens.slice(0, 3).map((screen, i) => ({
+      screen,
+      caption: captions[i]!,
+      focus: i === 1 ? "middle" : "top",
+    })),
+    tagline: "Small steps, every day",
+    cta: "Coming soon to iPhone",
+  };
 }
 
 function fakeListing(request: string) {

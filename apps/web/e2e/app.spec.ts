@@ -541,6 +541,64 @@ test("store listing: copy within the stores' limits, framed screenshots, one zip
   expect(download.suggestedFilename()).toMatch(/-store-listing\.zip$/);
 });
 
+test("promo video: an editable storyboard, a real render of the app's screens, play and download", async ({
+  page,
+}) => {
+  test.setTimeout(300_000);
+  await signUp(page, "Director");
+  await createAndBuild(page, "A habit tracker with streaks");
+  const projectId = page.url().split("/projects/")[1]!;
+  await page.getByRole("button", { name: "Project menu" }).click();
+  await page.getByTestId("open-promo").click();
+  await page.getByTestId("promo-write").click();
+
+  // The board is the AI's draft, and every word of it is the owner's to change.
+  const board = page.getByTestId("promo-board");
+  await expect(board.getByTestId("promo-beat")).toHaveCount(3, { timeout: 30_000 });
+  await expect(page.getByTestId("promo-hook")).toHaveValue("Your day, sorted in a minute");
+  await page.getByTestId("promo-hook").fill("Build habits that stick");
+  await page.getByLabel("Caption for screen 1").fill("");
+  await expect(board).toContainText("Write a caption for screen 1.");
+  await expect(page.getByTestId("promo-render")).toBeDisabled();
+  await page.getByLabel("Caption for screen 1").fill("Check in with one tap");
+
+  // Rendering captures the screens from the app's own preview, then films them.
+  await page.getByTestId("promo-format-landscape").click();
+  await page.getByTestId("promo-render").click();
+  await expect(page.getByTestId("promo-progress")).toBeVisible();
+  const video = page.getByTestId("promo-video").first();
+  await expect(video).toBeVisible({ timeout: 240_000 });
+  await expect(page.getByTestId("promo-videos")).toContainText("Build habits that stick");
+  await expect(page.getByTestId("promo-videos")).toContainText("Landscape 16:9");
+  const duration = await video.evaluate(
+    (v: HTMLVideoElement) =>
+      new Promise<number>((resolve) => {
+        if (v.readyState >= 1) resolve(v.duration);
+        else v.addEventListener("loadedmetadata", () => resolve(v.duration), { once: true });
+      }),
+  );
+  expect(duration).toBeGreaterThan(12);
+
+  // The file streams with byte ranges (the player can seek), and only to the project's members.
+  const src = (await video.getAttribute("src"))!;
+  const ranged = await page.request.get(src, { headers: { Range: "bytes=0-99" } });
+  expect(ranged.status()).toBe(206);
+  expect(ranged.headers()["content-type"]).toBe("video/mp4");
+  expect((await ranged.body()).length).toBe(100);
+  const stranger = await page.context().browser()!.newContext();
+  expect((await stranger.request.get(new URL(src, page.url()).toString())).status()).toBe(401);
+  await stranger.close();
+  expect((await page.request.get(`/api/projects/${projectId}/promo/nope/video.mp4`)).status()).toBe(
+    404,
+  );
+
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("link", { name: "Download MP4" }).first().click(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(/-promo-landscape\.mp4$/);
+});
+
 test("App Cloud: accounts and per-user data for the generated app", async ({ page, request }) => {
   await signUp(page, "Cloud");
   await createAndBuild(page, "A habit tracker with streaks");

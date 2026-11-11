@@ -61,6 +61,8 @@ export default defineConfig({
             FAKE_LLM_DELAY_MS: "30",
             // No Expo dev servers in tests; the phone dialog reports that they're off.
             DEVICE_PREVIEW_ENABLED: "0",
+            // Promo videos render for real, at a quarter of the size to keep the test quick.
+            VIDEO_RENDER_SCALE: "0.25",
             ...(E2E_PROD ? { NODE_ENV: "production" } : {}),
           },
         },

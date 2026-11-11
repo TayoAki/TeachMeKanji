@@ -29,6 +29,7 @@ COPY apps/worker/package.json apps/worker/
 COPY packages/contract/package.json packages/contract/
 COPY packages/core/package.json packages/core/
 COPY packages/db/package.json packages/db/
+COPY packages/video/package.json packages/video/
 RUN npm ci --no-audit --no-fund
 
 FROM deps AS app
@@ -47,6 +48,24 @@ RUN if [ "$INSTALL_EXPO_RUNTIME" = "1" ]; then \
     && cd /opt/expo-runtime && npm install --no-audit --no-fund && npm cache clean --force; \
   fi
 ENV EXPO_RUNTIME_DIR=/opt/expo-runtime
+# Promo videos (worker only): Chrome's runtime libraries, Remotion's headless Chrome (moved to a
+# fixed path) and the pre-built composition, so the first render doesn't wait for a bundle. Set
+# INSTALL_VIDEO_RENDERER=1 on the worker service. Without it, rendering reports it isn't set up.
+ARG INSTALL_VIDEO_RENDERER=0
+RUN if [ "$INSTALL_VIDEO_RENDERER" = "1" ]; then \
+    apt-get update \
+    && apt-get install -y --no-install-recommends libnss3 libdbus-1-3 libatk1.0-0 \
+      libatk-bridge2.0-0 libgbm1 libasound2 libxrandr2 libxkbcommon0 libxfixes3 libxcomposite1 \
+      libxdamage1 libpango-1.0-0 libcairo2 libcups2 fontconfig fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/* \
+    && VIDEO_BUNDLE_DIR=/opt/video-bundle npm run prepare-renderer -w @appbuilder/video \
+    && shell="$(find /app -type d -name 'chrome-headless-shell-linux*' -path '*.remotion*' | head -1)" \
+    && mv "$shell" /opt/chrome-headless-shell \
+    && if [ ! -e /opt/chrome-headless-shell/chrome-headless-shell ]; then \
+      ln -s headless_shell /opt/chrome-headless-shell/chrome-headless-shell; fi; \
+  fi
+ENV VIDEO_BUNDLE_DIR=/opt/video-bundle
+ENV VIDEO_BROWSER_EXECUTABLE=/opt/chrome-headless-shell/chrome-headless-shell
 ENV NODE_ENV=production
 # Local files (when S3_* is unset) live here; mount a volume at /data to keep them.
 ENV APP_DATA_DIR=/data

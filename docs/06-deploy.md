@@ -56,7 +56,21 @@ Postgres template and a Railway bucket:
 |---------|---------------|-------|
 | web | `npm run start -w @appbuilder/web` | Domain on port 3000; pre-deploy `npm run db:migrate`; health check `/api/health` |
 | preview | `npm run start -w @appbuilder/preview` | Its own domain on port 3001 (a separate site from the app) |
-| worker | `npm run start -w @appbuilder/worker` | For phone previews, `INSTALL_EXPO_RUNTIME=1` and a domain (below) |
+| worker | `npm run start -w @appbuilder/worker` | For phone previews, `INSTALL_EXPO_RUNTIME=1` and a domain (below); for promo videos, `INSTALL_VIDEO_RENDERER=1` (below) |
+
+**Promo videos.** The worker renders them with Remotion and a headless Chrome. Set
+`INSTALL_VIDEO_RENDERER=1` on the worker (a build argument, like `INSTALL_EXPO_RUNTIME`): its
+image then carries Chrome's libraries, Remotion's Chrome headless shell at
+`/opt/chrome-headless-shell` and the compiled composition at `/opt/video-bundle`. Without it, a
+render fails with "Video rendering isn't set up on this server yet" and isn't charged. Each
+worker renders one video at a time (other runs keep flowing); a 20-second 1080×1920 film took
+about 2 minutes on 4 CPUs. Optional: `VIDEO_RENDER_CONCURRENCY` (Chrome tabs per render;
+default half the CPUs, at most 4) and `REMOTION_LICENSE_KEY`.
+
+**Remotion's licence.** Remotion is free for individuals and companies of up to three people;
+larger companies need a company licence, and a product whose users render videos counts its
+renders. With a licence, set `REMOTION_LICENSE_KEY` (the `rm_sec_…` key from remotion.pro) on
+the worker so production renders are reported. Check remotion.dev/license before launch.
 
 **Phone previews on Railway.** Railway gives a service HTTPS domains, not the raw ports each
 Metro dev server listens on, so the worker routes phones itself: every preview session gets a

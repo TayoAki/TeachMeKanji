@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronLeft,
+  Clapperboard,
   Copy,
   Download,
   Loader2,
@@ -53,6 +54,7 @@ import { DeviceDialog, ExportDialog, PublishDialog, ShareDialog } from "./dialog
 import { Inspector, ThemeList } from "./inspector";
 import { AnalyticsView } from "./analytics-view";
 import { PaymentsPanel } from "./payments-panel";
+import { PromoVideoDialog } from "./promo-video-dialog";
 import { StoreListingDialog } from "./store-listing-dialog";
 import type { ProjectState } from "./types";
 
@@ -82,7 +84,7 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
   const [appHref, setAppHref] = useState("/");
   const [appKey, setAppKey] = useState(0);
   const [dialog, setDialog] = useState<
-    null | "share" | "export" | "publish" | "device" | "listing"
+    null | "share" | "export" | "publish" | "device" | "listing" | "promo"
   >(null);
   const [codeFocus, setCodeFocus] = useState<string | null>(null);
 
@@ -369,6 +371,13 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
                     data-testid="open-listing"
                   >
                     <Store /> Store listing
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => setDialog("promo")}
+                    disabled={!state.versionId}
+                    data-testid="open-promo"
+                  >
+                    <Clapperboard /> Promo video
                   </DropdownMenuItem>
                   {canManage ? (
                     <>
@@ -700,6 +709,15 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
       <StoreListingDialog
         open={dialog === "listing"}
         onOpenChange={(o) => setDialog(o ? "listing" : null)}
+        projectId={project.id}
+        files={files}
+        themeId={themeId}
+        theme={activeTheme}
+        canEdit={canEdit}
+      />
+      <PromoVideoDialog
+        open={dialog === "promo"}
+        onOpenChange={(o) => setDialog(o ? "promo" : null)}
         projectId={project.id}
         files={files}
         themeId={themeId}

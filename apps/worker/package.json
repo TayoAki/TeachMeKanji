@@ -17,7 +17,8 @@
     "@appbuilder/contract": "*",
     "@appbuilder/db": "*",
     "drizzle-orm": "^0.45.4",
-    "@appbuilder/core": "*"
+    "@appbuilder/core": "*",
+    "@appbuilder/video": "*"
   },
   "exports": {
     "./client": "./src/generation/client.ts",

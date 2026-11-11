@@ -59,6 +59,21 @@ steps). This page says exactly what was verified here and what wasn't.
   own preview frame, which draws itself to a PNG (html-to-image), and frames it with its
   caption over the theme's color at App Store (1290×2796) and Google Play (1080×1920) sizes;
   "Download all" zips them with the text.
+- **Promo videos:** Project menu → Promo video makes a short film of the app the Sizzle way.
+  The AI writes a storyboard from the plan (a promo_storyboard run on Sonnet, about a credit):
+  a 3–7 word hook on screen from the first frame, 3–4 screens in story order with one benefit
+  caption and a camera focus each (the last is the payoff), a tagline and a truthful call to
+  action ("Coming soon to iPhone" unless the owner says otherwise). The owner edits every word,
+  reorders, adds or removes screens, picks vertical 9:16 (TikTok, Reels, Shorts: hook band and
+  burned-in captions, the bottom 20% kept clear) or landscape 16:9 (site, X, YouTube: text beside
+  the phone, never over it), and can add music they have the rights to. The builder captures the
+  chosen screens from the app's own preview (the paywall and settings are left out: in the preview
+  they show test purchases), and the worker films them with Remotion (`packages/video`): frame 0
+  already moving with the hook, each screen shown whole then pushed in on its focus and held for
+  the read, one marquee of every screen side by side, and a close on the app's name, tagline and
+  call to action. No cursor, because nothing is being operated. The MP4 (H.264, faststart) and
+  its poster frame are stored with the run; the dialog plays them (with seeking) and downloads
+  them. A render costs 1 credit and takes a few minutes; one renders at a time per worker.
 - **Send to the stores:** the build dialog's "Send to TestFlight" and "Send to Google Play"
   run a production EAS build with auto-submit on the user's Expo account. Settings → Phone
   builds holds the App Store Connect API key (checked by signing a request Apple accepts; it

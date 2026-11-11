@@ -76,7 +76,7 @@ policy for every app. Those were matrix rows "Writes and hosts your privacy poli
 | 27 | Localization and translated screenshots | Missing | **Later** | L | — |
 | 28 | Store reviews: read and reply | Missing | **Later** | M | User's ASC key |
 | 29 | Store-page conversion tracking | Missing | **Later** | M–L | User's ASC key |
-| 30 | AI marketing videos (task #39) | Missing | **Later** | L | ElevenLabs key; Remotion licence check |
+| 30 | AI marketing videos | **Built** (promo videos, no voiceover yet) | — | — | Remotion licence check; ElevenLabs key for a voiceover |
 | 31 | Real iOS simulator in the browser | Partial | **Later** | M | Appetize (paid per minute) |
 | 32 | Fake GPS and webcam in the preview | Missing | **Later** | S–M | — |
 | 33 | Test a real purchase before TestFlight | Partial | **Later** | M | User's RevenueCat |
@@ -439,14 +439,16 @@ policy for every app. Those were matrix rows "Writes and hosts your privacy poli
 - **Size:** M–L, 1–2 weeks.
 - **Keys:** the user's ASC key (have).
 
-### 30. AI marketing videos — missing (task #39)
-- **Need it?** Later. It's a real differentiator, and we have the pipeline from our own launch
-  film.
-- **Work:** render the app's canvas screens into a 15–30 s vertical video with Remotion on the
-  worker, plus captions, a synthesized voiceover and royalty-free music. Billed in credits.
-- **Size:** L, 2 weeks.
-- **Keys:** an ElevenLabs API key (ours, at cost to credits). Check Remotion's licence: it's
-  free only for small companies.
+### 30. AI marketing videos — built as promo videos
+- **Done:** Project menu → Promo video. An editable AI storyboard, the app's real screens
+  filmed with Remotion on the worker, vertical 9:16 or landscape 16:9, optional music the owner
+  has the rights to, 1 credit per render (see 05-v1-status.md).
+- **Still to do:** a voiceover (ElevenLabs text-to-speech from a script the owner approves,
+  billed to credits; never a cloned real person's voice), music synced to its beats, captions
+  as SRT, an App Store app preview cut (886×1920, footage only, 15–30 s), and a "Made with App
+  Builder" end card on the Free plan as a growth loop.
+- **Keys:** an ElevenLabs API key for the voiceover. Check Remotion's licence before launch: it's
+  free only for companies of up to three people, and larger ones pay per render.
 
 ### 31. Real iOS simulator in the browser — partial (web preview plus Expo Go)
 - **Need it?** Later. The web preview and Expo Go cover building, and a real simulator costs
