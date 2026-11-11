@@ -12,6 +12,7 @@ import {
 } from "@appbuilder/core";
 import { Workspace } from "@/components/workspace/workspace";
 import type { ProjectState } from "@/components/workspace/types";
+import { workspaceDesign } from "@/lib/design";
 import { plain } from "@/lib/serialize";
 import { db, getViewer } from "@/lib/server";
 
@@ -55,6 +56,10 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[id]"
     activeRun: run ? { id: run.id, kind: run.kind, status: run.status } : null,
     credits: viewer ? await creditBalance(db(), viewer.id) : null,
     plan_tier: viewer ? await userPlan(db(), viewer.id) : null,
+    // Mockups before the build: editors see and approve them; viewers never do.
+    ...(access === "owner" || access === "editor"
+      ? await workspaceDesign(id, planRow?.id ?? null)
+      : { design: null, designAvailable: false }),
   }) as unknown as ProjectState;
 
   return (

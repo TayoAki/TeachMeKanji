@@ -14,6 +14,7 @@ import {
   VersionConflict,
   versionNumbers,
 } from "@appbuilder/core";
+import { workspaceDesign } from "@/lib/design";
 import { db, HttpError, readJson, requireProject, route } from "@/lib/server";
 
 export const GET = route(async (_request: Request, ctx: RouteContext<"/api/projects/[id]">) => {
@@ -49,6 +50,10 @@ export const GET = route(async (_request: Request, ctx: RouteContext<"/api/proje
     activeRun: run ? { id: run.id, kind: run.kind, status: run.status } : null,
     credits: viewer ? await creditBalance(db(), viewer.id) : null,
     plan_tier: viewer ? await userPlan(db(), viewer.id) : null,
+    // Mockups before the build: editors see and approve them; viewers never do.
+    ...(access === "owner" || access === "editor"
+      ? await workspaceDesign(id, planRow?.id ?? null)
+      : { design: null, designAvailable: false }),
   });
 });
 

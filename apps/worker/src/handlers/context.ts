@@ -11,6 +11,10 @@ export interface HandlerContext {
   editModel: string;
   offline: boolean;
   emit: (type: string, payload?: Record<string, unknown>) => Promise<void>;
+  /** Add a cost that isn't model tokens (an image drawn for the run) to what the run pays. */
+  charge: (usd: number) => void;
+  /** The run has spent its credit reserve: stop starting new paid work. */
+  overBudget: () => boolean;
 }
 
 export interface HandlerResult {

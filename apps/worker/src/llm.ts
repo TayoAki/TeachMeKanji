@@ -100,9 +100,20 @@ export function metered(createMessage: CreateMessage, model: string, budgetUsd: 
     const response = await createMessage(params, hooks);
     const callUsage = addUsage({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, response);
     usage = addUsage(usage, response);
+    // Web searches are billed per search ($10 per 1,000), on top of the tokens.
+    const searches = response.usage?.server_tool_use?.web_search_requests ?? 0;
     const callCost = costUsd(params.model || model, callUsage);
-    spent = spent === null || callCost === null ? null : spent + callCost;
+    spent =
+      spent === null || callCost === null ? null : spent + callCost + searches * WEB_SEARCH_USD;
     return response;
   };
-  return { createMessage: wrapped, usage: () => usage, cost: () => spent };
+  /** Add a cost that isn't model tokens (images drawn for the run), and enforce the budget. */
+  const charge = (usd: number) => {
+    if (spent !== null) spent += usd;
+  };
+  const overBudget = () => spent !== null && spent >= budgetUsd;
+  return { createMessage: wrapped, usage: () => usage, cost: () => spent, charge, overBudget };
 }
+
+/** Anthropic's web search tool: $10 per 1,000 searches. */
+export const WEB_SEARCH_USD = 0.01;

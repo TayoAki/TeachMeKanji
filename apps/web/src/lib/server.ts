@@ -5,6 +5,7 @@ import {
   canEdit,
   canManage,
   EmailNotVerified,
+  DesignError,
   FeedbackError,
   InsufficientCredits,
   isAdminEmail,
@@ -90,7 +91,11 @@ export function route<Args extends unknown[]>(handler: (...args: Args) => Promis
     try {
       return await handler(...args);
     } catch (error) {
-      if (error instanceof HttpError || error instanceof FeedbackError)
+      if (
+        error instanceof HttpError ||
+        error instanceof FeedbackError ||
+        error instanceof DesignError
+      )
         return NextResponse.json({ error: error.message }, { status: error.status });
       if (error instanceof InsufficientCredits) {
         return NextResponse.json(

@@ -53,6 +53,31 @@ function systemText(params: Params): string {
 
 function respond(params: Params): string {
   const request = lastUserText(params);
+  // Design-first steps: research (web search), direction, and the mockup reviewers.
+  if (systemText(params).startsWith("You research mobile app ideas"))
+    return JSON.stringify(fakeResearch());
+  if (
+    params.output_config?.format &&
+    systemText(params).startsWith("You are the lead product designer")
+  )
+    return JSON.stringify(fakeDirection(request));
+  if (params.output_config?.format && systemText(params).startsWith("You review app mockups"))
+    return JSON.stringify({
+      options: [1, 2].map((option) => ({
+        option,
+        planFit: 7,
+        readability: 7,
+        visualQuality: 7,
+        distinctiveness: 7,
+        nativeIOS: 7,
+        buildable: 8,
+        notes: "Offline review.",
+      })),
+      winner: 1,
+      why: "Offline mode: the first option.",
+    });
+  if (params.output_config?.format && systemText(params).startsWith("You check app mockups"))
+    return JSON.stringify({ phoneFrame: false, leakedText: [], problems: [] });
   // Store listing (structured output): fixed copy that fits the stores' limits.
   if (params.output_config?.format && systemText(params).startsWith("You write App Store"))
     return JSON.stringify(fakeListing(request));
@@ -1375,5 +1400,81 @@ function fakeListing(request: string) {
     screenshots: screens
       .slice(0, 5)
       .map((screen, i) => ({ screen, caption: captions[i] ?? "Made for you" })),
+  };
+}
+
+/** Offline research: a fixed, clearly-labelled competitor so the planner gets the same shape. */
+function fakeResearch() {
+  return {
+    competitors: [
+      {
+        name: "Offline Example App",
+        whatPeopleLove: ["Quick to use every day"],
+        complaints: ["Hides the basics behind a paywall"],
+      },
+    ],
+    mustHaveFeatures: ["A daily habit people come back for"],
+    differentiators: ["A generous free tier"],
+    signatureInteractionIdeas: ["One satisfying gesture on the main screen"],
+    brief:
+      "Offline research (no web search ran): keep the core free and make the main screen satisfying to use.",
+  };
+}
+
+/** Offline design direction: the plan's own screens and colors, with a mascot of three poses. */
+function fakeDirection(request: string) {
+  let plan: {
+    appName?: string;
+    themes?: Array<{ primary?: string }>;
+    screens?: Array<{ path: string; title: string; purpose: string }>;
+  } = {};
+  const json = /PLAN:\n([\s\S]*?)\n\nRESEARCH:/.exec(request)?.[1];
+  try {
+    if (json) plan = JSON.parse(json);
+  } catch {
+    // keep the empty plan
+  }
+  const primary = plan.themes?.[0]?.primary ?? "#3B6EF5";
+  return {
+    styleName: "Offline Studio",
+    summary: "A clean, friendly look drawn by the offline generator.",
+    palette: {
+      background: "#FFFFFF",
+      surface: "#F4F5F8",
+      text: "#14161B",
+      mutedText: "#5E6470",
+      primary,
+      accent: primary,
+      success: "#2E9E5B",
+    },
+    typography: { display: "System", body: "System", notes: "Bold titles, regular body." },
+    shape: { cornerRadius: 16, cards: "Rounded cards", shadows: "Soft" },
+    illustrationStyle: "Flat shapes",
+    motion: {
+      personality: "Calm",
+      signatureInteraction: {
+        name: "Tap to log",
+        screen: plan.screens?.[0]?.path ?? "",
+        description: "A tap fills the ring.",
+        howItMoves: "Spring.",
+      },
+      perScreen: [],
+    },
+    mascot: {
+      use: true,
+      name: "Buddy",
+      look: "A round friendly blob",
+      personality: "Cheerful",
+      poses: [
+        { name: "neutral", description: "Standing and smiling" },
+        { name: "happy", description: "Arms up, cheering" },
+        { name: "sleepy", description: "Eyes half closed" },
+      ],
+    },
+    screens: (plan.screens ?? []).map((s) => ({
+      path: s.path,
+      title: s.title,
+      mockupBrief: s.purpose,
+    })),
   };
 }

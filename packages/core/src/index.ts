@@ -27,3 +27,4 @@ export * from "./feedback";
 export * from "./funnel-report";
 export * from "./backup";
 export * from "./store-credentials";
+export * from "./design";

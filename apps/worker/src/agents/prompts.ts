@@ -37,8 +37,11 @@ export function planRequest(input: {
   previous?: AppPlan;
   feedback?: string;
   connectorBrief?: string;
+  /** What the web research found (competitors, complaints, angle), condensed. */
+  research?: string;
 }): string {
   const parts = [`App idea: ${input.prompt}`, `Target platforms: ${input.platforms}`];
+  if (input.research) parts.push(input.research);
   if (input.previous) {
     parts.push(`Current plan:\n${JSON.stringify(input.previous, null, 2)}`);
     parts.push(`Requested changes: ${input.feedback ?? ""}`);

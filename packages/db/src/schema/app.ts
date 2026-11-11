@@ -139,6 +139,8 @@ export const plan = pgTable(
       .references(() => project.id, { onDelete: "cascade" }),
     number: integer("number").notNull(),
     data: jsonb("data").$type<Record<string, unknown>>().notNull(),
+    /** Market research behind the plan (competitors, complaints, angle); kept across revisions. */
+    research: jsonb("research").$type<Record<string, unknown>>(),
     status: text("status")
       .$type<"proposed" | "confirmed" | "superseded">()
       .notNull()
@@ -203,7 +205,11 @@ export type RunKind =
   /** Write a promo video's storyboard (hook, screens with captions, tagline, call to action). */
   | "promo_storyboard"
   /** Render a promo video of the app from its storyboard and captured screens. */
-  | "promo_render";
+  | "promo_render"
+  /** Design the app before building it: direction, mascot and a mockup of every screen. */
+  | "design"
+  /** Redraw one mockup (or the mascot) from the user's note. */
+  | "mockup";
 export type RunStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
 
 export const agentRun = pgTable(
@@ -347,5 +353,7 @@ export const deviceSession = pgTable("device_session", {
 export const workerHeartbeat = pgTable("worker_heartbeat", {
   id: text("id").primaryKey(),
   devicePreviews: boolean("device_previews").notNull(),
+  /** It can draw mockups (an image model is configured): the design-first step is offered. */
+  design: boolean("design").notNull().default(false),
   seenAt: timestamp("seen_at", { withTimezone: true }).notNull().defaultNow(),
 });

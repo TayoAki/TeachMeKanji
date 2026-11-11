@@ -166,7 +166,8 @@ Better Auth owns `user`, `session`, `account` and `verification`. Our tables:
 | `project_asset` | id, project_id, storage_key, mime, bytes, width, height, uploaded_by | Pre-signed upload; MIME checked from content |
 | `project_member` | project_id, user_id?, email, role (`viewer`/`editor`), invited_by, accepted_at | Share by email |
 | `message` | id, project_id, role, content (jsonb: text, attachment ids, plan ref, selection ref), run_id, created_at | Chat history |
-| `plan` | id, project_id, version, app_name, screens (jsonb), data_model (jsonb), themes (jsonb), status (`proposed`/`confirmed`/`superseded`) | Revisions keep history |
+| `plan` | id, project_id, version, app_name, screens (jsonb), data_model (jsonb), themes (jsonb), research (jsonb), status (`proposed`/`confirmed`/`superseded`) | Revisions keep history (and the first plan's research) |
+| `project_design` | id, project_id, plan_id, status (`generating`/`ready`/`failed`), direction (jsonb), screens (jsonb: path, brief, image key, status `pending`/`approved`/`changes`, note, version), mascot (jsonb), cost_usd | Mockups before the build; images in storage |
 | `project_version` | id, project_id, parent_id, created_by_run_id, kind (`generate`/`ai_edit`/`inline_edit`/`restore`), summary, created_at | Immutable |
 | `version_file` | version_id, path, blob_hash | One row per file per version |
 | `blob` | hash (sha256), content (text) or storage_key, bytes | Content-addressed and deduplicated |
@@ -198,6 +199,28 @@ creates a `restore` version so history stays linear.
   - `themes[5]`: `{ id, name, tokens }`
 - **Revise:** send the current plan plus the user's feedback and get back plan v(n+1). The
   UI renders a plan card with **Confirm & build**.
+
+### 4.1b Research and design first (mockups before the build)
+- **Research** (inside the first plan run): Claude (`RESEARCH_MODEL`, Sonnet) with Anthropic's
+  `web_search_20260209` tool finds competing apps and what their users praise and complain
+  about. A paused turn is sent back to continue. The result is stored on the plan and a short
+  brief goes into the plan request. Research never blocks planning: on failure the plan is made
+  from the idea alone.
+- **Design** (`design` run, after the plan): the direction (structured output: palette, type,
+  shape, illustration style, motion plan, an optional mascot, one brief per plan screen), the
+  mascot's poses (first from the description, the rest from the first; cut out of a green
+  background with sharp), two options for the key screen (the main tab) rated by Claude, then
+  every other screen drawn with the key screen (and mascot) as references, each checked by
+  Claude (vision) for a drawn device frame or leaked design notes and fixed with one image edit.
+  Images come from an image model through OpenRouter (`IMAGE_MODEL`); their cost is added to
+  the run's meter, and no new image starts once the reserve is spent.
+- **Approval:** the canvas shows the mockups; the user approves each or asks for a change
+  (a `mockup` run redraws one, from the current image plus the note). The build waits until
+  all are approved, or the user skips the mockups.
+- **Build from mockups:** the theme call sees the key screen's mockup and each screen's call
+  sees its own; the mascot's poses become `data/images.ts` entries; the default theme is set to
+  the plan's first theme by the platform. Builds from mockups run on `DESIGN_BUILD_MODEL`
+  (Sonnet), which matched the mockups as well as Opus at half the cost.
 
 ### 4.2 Build (orchestrated by our code; one `agent_run`)
 1. **Scaffold** the template files.

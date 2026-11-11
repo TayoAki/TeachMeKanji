@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { schema, type Database } from "@appbuilder/db";
+import { RUN_CREDITS } from "./billing";
 import { ensureSignupGrant } from "./credits";
 import { createProject } from "./projects";
 import { aiNeedsVerifiedEmail, EmailNotVerified, enqueueRun } from "./runs";
@@ -50,6 +51,6 @@ describe("free credits need a verified email", () => {
     await db.update(schema.user).set({ emailVerified: true }).where(eq(schema.user.id, user.id));
     await expect(
       enqueueRun(db, { projectId: project.id, userId: user.id, kind: "plan" }),
-    ).resolves.toMatchObject({ kind: "plan", creditsReserved: 6 });
+    ).resolves.toMatchObject({ kind: "plan", creditsReserved: RUN_CREDITS.plan!.reserve });
   });
 });

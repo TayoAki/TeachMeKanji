@@ -10,6 +10,7 @@ import {
   FileCode2,
   Loader2,
   MousePointerClick,
+  Palette,
   X,
 } from "lucide-react";
 import { connectorById, type AppPlan } from "@appbuilder/contract/protocol";
@@ -22,6 +23,13 @@ import { openFeedback } from "@/components/feedback-dialog";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "./types";
+
+/** What the plan card needs to offer mockups before the build. */
+export interface PlanDesign {
+  available: boolean;
+  exists: boolean;
+  onDesign: () => void;
+}
 
 export interface ChatSelection {
   path: string;
@@ -50,12 +58,14 @@ function PlanCard({
   canBuild,
   onBuild,
   building,
+  design,
 }: {
   plan: AppPlan;
   number?: number;
   canBuild: boolean;
-  onBuild: () => void;
+  onBuild: (options?: { skipDesign?: boolean }) => void;
   building: boolean;
+  design?: PlanDesign;
 }) {
   // A click before hydration would do nothing; keep the button disabled until it works.
   const hydrated = useHydrated();
@@ -123,11 +133,39 @@ function PlanCard({
         ))}
         <span className="ml-1 text-xs text-muted-foreground">5 themes</span>
       </div>
-      {canBuild ? (
+      {canBuild && design?.available && !design.exists ? (
         <div className="mt-3 flex flex-col gap-1.5">
           <Button
             size="sm"
-            onClick={onBuild}
+            onClick={design.onDesign}
+            disabled={building || !hydrated}
+            data-testid="design-screens"
+          >
+            {building ? <Loader2 className="animate-spin" /> : <Palette />} Design my screens
+          </Button>
+          <span className="text-center text-[11px] text-muted-foreground">
+            See a mockup of every screen and approve it before anything is built.
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs"
+            onClick={() => onBuild({ skipDesign: true })}
+            disabled={building || !hydrated}
+            data-testid="confirm-build"
+          >
+            Skip mockups and build now
+          </Button>
+        </div>
+      ) : canBuild && design?.exists ? (
+        <p className="mt-3 text-center text-[11px] text-muted-foreground">
+          Review the mockups on the canvas, then build.
+        </p>
+      ) : canBuild ? (
+        <div className="mt-3 flex flex-col gap-1.5">
+          <Button
+            size="sm"
+            onClick={() => onBuild()}
             disabled={building || !hydrated}
             data-testid="confirm-build"
           >
@@ -187,6 +225,7 @@ export function ChatPanel({
   onSend,
   onBuild,
   onCancel,
+  design,
   userInitial = "Y",
 }: {
   userInitial?: string;
@@ -199,8 +238,10 @@ export function ChatPanel({
   selection: ChatSelection | null;
   onClearSelection: () => void;
   onSend: (text: string) => Promise<boolean>;
-  onBuild: () => void;
+  onBuild: (options?: { skipDesign?: boolean }) => void;
   onCancel: () => void;
+  /** The design-first step for the latest plan (mockups before the build). */
+  design?: PlanDesign;
 }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -250,6 +291,7 @@ export function ChatPanel({
                   canBuild={canBuild && m.content.planId === latestPlanId}
                   onBuild={onBuild}
                   building={busy}
+                  design={design}
                 />
               ) : (
                 <div

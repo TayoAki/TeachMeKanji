@@ -86,6 +86,8 @@ export async function planApp(input: {
   previous?: AppPlan;
   feedback?: string;
   connectorBrief?: string;
+  /** Web research for the idea, condensed for the planner (researchForPlanner). */
+  research?: string;
   defaultScreens: number;
   maxScreens: number;
   model?: string;
@@ -216,6 +218,7 @@ export async function buildApp(input: {
     );
   }
   for (const result of shared) files = { ...files, ...result.files };
+  files = withPlanDefaultTheme(files, plan);
   await emit({ type: "files", files });
 
   // 2. Screens, in parallel. They share one cached prefix (template + shared layer); each
@@ -284,6 +287,21 @@ export async function buildApp(input: {
   if (hasErrors(issues))
     throw new AgentError(`The generated app fails validation:\n${formatIssues(issues)}`);
   return { files, usage, model: input.model ?? DEFAULT_MODEL, warnings };
+}
+
+/**
+ * The app opens in the plan's first theme (the one its mockups use). The model sometimes picks
+ * another pack as the default; the platform sets it instead of trusting that.
+ */
+export function withPlanDefaultTheme(files: ProjectFiles, plan: AppPlan): ProjectFiles {
+  const id = plan.themes[0]?.id;
+  const tokens = files["theme/tokens.ts"];
+  if (!id || !tokens || !tokens.includes(`"${id}"`)) return files;
+  const fixed = tokens.replace(
+    /export const defaultThemeId\s*=\s*["'][^"']*["']/,
+    `export const defaultThemeId = "${id}"`,
+  );
+  return fixed === tokens ? files : { ...files, "theme/tokens.ts": fixed };
 }
 
 // --- Edit ----------------------------------------------------------------------------------
