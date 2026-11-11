@@ -158,7 +158,7 @@ ${mockupPictures(images)}`;
 
 function mockupPictures(images: Record<string, string> | undefined): string {
   const names = Object.keys(images ?? {});
-  return `${names.length ? `Pictures: these images are added to the app; show them with <AiImage name="..." /> where the mockup shows them, choosing the pose or picture that fits the moment: ${names.map((n) => `"${n}"`).join(", ")}. Size them like the mockup and add fit="contain" for characters. For any other picture in the mockup use <AiImage prompt="..." />.` : `For pictures in the mockup use <AiImage prompt="..." />.`}
+  return `${names.length ? `The mascot: its poses are added to the app as ${names.map((n) => `"${n}"`).join(", ")}. Show it with <Mascot pose="..." size={...} /> from components/motion where the mockup shows it, sized like the mockup, choosing the pose that fits the moment. For any other picture in the mockup use <AiImage prompt="..." />.` : `For pictures in the mockup use <AiImage prompt="..." />.`}
 Where the mockup shows something the allowed imports can't do, build the closest thing that works.`;
 }
 
