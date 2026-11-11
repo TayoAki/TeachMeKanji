@@ -27,6 +27,8 @@ const BLOCKED_PATHS = [
 export interface DeviceRouterOptions {
   /** The local Metro port for a request's host name, or null when no session answers there. */
   resolve: (host: string) => number | null;
+  /** Tell Metro the phone used https whatever the hop before said (a relay's plain http). */
+  https?: boolean;
 }
 
 /** A Host header as a bare lowercase name: no port, no trailing dot. */
@@ -50,12 +52,14 @@ export function isBlockedPath(url: string | undefined): boolean {
 }
 
 /** What Metro needs to build URLs the phone can reach: the public host and https. */
-function forwardedHeaders(req: IncomingMessage): Record<string, string> {
+function forwardedHeaders(req: IncomingMessage, https = false): Record<string, string> {
   const host = req.headers.host ?? "";
   // The platform's edge terminates TLS and says so; without one (local tests) it's plain http.
-  const proto = String(req.headers["x-forwarded-proto"] ?? "http")
-    .split(",")[0]!
-    .trim();
+  const proto = https
+    ? "https"
+    : String(req.headers["x-forwarded-proto"] ?? "http")
+        .split(",")[0]!
+        .trim();
   return { "x-forwarded-host": host, "x-forwarded-proto": proto };
 }
 
@@ -78,7 +82,7 @@ export function createDeviceRouter(options: DeviceRouterOptions): Server {
         port,
         method: req.method,
         path: req.url,
-        headers: { ...req.headers, ...forwardedHeaders(req) },
+        headers: { ...req.headers, ...forwardedHeaders(req, options.https) },
       },
       (response) => {
         res.writeHead(response.statusCode ?? 502, response.headers);
@@ -104,7 +108,7 @@ export function createDeviceRouter(options: DeviceRouterOptions): Server {
       port,
       method: req.method,
       path: req.url,
-      headers: { ...req.headers, ...forwardedHeaders(req) },
+      headers: { ...req.headers, ...forwardedHeaders(req, options.https) },
     });
     upstream.on("upgrade", (response, upstreamSocket, upstreamHead) => {
       const lines = [`HTTP/1.1 ${response.statusCode} ${response.statusMessage}`];

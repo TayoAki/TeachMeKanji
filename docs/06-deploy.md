@@ -95,11 +95,24 @@ runs with the Expo access token of the person who opened it (Settings → Expo, 
 without one, the dialog explains how to add it. Tokens are checked against Expo when saved and
 again before a preview starts, because one Expo rejects makes the dev server fail for every phone.
 
-To try it before setting up DNS, give the worker a Railway domain (target port 8090) and set
-`DEVICE_PREVIEW_SINGLE_HOST` to it instead of `DEVICE_PREVIEW_DOMAIN`. That address serves one
-phone preview at a time: opening another ends the first, whose dialog says so. Anyone who has
-the address can load the app being previewed while it runs, so switch to a wildcard domain
-before real users.
+**Without a custom domain (Railway's own addresses).** Railway gives each service one
+`*.up.railway.app` address and no wildcard, so the worker can instead share out a pool of fixed
+addresses, one preview each:
+
+1. Give the worker a Railway domain with target port 8090.
+2. Add relay services, one per extra simultaneous preview: each is built from `relay/` (root
+   directory `relay`, its own small Dockerfile; watch path `relay/**`), gets its own Railway
+   domain with target port 8080, and forwards everything to the worker over the private network
+   (`RELAY_TARGET`, default `worker.railway.internal:8090`), keeping the phone's Host header.
+3. Set `DEVICE_PREVIEW_HOSTS` on the worker to every address, comma-separated: the worker's own
+   and each relay's.
+
+Each new preview takes a free address; when all are taken, the dialog says how many there are
+and that they free up after 15 minutes without use (`DEVICE_PREVIEW_IDLE_MINUTES`), rather than
+ending someone else's preview. `DEVICE_PREVIEW_SINGLE_HOST` (one address, where a new preview
+ends the previous one) still works. With fixed addresses, anyone who has an address can load the
+app being previewed there while it runs, so use a wildcard domain (random addresses) before a
+public launch.
 
 Variables reference the database and bucket (`${{Postgres.DATABASE_URL}}`,
 `${{uploads.ENDPOINT}}` and so on, with `S3_FORCE_PATH_STYLE=0`). `CLIENT_IP_HEADER=x-real-ip`

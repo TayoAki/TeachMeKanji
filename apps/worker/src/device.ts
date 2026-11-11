@@ -9,9 +9,12 @@
  * Phones reach the dev servers one of three ways:
  * - DEVICE_PREVIEW_DOMAIN: a wildcard domain routed to this worker; each session gets a random
  *   subdomain (see device-router.ts). The way to run it on a platform such as Railway.
- * - DEVICE_PREVIEW_SINGLE_HOST: one fixed public host routed to this worker (Railway's own
- *   `*.up.railway.app` address). One session at a time: a new one ends the previous one. Meant
- *   for trying phone previews before setting up a wildcard domain.
+ * - DEVICE_PREVIEW_HOSTS: a pool of fixed public hosts routed to this worker, comma-separated
+ *   (Railway's own `*.up.railway.app` addresses: the worker's, plus relay services that forward
+ *   to it over the private network). One session per host; when all are taken, a new session
+ *   says so instead of ending someone else's. No custom domain needed.
+ * - DEVICE_PREVIEW_SINGLE_HOST: one fixed public host. One session at a time: a new one ends the
+ *   previous one.
  * - DEVICE_PREVIEW_TUNNEL=1: Expo's shared tunnel.
  * - Otherwise the LAN address (DEVICE_PREVIEW_HOST or the first IPv4), for self-hosting.
  */
@@ -42,6 +45,8 @@ interface Session {
   versionId: string | null;
   /** The session's subdomain when phones come in through the router. */
   token?: string;
+  /** The session's host from the pool (DEVICE_PREVIEW_HOSTS / DEVICE_PREVIEW_SINGLE_HOST). */
+  host?: string;
   /** Whose Expo account the dev server is signed in as. */
   userId: string | null;
 }
@@ -55,6 +60,34 @@ export function previewDomain(): string {
 export function previewSingleHost(): string {
   if (previewDomain()) return "";
   return normalizeHost((process.env.DEVICE_PREVIEW_SINGLE_HOST || "").replace(/^https?:\/\//, ""));
+}
+
+/**
+ * Fixed public hosts phones can reach this worker on, one session each: DEVICE_PREVIEW_HOSTS,
+ * else DEVICE_PREVIEW_SINGLE_HOST. Empty with a wildcard domain (it has a host per session).
+ */
+export function previewHostPool(): string[] {
+  if (previewDomain()) return [];
+  const pool = (process.env.DEVICE_PREVIEW_HOSTS || "")
+    .split(",")
+    .map((host) =>
+      normalizeHost(
+        host
+          .trim()
+          .replace(/^https?:\/\//, "")
+          .replace(/\/.*$/, ""),
+      ),
+    )
+    .filter(Boolean);
+  if (pool.length) return [...new Set(pool)];
+  const single = previewSingleHost();
+  return single ? [single] : [];
+}
+
+/** The first host of the pool no running session holds, or null when every one is taken. */
+export function pickPreviewHost(pool: string[], inUse: Iterable<string>): string | null {
+  const taken = new Set(inUse);
+  return pool.find((host) => !taken.has(host)) ?? null;
 }
 
 let runtimeInstall: Promise<string> | null = null;
@@ -170,21 +203,36 @@ export class DeviceManager {
 
   constructor(private readonly db: Database) {}
 
-  /** With DEVICE_PREVIEW_DOMAIN set, accept phones on one port and route them by subdomain. */
+  /**
+   * Accept phones on one port and route them to their session's dev server: by subdomain with
+   * a wildcard domain, by host with a pool of fixed hosts.
+   */
   listen(port = Number(process.env.PORT || 8090)): void {
     const domain = previewDomain();
-    const single = previewSingleHost();
-    if (!domain && !single) return;
+    const pool = previewHostPool();
+    if (!domain && !pool.length) return;
     createDeviceRouter({
       resolve: (host) => {
         const sessions = [...this.sessions.values()];
-        if (single) return host === single ? (sessions[0]?.port ?? null) : null;
+        if (!domain) return sessions.find((session) => session.host === host)?.port ?? null;
         const token = tokenFromHost(host, domain);
         return sessions.find((session) => token && session.token === token)?.port ?? null;
       },
+      // Pool hosts are always public https addresses, even when a relay in front of this
+      // worker reached it over plain http on the private network.
+      https: !domain,
     }).listen(port, () =>
-      console.log(`worker: phone previews at ${single || `*.${domain}`} (port ${port})`),
+      console.log(
+        `worker: phone previews at ${domain ? `*.${domain}` : pool.join(", ")} (port ${port})`,
+      ),
     );
+  }
+
+  /** Hosts from the pool held by sessions other than this project's. */
+  private hostsInUse(projectId: string): string[] {
+    return [...this.sessions.entries()]
+      .filter(([id, session]) => id !== projectId && session.host)
+      .map(([, session]) => session.host!);
   }
 
   /** With one shared host, a new session takes the host over from the previous one. */
@@ -250,6 +298,21 @@ export class DeviceManager {
     try {
       const { versionId, files } = await getCurrentFiles(this.db, projectId);
       if (!versionId) throw new Error("Build the app first");
+      // A fixed host from the pool. A single host is taken over (the old behaviour); a pool of
+      // several is shared, and a full pool says so rather than ending someone's preview.
+      const domain = previewDomain();
+      const pool = previewHostPool();
+      const takeOver = !domain && pool.length === 1 && !process.env.DEVICE_PREVIEW_HOSTS;
+      if (takeOver) await this.releaseSingleHost(projectId);
+      const host = pool.length ? pickPreviewHost(pool, this.hostsInUse(projectId)) : null;
+      if (pool.length && !host) {
+        await this.update(projectId, {
+          status: "error",
+          url: null,
+          error: `All ${pool.length} phone previews are in use right now. Each one frees up after ${IDLE_MINUTES} minutes without use, so try again in a few minutes.`,
+        });
+        return;
+      }
       const nodeModules = await ensureRuntime(files["package.json"] ?? "{}");
       const dir = dataDir("device", projectId);
       await mkdir(dir, { recursive: true });
@@ -258,13 +321,10 @@ export class DeviceManager {
       const expo = await this.expoLogin(userId);
 
       const port = await freePort();
-      const domain = previewDomain();
-      const single = previewSingleHost();
-      const tunnel = !domain && !single && process.env.DEVICE_PREVIEW_TUNNEL === "1";
+      const tunnel = !domain && !host && process.env.DEVICE_PREVIEW_TUNNEL === "1";
       // 96 random bits: the subdomain is the only thing standing between a stranger and the app.
       const token = domain ? randomBytes(12).toString("hex") : undefined;
-      const publicHost = token ? `${token}.${domain}` : single;
-      if (single) await this.releaseSingleHost(projectId);
+      const publicHost = token ? `${token}.${domain}` : (host ?? "");
       // Expo's CLI straight from the runtime, not through npx: no npm at runtime.
       const child = spawn(
         process.execPath,
@@ -302,7 +362,14 @@ export class DeviceManager {
           });
         }
       });
-      this.sessions.set(projectId, { child, port, versionId, token, userId });
+      this.sessions.set(projectId, {
+        child,
+        port,
+        versionId,
+        token,
+        host: host ?? undefined,
+        userId,
+      });
       await waitForStatus(port);
       const url = publicHost
         ? `exps://${publicHost}` // Expo Go opens exps:// over https
