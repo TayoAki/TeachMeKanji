@@ -40,7 +40,9 @@ export function getImageModel(): ImageModel | null {
     return offlineImages();
   const key = process.env.OPENROUTER_API_KEY || "";
   if (!key) return null;
-  return openRouterImages(key, process.env.IMAGE_MODEL || "google/gemini-3-pro-image");
+  // Nano Banana 2.1 drew the best-scored mockups in a blind test of every image model on
+  // OpenRouter (2026-11), at a third of Nano Banana Pro's price and about twice its speed.
+  return openRouterImages(key, process.env.IMAGE_MODEL || "google/gemini-nano-banana-2.1");
 }
 
 /**
@@ -54,8 +56,8 @@ export function getDetailImageModel(): ImageModel | null {
   return openRouterImages(process.env.OPENROUTER_API_KEY || "", detail);
 }
 
-/** Typical price of one image when the provider doesn't report it (Nano Banana Pro, 2026-11). */
-const FALLBACK_IMAGE_USD = 0.14;
+/** Typical price of one image when the provider doesn't report it (Nano Banana 2.1, 2026-11). */
+const FALLBACK_IMAGE_USD = 0.045;
 
 export function openRouterImages(
   key: string,

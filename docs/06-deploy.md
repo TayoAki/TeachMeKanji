@@ -151,7 +151,7 @@ Required in production:
 | `RESEND_API_KEY` + `EMAIL_FROM` (web **and worker**) | Email. The web app sends auth emails and the App Store check's results; the worker sends the funnel's launch emails (hourly, only when both are set) |
 | `ADMIN_EMAILS` (web; comma-separated), `FEEDBACK_WEBHOOK_URL` and `FEEDBACK_EMAIL` (web; optional) | Bug reports and feature requests. People listed in `ADMIN_EMAILS` see **/admin/feedback** (everyone else gets a 404): every report with its screenshots and technical details, a status (New, Planned, In progress, Done, Won't do) and a reply the sender sees in Settings → Your reports (and is emailed, with email set up). Each new report is posted to `FEEDBACK_WEBHOOK_URL` (a Slack or Discord incoming webhook) and emailed to `FEEDBACK_EMAIL` (with Resend). `ADMIN_API_TOKEN` also works for `GET /api/admin/feedback` and `PATCH /api/admin/feedback/<id>` |
 | `FUNNEL_PROMO_CODE`, `FUNNEL_PROMO_OFFER`, `FUNNEL_PROMO_ENDS` (worker; optional) | The funnel's two offer emails: a real Stripe promotion code, the offer in words ("$10 off your first month of Builder") and its real end (ISO date). Without all three, or within a day of the end, the offer emails are skipped. Checkout accepts promotion codes |
-| `OPENROUTER_API_KEY` (worker only) | Design first: after a plan, users can have every screen (and a mascot) drawn as a mockup, approve or redraw them, and build from them. The images are drawn by `IMAGE_MODEL` (default `google/gemini-3-pro-image`) through OpenRouter; Claude still goes straight to Anthropic. Without the key the step isn't offered (the worker reports it in its heartbeat; `DESIGN_STEP=0` turns it off). See "Design first" under Operating it |
+| `OPENROUTER_API_KEY` (worker only) | Design first: after a plan, users can have every screen (and a mascot) drawn as a mockup, approve or redraw them, and build from them. The images are drawn by `IMAGE_MODEL` (default `google/gemini-nano-banana-2.1`) through OpenRouter; Claude still goes straight to Anthropic. Without the key the step isn't offered (the worker reports it in its heartbeat; `DESIGN_STEP=0` turns it off). See "Design first" under Operating it |
 | `CLIENT_IP_HEADER` (and `TRUSTED_PROXIES` for a multi-hop chain) | The header your proxy sets with the client's address, for per-IP rate limits. Caddy overwrites `X-Forwarded-For` (the default works); with nginx, set `proxy_set_header X-Real-IP $remote_addr` and `CLIENT_IP_HEADER=x-real-ip` |
 
 Optional: `S3_*` (object storage), `GOOGLE_*`/`GITHUB_*` (social sign-in), `STRIPE_*`
@@ -197,12 +197,14 @@ each mockup or ask for a change (a `mockup` job redraws just that one). The buil
 each screen's mockup, uses the mascot's poses as app images, and runs on
 `DESIGN_BUILD_MODEL` (default Sonnet). Measured costs: research and plan about $0.30, the
 design $2.05–3.20 (images about $0.14 each), a redraw about $0.20, the build from mockups
-$1.25–2.10; one whole app about $3.60 (72 credits). Credits: the design reserves 80, a
+$1.25–2.10; one whole app about $3.60 (72 credits). Those figures are with Nano Banana Pro
+($0.14 an image); the default is now Nano Banana 2.1 ($0.045 an image), which scored best in a
+blind test of the image models on OpenRouter, so a design's images cost about a third as much. Credits: the design reserves 80, a
 redraw 10, a build from mockups 50, so a free account can design and build one app. Images are
 stored under `projects/<id>/design/` and served to the project's editors only. Cheaper setups: any model
 setting can be an OpenRouter id (Gemini, DeepSeek; text-only build models build from the
-mockups' written briefs), and `DETAIL_IMAGE_MODEL` (e.g. `google/gemini-3.1-flash-image`) draws
-everything but the key screen's options for about a quarter of the price.
+mockups' written briefs), and `DETAIL_IMAGE_MODEL` can draw everything but the key screen's
+options with a different image model.
 
 - **Errors:** every server error (web requests and worker jobs) is one JSON line on stderr.
   Set `ERROR_WEBHOOK_URL` to also POST them to a Slack/Discord incoming webhook or a
