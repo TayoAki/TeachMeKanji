@@ -195,9 +195,10 @@ green background on the worker), two options for the main screen with the better
 leaked design notes and fixes them), then every other screen drawn to match. Users approve
 each mockup or ask for a change (a `mockup` job redraws just that one). The build then sees
 each screen's mockup, uses the mascot's poses as app images, and runs on
-`DESIGN_BUILD_MODEL` (default Sonnet). Measured costs: research and plan about $0.40, the
-design $2.40–3.20 (images about $0.14 each), a redraw about $0.20, the build from mockups
-about $2.10. Credits: the design reserves 80, a redraw 10, a build from mockups 60. Images are
+`DESIGN_BUILD_MODEL` (default Sonnet). Measured costs: research and plan about $0.30, the
+design $2.05–3.20 (images about $0.14 each), a redraw about $0.20, the build from mockups
+$1.25–2.10; one whole app about $3.60 (72 credits). Credits: the design reserves 80, a
+redraw 10, a build from mockups 50, so a free account can design and build one app. Images are
 stored under `projects/<id>/design/` and served to the project's editors only.
 
 - **Errors:** every server error (web requests and worker jobs) is one JSON line on stderr.

@@ -127,8 +127,9 @@ export const RUN_CREDITS: Record<string, { reserve: number; minimum: number }> =
   plan: { reserve: 12, minimum: 1 },
   // An app with onboarding, a paywall, settings and its main screens measured about $3.
   build: { reserve: 90, minimum: 8 },
-  // The same build from approved mockups runs on Sonnet: measured $2.09 for seven screens.
-  build_from_mockups: { reserve: 60, minimum: 8 },
+  // The same build from approved mockups runs on Sonnet: measured $1.25–2.09 (6–7 screens).
+  // Kept low enough that a free account can design and then build one app.
+  build_from_mockups: { reserve: 50, minimum: 8 },
   // Apps with all four parts give an edit more to read and write; two live edits used ~$0.60.
   edit: { reserve: 24, minimum: 2 },
   // Two judges scoring screenshots and code against the quality rubric.

@@ -143,15 +143,17 @@ export const CHECK_SYSTEM = `You check app mockups before a user sees them. Flag
 
 export const CHECK_REQUEST = `The first image is the app's main screen; the second is another mockup to check.
 - phoneFrame: true ONLY if a physical phone is drawn around the screen (a dark bezel, or a notch / Dynamic Island cut-out with background visible outside the device). Rounded screen corners and an iOS status bar are normal and are NOT a phone frame.
+- multipleScreens: true if the image shows more than one app screen (two or more phones or screens side by side).
 - leakedText: text that is a design note rather than UI copy (font names, hex colors, pixel or point sizes, "radius", spec labels). Empty when there is none.
 - problems: garbled or broken text, or duplicated elements. Empty when there are none.`;
 
 export const CHECK_JSON_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["phoneFrame", "leakedText", "problems"],
+  required: ["phoneFrame", "multipleScreens", "leakedText", "problems"],
   properties: {
     phoneFrame: { type: "boolean" },
+    multipleScreens: { type: "boolean" },
     leakedText: { type: "array", items: { type: "string" } },
     problems: { type: "array", items: { type: "string" } },
   },

@@ -211,7 +211,7 @@ creates a `restore` version so history stays linear.
   mascot's poses (first from the description, the rest from the first; cut out of a green
   background with sharp), two options for the key screen (the main tab) rated by Claude, then
   every other screen drawn with the key screen (and mascot) as references, each checked by
-  Claude (vision) for a drawn device frame or leaked design notes and fixed with one image edit.
+  Claude (vision) for a drawn device frame, two screens in one image or leaked design notes and fixed with one image edit.
   Images come from an image model through OpenRouter (`IMAGE_MODEL`); their cost is added to
   the run's meter, and no new image starts once the reserve is spent.
 - **Approval:** the canvas shows the mockups; the user approves each or asks for a change

@@ -171,6 +171,7 @@ export async function checkMockup(
 ): Promise<string[]> {
   const { value } = await structured<{
     phoneFrame?: boolean;
+    multipleScreens?: boolean;
     leakedText?: string[];
     problems?: string[];
   }>(deps, {
@@ -183,6 +184,10 @@ export async function checkMockup(
   if (value.phoneFrame)
     fixes.push(
       "Remove the phone frame, bezel, notch and any background around it: the app screen must fill the whole image edge to edge, keeping the iOS status bar at the top.",
+    );
+  if (value.multipleScreens)
+    fixes.push(
+      "Show only ONE screen, the most complete one, filling the whole image; remove the other screens.",
     );
   const leaked = (value.leakedText ?? []).filter(Boolean).slice(0, 6);
   if (leaked.length)

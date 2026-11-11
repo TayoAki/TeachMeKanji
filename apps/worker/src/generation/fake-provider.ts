@@ -77,7 +77,12 @@ function respond(params: Params): string {
       why: "Offline mode: the first option.",
     });
   if (params.output_config?.format && systemText(params).startsWith("You check app mockups"))
-    return JSON.stringify({ phoneFrame: false, leakedText: [], problems: [] });
+    return JSON.stringify({
+      phoneFrame: false,
+      multipleScreens: false,
+      leakedText: [],
+      problems: [],
+    });
   // Store listing (structured output): fixed copy that fits the stores' limits.
   if (params.output_config?.format && systemText(params).startsWith("You write App Store"))
     return JSON.stringify(fakeListing(request));
