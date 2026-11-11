@@ -5,7 +5,7 @@
  */
 import sharp from "sharp";
 
-export type Aspect = "9:16" | "1:1";
+export type Aspect = "9:16" | "1:1" | "4:3";
 
 export interface ImageRequest {
   prompt: string;
@@ -139,7 +139,8 @@ export function offlineImages(): ImageModel {
     async draw(request) {
       const { r, g, b } = colorFor(request.prompt);
       const character = /green \(#00FF00\) background/i.test(request.prompt);
-      const [width, height] = request.aspect === "1:1" ? [512, 512] : [360, 640];
+      const [width, height] =
+        request.aspect === "1:1" ? [512, 512] : request.aspect === "4:3" ? [480, 360] : [360, 640];
       const svg = character
         ? `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="100%" height="100%" fill="#00FF00"/><circle cx="256" cy="270" r="150" fill="rgb(${r},${g},${b})"/><circle cx="205" cy="245" r="18" fill="#fff"/><circle cx="307" cy="245" r="18" fill="#fff"/></svg>`
         : `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="100%" height="100%" fill="#F7F7F9"/><rect x="24" y="64" width="180" height="22" rx="6" fill="rgb(${r},${g},${b})"/><rect x="24" y="110" width="312" height="150" rx="18" fill="rgb(${r},${g},${b})" opacity="0.85"/><rect x="24" y="280" width="312" height="70" rx="14" fill="#E4E4EA"/><rect x="24" y="364" width="312" height="70" rx="14" fill="#E4E4EA"/><rect x="24" y="540" width="312" height="52" rx="26" fill="rgb(${r},${g},${b})"/></svg>`;

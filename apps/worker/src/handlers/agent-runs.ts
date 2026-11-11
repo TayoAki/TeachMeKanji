@@ -21,13 +21,15 @@ import {
   latestPlan,
   listMessages,
   PLANS,
+  previewSession,
   repoRoot,
   savePlan,
   updateProject,
   userPlan,
 } from "@appbuilder/core";
 import { schema } from "@appbuilder/db";
-import { approvedDesignFor, DESIGN_BUILD_MODEL } from "../design/build-design";
+import { approvedDesignFor, DESIGN_BUILD_MODEL, DESIGN_REVIEW_MODEL } from "../design/build-design";
+import { addPromptPictures, matchMockups, matchSummary } from "../design/match-loop";
 import { researchIdea } from "../design/research";
 import { researchForPlanner } from "../design/prompts";
 import { platformUrl, withHostedLegalLinks } from "../platform-url";
@@ -268,29 +270,59 @@ export async function handleBuild(ctx: HandlerContext): Promise<HandlerResult> {
     project,
     withHostedLegalLinks(built.files, project.id),
   );
-  const version = await commitVersion(ctx.db, {
+  // Pictures the screens describe (<AiImage prompt="...">) are drawn now, not left as grey boxes.
+  const files = await addPromptPictures(ctx, project.id, cloud.files, approved?.design.style);
+  let version = await commitVersion(ctx.db, {
     projectId: project.id,
-    files: cloud.files,
+    files,
     kind: "generate",
     summary: `Built ${plan.screens.length} screens from plan ${planRow.number}`,
     runId: ctx.run.id,
     createdBy: ctx.run.userId,
   });
-  await updateProject(ctx.db, project.id, {
-    status: "ready",
-    activeThemeId: project.activeThemeId ?? plan.themes[0]?.id,
-  });
+  const themeId = project.activeThemeId ?? plan.themes[0]?.id;
+  await updateProject(ctx.db, project.id, { status: "ready", activeThemeId: themeId });
+
+  // Built from mockups: check every screen against its mockup and rebuild the ones that miss.
+  const match = approved
+    ? await matchMockups(ctx, {
+        projectId: project.id,
+        plan,
+        files,
+        design: approved.design,
+        themeId,
+        buildModel: ctx.offline ? ctx.model : DESIGN_BUILD_MODEL(),
+        reviewModel: ctx.offline ? ctx.model : DESIGN_REVIEW_MODEL(),
+        versionId: version.id,
+        template,
+        settleMs: ctx.offline ? 150 : undefined,
+        storage:
+          cloud.enabled || project.backend === "cloud"
+            ? { "app:auth:token": await previewSession(ctx.db, project.id) }
+            : {},
+      })
+    : null;
+  if (match?.versionId && match.versionId !== version.id)
+    version = { ...version, id: match.versionId };
   const screenList = plan.screens.map((s) => s.title).join(", ");
   await addMessage(ctx.db, {
     projectId: project.id,
     role: "assistant",
     runId: ctx.run.id,
     content: {
-      text: `${plan.appName} is ready: ${screenList}.${built.warnings.length ? ` ${built.warnings.length} screen(s) need another try; ask me to regenerate them.` : ""} Switch themes on the right, click any element to edit it, or tell me what to change.${cloud.enabled ? ` ${APP_CLOUD_FOR_AI_NOTE}` : ""}`,
+      text: `${plan.appName} is ready: ${screenList}.${built.warnings.length ? ` ${built.warnings.length} screen(s) need another try; ask me to regenerate them.` : ""}${match ? ` ${matchSummary(match)}` : ""} Switch themes on the right, click any element to edit it, or tell me what to change.${cloud.enabled ? ` ${APP_CLOUD_FOR_AI_NOTE}` : ""}`,
       versionId: version.id,
+      ...(match ? { match: match.screens } : {}),
     },
   });
-  return { output: { versionId: version.id, warnings: built.warnings }, usage: built.usage };
+  return {
+    output: {
+      versionId: version.id,
+      warnings: built.warnings,
+      ...(match ? { match: { rounds: match.rounds, screens: match.screens } } : {}),
+    },
+    usage: built.usage,
+  };
 }
 
 export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {

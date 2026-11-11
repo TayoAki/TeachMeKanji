@@ -125,3 +125,36 @@ export async function cutOutCharacter(input: Buffer, maxSize = 512): Promise<Buf
     .png()
     .toBuffer();
 }
+
+/**
+ * Put a character's poses on one square canvas each, at the same scale and standing on the same
+ * spot (centered, feet near the bottom), so swapping or animating poses never makes the character
+ * jump, grow or get cropped.
+ */
+export async function normalizePoses(poses: Buffer[], size = 512): Promise<Buffer[]> {
+  if (!poses.length) return poses;
+  const metas = await Promise.all(poses.map((p) => sharp(p).metadata()));
+  const margin = Math.round(size * 0.06);
+  const largest = Math.max(...metas.map((m) => Math.max(m.width ?? 1, m.height ?? 1)));
+  const scale = (size - margin * 2) / largest;
+  return Promise.all(
+    poses.map(async (pose, i) => {
+      const width = Math.max(1, Math.round((metas[i]!.width ?? 1) * scale));
+      const height = Math.max(1, Math.round((metas[i]!.height ?? 1) * scale));
+      const resized = await sharp(pose).resize(width, height).png().toBuffer();
+      return sharp({
+        create: {
+          width: size,
+          height: size,
+          channels: 4,
+          background: { r: 0, g: 0, b: 0, alpha: 0 },
+        },
+      })
+        .composite([
+          { input: resized, left: Math.round((size - width) / 2), top: size - margin - height },
+        ])
+        .png()
+        .toBuffer();
+    }),
+  );
+}

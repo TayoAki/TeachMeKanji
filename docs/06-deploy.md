@@ -200,11 +200,16 @@ design $2.05–3.20 (images about $0.14 each), a redraw about $0.20, the build f
 $1.25–2.10; one whole app about $3.60 (72 credits). Those figures are with Nano Banana Pro
 ($0.14 an image); the default is now Nano Banana 2.1 ($0.045 an image), which scored best in a
 blind test of the image models on OpenRouter, so a design's images cost about a third as much. Credits: the design reserves 80, a
-redraw 10, a build from mockups 50, so a free account can design and build one app. Images are
+redraw 10, a build from mockups 60 (it includes the match check), so a free account can design and build one app. Images are
 stored under `projects/<id>/design/` and served to the project's editors only. Cheaper setups: any model
 setting can be an OpenRouter id (Gemini, DeepSeek; text-only build models build from the
 mockups' written briefs), and `DETAIL_IMAGE_MODEL` can draw everything but the key screen's
-options with a different image model.
+options with a different image model. After a build from mockups the worker checks every
+screen against its mockup and rebuilds the ones under 90% (up to two rounds); it renders the
+screens with headless Chrome, so the worker needs `INSTALL_VIDEO_RENDERER=1` (the same Chrome the
+promo videos use). Without it the check is skipped. `MATCH_STEP=0` turns it off; `MATCH_TARGET`,
+`MATCH_ROUNDS` and `MATCH_FIXES_PER_ROUND` tune it. One live round on two NightRhythm screens
+took them from 60% to 72% and 55% to 62% for $0.77.
 
 - **Errors:** every server error (web requests and worker jobs) is one JSON line on stderr.
   Set `ERROR_WEBHOOK_URL` to also POST them to a Slack/Discord incoming webhook or a

@@ -83,6 +83,9 @@ function respond(params: Params): string {
       leakedText: [],
       problems: [],
     });
+  // The match check: the offline build already matches its (offline) mockups.
+  if (params.output_config?.format && systemText(params).startsWith("You compare an app screen"))
+    return JSON.stringify({ score: 96, gaps: [], missingPictures: [] });
   // Store listing (structured output): fixed copy that fits the stores' limits.
   if (params.output_config?.format && systemText(params).startsWith("You write App Store"))
     return JSON.stringify(fakeListing(request));

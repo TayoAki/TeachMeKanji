@@ -32,12 +32,13 @@ import {
   pickKeyScreen,
   type DesignDeps,
 } from "../design/engine";
+import { DESIGN_REVIEW_MODEL } from "../design/build-design";
 import { screenMockupPrompt } from "../design/prompts";
 import { getDetailImageModel, getImageModel, ImageError, type DrawnImage } from "../images/client";
 import type { HandlerContext, HandlerResult } from "./context";
 
 const DESIGN_MODEL = () => process.env.DESIGN_MODEL || "claude-opus-5-5";
-const REVIEW_MODEL = () => process.env.DESIGN_REVIEW_MODEL || "claude-sonnet-5-5";
+const REVIEW_MODEL = DESIGN_REVIEW_MODEL;
 const PARALLEL_SCREENS = 4;
 
 const fileSlug = (path: string) =>

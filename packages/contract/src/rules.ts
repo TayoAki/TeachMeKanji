@@ -54,7 +54,8 @@ ${modules}
    - <PressScale onPress={…} style={…}> instead of a plain Pressable for cards, rows and primary buttons (scaleTo={0.94} for small buttons).
    - <CountUp value={n} format={…} style={…} /> for a headline number (a score, a streak, a total) instead of static text.
    - <GrowBar progress={0.7} /> for progress and breakdown bars.
-   - <Float> around one hero picture or mascot per screen, never around text or controls.
+   - <Float> around one hero picture per screen, never around text or controls.
+   - <Mascot pose="<pose image name>" size={120} /> for the app's mascot (never AiImage): it breathes, bounces into a new pose when \`pose\` changes and wiggles when tapped. Switch the pose to fit the moment (a happy pose after a success, a sleepy one at night).
    Every screen uses at least one of these. Keep it calm: no looping motion besides one Float, nothing that delays a tap. For a FlatList, wrap each row in <Appear delay={Math.min(index, 8) * 50}>.`;
 }
 

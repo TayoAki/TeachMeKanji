@@ -222,6 +222,19 @@ creates a `restore` version so history stays linear.
   sees its own; the mascot's poses become `data/images.ts` entries; the default theme is set to
   the plan's first theme by the platform. Builds from mockups run on `DESIGN_BUILD_MODEL`
   (Sonnet), which matched the mockups as well as Opus at half the cost.
+- **Match check (end of a build from mockups):** pictures the screens describe
+  (`<AiImage prompt="...">` with literal text) are drawn by the image model and stored as app
+  images keyed by that text, which `AiImage` looks up first, so they aren't grey boxes. Then the
+  worker renders every screen itself (`apps/worker/src/render/screens.ts`: the preview runtime in
+  headless Chrome, `screen` mode, the preview user's sample data for App Cloud apps) and
+  `DESIGN_REVIEW_MODEL` scores each against its mockup (0–100, with the gaps and missing
+  pictures; a different step of the same screen, tab names from the plan and sample values don't
+  count). Screens under `MATCH_TARGET` (90) are rebuilt with both images, the gaps and the shared
+  layer as context, the three furthest first, for up to `MATCH_ROUNDS` (2) rounds; each round
+  commits a version, and the build's chat message lists every screen's score and what still
+  differs. It runs inside the build's reserve and stops when that is spent. Mascot poses are drawn
+  on one canvas at one scale and shown with `<Mascot>` from the motion kit (breathes, bounces
+  into a new pose, wiggles on tap).
 - **Motion:** each screen's build call also gets the direction's motion plan for that screen
   (its moments, and the signature interaction on its screen) and builds it with the platform's
   motion kit, `components/motion.tsx` (template-owned): `Appear`, `Stagger`, `PressScale`,

@@ -14,7 +14,7 @@ import {
 } from "@appbuilder/contract";
 import { AgentError } from "../agents/agents";
 import { addUsage, textOf, type CreateMessage, type UsageTotals } from "../generation/client";
-import { cutOutCharacter } from "../images/key";
+import { cutOutCharacter, normalizePoses } from "../images/key";
 import { mediaTypeOf, type DrawnImage, type ImageModel, type ImageRequest } from "../images/client";
 import { BudgetExceeded } from "../llm";
 import {
@@ -145,12 +145,10 @@ export async function drawMascot(
       }),
     ),
   );
-  return Promise.all(
-    [first, ...rest].map(async (image, i) => ({
-      name: poses[i]!.name,
-      png: await cutOutCharacter(image.data),
-    })),
-  );
+  const cut = await Promise.all([first, ...rest].map((image) => cutOutCharacter(image.data)));
+  // One canvas, one scale, the same footing: poses swap and animate without jumping or cropping.
+  const placed = await normalizePoses(cut);
+  return placed.map((png, i) => ({ name: poses[i]!.name, png }));
 }
 
 /** Claude picks the stronger of two options for the key screen (1 or 2). */

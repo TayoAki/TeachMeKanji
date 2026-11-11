@@ -1,7 +1,8 @@
 // TEMPLATE FILE — owned by the platform, never written by the model.
 // Images: <AiImage name="hero" /> shows an image added to the project (data/images.ts);
-// <AiImage prompt="..." /> generates one through ImageKit (https://imagekit.io), which caches it
-// by URL. Without either, a themed placeholder.
+// <AiImage prompt="..." /> shows the picture the platform drew for that description when the app
+// was built, or generates one through ImageKit (https://imagekit.io), which caches it by URL.
+// Without either, a themed placeholder.
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { View, type ImageStyle } from "react-native";
@@ -44,7 +45,10 @@ export function AiImage({
   style?: ImageStyle;
 }) {
   const theme = useTheme();
-  const url = (name ? appImages[name] : undefined) ?? (prompt ? aiImageUrl(prompt) : null);
+  // A described picture the platform drew at build time is stored under its description.
+  const url =
+    (name ? appImages[name] : undefined) ??
+    (prompt ? (appImages[prompt] ?? aiImageUrl(prompt)) : null);
   const label = prompt ?? name ?? "image";
   if (!url) {
     return (

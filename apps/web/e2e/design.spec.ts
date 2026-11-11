@@ -80,6 +80,8 @@ test("design first: mockups and a mascot, a redraw from a note, then a build tha
   await expect(page.getByTestId("status")).toHaveText("Ready", { timeout: 60_000 });
   await expect(page.getByTestId("canvas-screen").first()).toBeVisible();
   await expect(review).toHaveCount(0);
+  // The worker rendered every screen and checked it against its mockup.
+  await expect(page.getByText(/Checked against your mockups: .*\d+%/)).toBeVisible();
   // plan 1 + design 10 + one redraw 1 + build 8
   await expect(page.getByTestId("workspace-credits")).toHaveText("80 credits");
 
