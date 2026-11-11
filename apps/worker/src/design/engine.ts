@@ -32,7 +32,10 @@ import {
 
 export interface DesignDeps {
   createMessage: CreateMessage;
+  /** Draws the mascot, the other screens and fixes. */
   images: ImageModel;
+  /** Draws the key screen's two options (the one the rest copies); `images` when not set. */
+  keyImages?: ImageModel;
   /** Model for the design direction (structured output). */
   directionModel: string;
   /** Model for rating and checking mockups (vision). */
@@ -50,12 +53,20 @@ const imageBlock = (data: Buffer): Anthropic.Beta.Messages.BetaImageBlockParam =
   source: { type: "base64", media_type: mediaTypeOf(data), data: data.toString("base64") },
 });
 
-export async function draw(deps: DesignDeps, request: ImageRequest): Promise<DrawnImage> {
+export async function draw(
+  deps: DesignDeps,
+  request: ImageRequest,
+  model: ImageModel = deps.images,
+): Promise<DrawnImage> {
   if (deps.overBudget()) throw new BudgetExceeded();
-  const image = await deps.images.draw(request);
+  const image = await model.draw(request);
   deps.charge(image.costUsd);
   return image;
 }
+
+/** An option for the key screen, on the key-screen model. */
+export const drawKey = (deps: DesignDeps, request: ImageRequest) =>
+  draw(deps, request, deps.keyImages ?? deps.images);
 
 async function structured<T>(
   deps: DesignDeps,

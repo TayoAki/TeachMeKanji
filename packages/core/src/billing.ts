@@ -181,6 +181,9 @@ export const MODEL_PRICES: Record<
   "claude-opus-5-5": { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 },
   "claude-sonnet-5-5": { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 2.5 },
   "claude-haiku-5-5": { input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite: 0.125 },
+  // Through OpenRouter (whose own reported cost is used when it gives one).
+  "google/gemini-3.8-flash": { input: 0.75, output: 3.75, cacheRead: 0.075, cacheWrite: 0.042 },
+  "deepseek/deepseek-v4-flash": { input: 0.09, output: 0.18, cacheRead: 0.018, cacheWrite: 0 },
 };
 
 export interface TokenUsage {

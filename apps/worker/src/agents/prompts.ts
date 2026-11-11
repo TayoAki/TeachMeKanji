@@ -98,6 +98,10 @@ export interface BuildDesign {
   mockups: Record<string, MockupImage>;
   /** Images added to the app for the build (mascot poses, illustrations): name → URL. */
   images?: Record<string, string>;
+  /** Each screen's written brief, by path: what a model that can't see images builds from. */
+  briefs?: Record<string, string>;
+  /** The design's palette, type and shapes in words, for the same models' theme step. */
+  style?: string;
 }
 
 /** A request with the approved mockup attached in front of it, when there is one. */
@@ -125,10 +129,25 @@ export function themeFromMockup(plan: AppPlan): string {
 }
 
 export function screenFromMockup(images: Record<string, string> | undefined): string {
-  const names = Object.keys(images ?? {});
   return `The user approved a mockup of this screen (the image above). Build it to match: the same sections in the same order, the same hierarchy (what is big, bold or colored), card shapes, spacing and icons (the nearest @expo/vector-icons), and its copy where it fits the plan. Colors come from the theme, which already matches the mockup. Leave out the iOS status bar and the home indicator: the system draws them.
-${names.length ? `Pictures: these images are added to the app; show them with <AiImage name="..." /> where the mockup shows them, choosing the pose or picture that fits the moment: ${names.map((n) => `"${n}"`).join(", ")}. Size them like the mockup and use resizeMode "contain" for characters. For any other picture in the mockup use <AiImage prompt="..." />.` : `For pictures in the mockup use <AiImage prompt="..." />.`}
+${mockupPictures(images)}`;
+}
+
+function mockupPictures(images: Record<string, string> | undefined): string {
+  const names = Object.keys(images ?? {});
+  return `${names.length ? `Pictures: these images are added to the app; show them with <AiImage name="..." /> where the mockup shows them, choosing the pose or picture that fits the moment: ${names.map((n) => `"${n}"`).join(", ")}. Size them like the mockup and use resizeMode "contain" for characters. For any other picture in the mockup use <AiImage prompt="..." />.` : `For pictures in the mockup use <AiImage prompt="..." />.`}
 Where the mockup shows something the allowed imports can't do, build the closest thing that works.`;
+}
+
+/** The theme step for a model that can't see the mockup: the design's style in words. */
+export function themeFromBrief(plan: AppPlan, style: string): string {
+  return `The user approved mockups in this visual direction:\n${style}\nThe first pack ("${plan.themes[0]?.name}") must match it: take background, surface, text, muted text, primary and accent from that palette, and the corner radius from its shapes. The other packs keep their own moods but use the same radius.`;
+}
+
+/** A screen's step for a model that can't see the mockup: the approved mockup, described. */
+export function screenFromBrief(brief: string, images: Record<string, string> | undefined): string {
+  return `The user approved a mockup of this screen. It shows, top to bottom:\n${brief}\nBuild it to match: the same sections in the same order, the same hierarchy, and its copy where it fits the plan. Colors come from the theme, which already matches the design. Leave out the iOS status bar and the home indicator: the system draws them.
+${mockupPictures(images)}`;
 }
 
 export function themeRequest(plan: AppPlan): string {

@@ -43,6 +43,17 @@ export function getImageModel(): ImageModel | null {
   return openRouterImages(key, process.env.IMAGE_MODEL || "google/gemini-3-pro-image");
 }
 
+/**
+ * The image model for everything but the key screen's two options (the mascot, the other
+ * screens, fixes and redraws): DETAIL_IMAGE_MODEL, a cheaper model, when set; else the same one.
+ */
+export function getDetailImageModel(): ImageModel | null {
+  const main = getImageModel();
+  const detail = process.env.DETAIL_IMAGE_MODEL || "";
+  if (!main || main.offline || !detail) return main;
+  return openRouterImages(process.env.OPENROUTER_API_KEY || "", detail);
+}
+
 /** Typical price of one image when the provider doesn't report it (Nano Banana Pro, 2026-11). */
 const FALLBACK_IMAGE_USD = 0.14;
 

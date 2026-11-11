@@ -3,12 +3,13 @@
  * screen's model call sees) and the mascot's poses, added to the app as images it can show.
  */
 import { and, eq } from "drizzle-orm";
-import { poseImageName } from "@appbuilder/contract";
+import { poseImageName, type DesignDirection } from "@appbuilder/contract";
 import { designApproved, designForPlan, getStorage, newId } from "@appbuilder/core";
 import { schema, type Database } from "@appbuilder/db";
 import type { BuildDesign, MockupImage } from "../agents/prompts";
 import { mediaTypeOf } from "../images/client";
 import { platformUrl } from "../platform-url";
+import { directionStyle } from "./prompts";
 
 /** The build model when mockups carry the design: Sonnet matched them as well as Opus at half the cost. */
 export const DESIGN_BUILD_MODEL = () => process.env.DESIGN_BUILD_MODEL || "claude-sonnet-5-5";
@@ -22,7 +23,9 @@ export async function approvedDesignFor(
   if (!row || row.projectId !== projectId || !designApproved(row)) return undefined;
   const storage = getStorage();
   const mockups: Record<string, MockupImage> = {};
+  const briefs: Record<string, string> = {};
   for (const screen of row.screens) {
+    if (screen.brief) briefs[screen.path] = screen.brief;
     const object = screen.image ? await storage.get(screen.image) : null;
     if (!object) continue;
     const data = Buffer.from(object.data);
@@ -59,5 +62,9 @@ export async function approvedDesignFor(
     }
     images[name] = `${platformUrl()}/api/app-images/${id}`;
   }
-  return { design: { mockups, images }, designId: row.id };
+  const direction = row.direction as unknown as DesignDirection | null;
+  return {
+    design: { mockups, images, briefs, style: direction ? directionStyle(direction) : undefined },
+    designId: row.id,
+  };
 }

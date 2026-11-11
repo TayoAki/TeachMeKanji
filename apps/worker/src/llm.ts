@@ -2,6 +2,7 @@ import { costUsd, type TokenUsage } from "@appbuilder/core";
 import { AgentError } from "./agents/agents";
 import { addUsage, anthropicCreateMessage, type CreateMessage } from "./generation/client";
 import { FAKE_MODEL, fakeCreateMessage } from "./generation/fake-provider";
+import { openRouterChatCreateMessage, routedCreateMessage } from "./generation/openrouter-chat";
 
 export class Cancelled extends Error {
   constructor() {
@@ -20,7 +21,8 @@ export interface Provider {
 
 /**
  * LLM_PROVIDER=fake uses the offline template generator (tests, demos without an API key).
- * Otherwise requests go to Claude through the Anthropic SDK.
+ * Otherwise requests go to Claude through the Anthropic SDK, and a model named by an OpenRouter
+ * id (vendor/model, e.g. a Gemini or DeepSeek model set in GENERATION_MODEL) through OpenRouter.
  */
 export function getProvider(): Provider {
   if (process.env.LLM_PROVIDER === "fake")
@@ -34,7 +36,14 @@ export function getProvider(): Provider {
     // One cap for every run on this worker: a build writes all its screens at once, so many
     // builds together would otherwise exceed the account's rate limit and fail.
     createMessage: limitConcurrency(
-      anthropicCreateMessage(),
+      routedCreateMessage(
+        anthropicCreateMessage(),
+        process.env.OPENROUTER_API_KEY
+          ? openRouterChatCreateMessage(process.env.OPENROUTER_API_KEY, {
+              maxRetries: Number(process.env.MODEL_MAX_RETRIES) || 4,
+            })
+          : null,
+      ),
       Number(process.env.MAX_MODEL_REQUESTS) || 24,
     ),
     model: process.env.GENERATION_MODEL || "claude-opus-5-5",
@@ -100,11 +109,19 @@ export function metered(createMessage: CreateMessage, model: string, budgetUsd: 
     const response = await createMessage(params, hooks);
     const callUsage = addUsage({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, response);
     usage = addUsage(usage, response);
-    // Web searches are billed per search ($10 per 1,000), on top of the tokens.
+    // A gateway that reports what it charged (OpenRouter's chat endpoint) is taken at its word;
+    // otherwise tokens are priced from the list, plus web searches ($10 per 1,000).
+    const gatewayCost = (response.usage as { gateway_cost_usd?: number } | undefined)
+      ?.gateway_cost_usd;
     const searches = response.usage?.server_tool_use?.web_search_requests ?? 0;
-    const callCost = costUsd(params.model || model, callUsage);
-    spent =
-      spent === null || callCost === null ? null : spent + callCost + searches * WEB_SEARCH_USD;
+    const callCost =
+      typeof gatewayCost === "number"
+        ? gatewayCost
+        : (() => {
+            const tokens = costUsd(params.model || model, callUsage);
+            return tokens === null ? null : tokens + searches * WEB_SEARCH_USD;
+          })();
+    spent = spent === null || callCost === null ? null : spent + callCost;
     return response;
   };
   /** Add a cost that isn't model tokens (images drawn for the run), and enforce the budget. */

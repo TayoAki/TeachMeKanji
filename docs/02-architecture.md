@@ -221,6 +221,13 @@ creates a `restore` version so history stays linear.
   sees its own; the mascot's poses become `data/images.ts` entries; the default theme is set to
   the plan's first theme by the platform. Builds from mockups run on `DESIGN_BUILD_MODEL`
   (Sonnet), which matched the mockups as well as Opus at half the cost.
+- **Other models:** every model setting accepts an OpenRouter id (`vendor/model`, e.g. a Gemini
+  or DeepSeek model). Those requests go to OpenRouter's chat completions endpoint through an
+  adapter (`apps/worker/src/generation/openrouter-chat.ts`) that keeps the Messages shape
+  (structured output, effort, images, web search through OpenRouter's web plugin) and meters
+  the cost OpenRouter reports. A build model that reads text only gets each screen's written
+  brief and the direction's style instead of the mockup images. `DETAIL_IMAGE_MODEL` draws
+  everything but the key screen's two options with a cheaper image model.
 
 ### 4.2 Build (orchestrated by our code; one `agent_run`)
 1. **Scaffold** the template files.

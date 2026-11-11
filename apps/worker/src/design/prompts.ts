@@ -49,12 +49,17 @@ export function designRequest(plan: AppPlan, research: ResearchBrief | null): st
 
 // --- Image prompts -------------------------------------------------------------------------
 
-function styleBlock(plan: AppPlan, d: DesignDirection): string {
-  return `App: ${plan.appName}. Visual direction "${d.styleName}": ${d.summary}
+/** The direction's look in words: for the image model, and for a build model without vision. */
+export function directionStyle(d: DesignDirection): string {
+  return `Visual direction "${d.styleName}": ${d.summary}
 Palette: background ${d.palette.background}, surface ${d.palette.surface}, text ${d.palette.text}, muted text ${d.palette.mutedText}, primary ${d.palette.primary}, accent ${d.palette.accent}, success ${d.palette.success}.
 Typography: display ${d.typography.display}, body ${d.typography.body}. ${d.typography.notes}
 Shape: corner radius ${d.shape.cornerRadius}px; cards: ${d.shape.cards}; shadows: ${d.shape.shadows}.
 Illustration style: ${d.illustrationStyle}`;
+}
+
+function styleBlock(plan: AppPlan, d: DesignDirection): string {
+  return `App: ${plan.appName}. ${directionStyle(d)}`;
 }
 
 export function mascotPosePrompt(

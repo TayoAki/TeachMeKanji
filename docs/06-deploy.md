@@ -199,7 +199,10 @@ each screen's mockup, uses the mascot's poses as app images, and runs on
 design $2.05–3.20 (images about $0.14 each), a redraw about $0.20, the build from mockups
 $1.25–2.10; one whole app about $3.60 (72 credits). Credits: the design reserves 80, a
 redraw 10, a build from mockups 50, so a free account can design and build one app. Images are
-stored under `projects/<id>/design/` and served to the project's editors only.
+stored under `projects/<id>/design/` and served to the project's editors only. Cheaper setups: any model
+setting can be an OpenRouter id (Gemini, DeepSeek; text-only build models build from the
+mockups' written briefs), and `DETAIL_IMAGE_MODEL` (e.g. `google/gemini-3.1-flash-image`) draws
+everything but the key screen's options for about a quarter of the price.
 
 - **Errors:** every server error (web requests and worker jobs) is one JSON line on stderr.
   Set `ERROR_WEBHOOK_URL` to also POST them to a Slack/Discord incoming webhook or a
