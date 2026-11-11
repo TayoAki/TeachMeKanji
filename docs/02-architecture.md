@@ -222,6 +222,13 @@ creates a `restore` version so history stays linear.
   sees its own; the mascot's poses become `data/images.ts` entries; the default theme is set to
   the plan's first theme by the platform. Builds from mockups run on `DESIGN_BUILD_MODEL`
   (Sonnet), which matched the mockups as well as Opus at half the cost.
+- **Motion:** each screen's build call also gets the direction's motion plan for that screen
+  (its moments, and the signature interaction on its screen) and builds it with the platform's
+  motion kit, `components/motion.tsx` (template-owned): `Appear`, `Stagger`, `PressScale`,
+  `CountUp`, `GrowBar` and `Float`, on React Native's `Animated`. Rule 16 of the contract asks
+  every screen to use them. They respect Reduce Motion, and in still renders (the preview's
+  `screen` mode: canvas frames and screenshots) they show their final state at once, so a
+  captured screen is never half-faded. The design prompt only plans motion the code can do.
 - **Other models:** every model setting accepts an OpenRouter id (`vendor/model`, e.g. a Gemini
   or DeepSeek model). Those requests go to OpenRouter's chat completions endpoint through an
   adapter (`apps/worker/src/generation/openrouter-chat.ts`) that keeps the Messages shape

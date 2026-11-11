@@ -160,6 +160,9 @@ function load(message: Extract<ParentToFrame, { type: "load" }>) {
   );
 
   currentFiles = message.files;
+  // Canvas frames and screenshots are still renders: the app's motion pieces (components/motion)
+  // show their final state at once instead of being captured mid-animation.
+  (globalThis as { __appbuilderStill?: boolean }).__appbuilderStill = message.mode === "screen";
   const tree = buildRouteTree(Object.keys(message.files));
   const modules = createModuleSystem(message.files, vendorModules, { instrument: true });
   let initialHref = message.href;

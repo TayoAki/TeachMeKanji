@@ -32,12 +32,15 @@ export function aiImageUrl(prompt: string, width = 800, height = 600): string | 
 export function AiImage({
   name,
   prompt,
+  fit = "cover",
   style,
 }: {
   /** An image added to the project (see data/images.ts). */
   name?: string;
   /** Or a short visual description to generate one from. */
   prompt?: string;
+  /** "contain" for a character or cut-out picture: shown whole, with nothing behind it. */
+  fit?: "cover" | "contain";
   style?: ImageStyle;
 }) {
   const theme = useTheme();
@@ -65,8 +68,14 @@ export function AiImage({
     <Image
       source={{ uri: url }}
       accessibilityLabel={label}
-      contentFit="cover"
-      style={[{ height: 160, backgroundColor: theme.colors.surfaceAlt }, style]}
+      contentFit={fit}
+      style={[
+        {
+          height: 160,
+          backgroundColor: fit === "contain" ? "transparent" : theme.colors.surfaceAlt,
+        },
+        style,
+      ]}
     />
   );
 }

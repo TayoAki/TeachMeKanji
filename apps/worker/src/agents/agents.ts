@@ -43,6 +43,7 @@ import {
   screenComponentDir,
   screenFromBrief,
   screenFromMockup,
+  screenMotion,
   screenRequest,
   themeFromBrief,
   themeFromMockup,
@@ -180,15 +181,19 @@ export async function buildApp(input: {
     screen: AppPlan["screens"][number],
   ): string | ReturnType<typeof withMockup> => {
     const brief = design?.briefs?.[screen.path];
+    const motion = screenMotion(design?.motion, screen.path);
+    const withMotion = (text: string) => (motion ? `${text}\n\n${motion}` : text);
     if (textOnly && brief)
-      return `${screenRequest(plan, screen)}\n\n${screenFromBrief(brief, design?.images)}`;
+      return withMotion(
+        `${screenRequest(plan, screen)}\n\n${screenFromBrief(brief, design?.images)}`,
+      );
     const mockup = design?.mockups[screen.path];
     if (!textOnly && mockup)
       return withMockup(
-        `${screenRequest(plan, screen)}\n\n${screenFromMockup(design?.images)}`,
+        withMotion(`${screenRequest(plan, screen)}\n\n${screenFromMockup(design?.images)}`),
         mockup,
       );
-    return screenRequest(plan, screen);
+    return withMotion(screenRequest(plan, screen));
   };
 
   // 1. Shared layer: the theme and the data layer are independent, so they run in parallel.

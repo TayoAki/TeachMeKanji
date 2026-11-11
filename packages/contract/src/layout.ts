@@ -23,6 +23,7 @@ export const TEMPLATE_FILES = [
   "components/AiImage.tsx",
   "components/share.ts",
   "components/camera.tsx",
+  "components/motion.tsx",
   "data/photos.ts",
   "data/location.ts",
   "data/push.ts",

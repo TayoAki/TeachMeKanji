@@ -652,6 +652,7 @@ function listScreen(
   return `import { Ionicons } from "@expo/vector-icons";
 import { Link } from "expo-router";
 ${head(root, ", Pressable")}
+import { Appear, CountUp } from "${root}components/motion";
 import { formatDate, VALUE_LABEL, type ${noun} } from "${root}data/schema";
 
 export default function HomeScreen() {
@@ -676,13 +677,14 @@ export default function HomeScreen() {
         </Text>
         <View style={{ backgroundColor: theme.colors.primary, borderRadius: theme.radius.lg, padding: theme.spacing.lg, gap: theme.spacing.xs }}>
           <Text style={{ color: theme.colors.onPrimary, fontSize: theme.font.size.caption }}>Total {VALUE_LABEL.toLowerCase()}</Text>
-          <Text style={{ color: theme.colors.onPrimary, fontSize: theme.font.size.display, fontWeight: theme.font.weight.bold }}>{total}</Text>
+          <CountUp value={total} style={{ color: theme.colors.onPrimary, fontSize: theme.font.size.display, fontWeight: theme.font.weight.bold }} />
           <Text style={{ color: theme.colors.onPrimary, fontSize: theme.font.size.body }}>
             {done} of {items.length} done
           </Text>
         </View>
-        {items.map((item) => (
-          <Card key={item.id} style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.md }}>
+        {items.map((item, index) => (
+          <Appear key={item.id} delay={Math.min(index, 8) * 50}>
+          <Card style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.md }}>
             ${
               detail
                 ? `<Link href={{ pathname: "/${detail}/[id]", params: { id: item.id } }} asChild>
@@ -713,6 +715,7 @@ export default function HomeScreen() {
               {item.done ? <Ionicons name="checkmark" size={16} color={theme.colors.onPrimary} /> : null}
             </Pressable>
           </Card>
+          </Appear>
         ))}
       </ScrollView>
 ${

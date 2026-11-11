@@ -102,6 +102,29 @@ export interface BuildDesign {
   briefs?: Record<string, string>;
   /** The design's palette, type and shapes in words, for the same models' theme step. */
   style?: string;
+  /** The direction's motion plan: each screen's build gets its own moments. */
+  motion?: BuildMotion;
+}
+
+export interface BuildMotion {
+  personality: string;
+  signature?: { name: string; screen: string; description: string; howItMoves: string };
+  /** Moments by screen path. */
+  perScreen: Record<string, string[]>;
+}
+
+/** The approved design's motion for one screen, for that screen's build request. */
+export function screenMotion(motion: BuildMotion | undefined, path: string): string {
+  if (!motion) return "";
+  const moments = motion.perScreen[path] ?? [];
+  const signature =
+    motion.signature && motion.signature.screen === path
+      ? `Signature interaction on this screen, "${motion.signature.name}": ${motion.signature.description} How it moves: ${motion.signature.howItMoves}`
+      : "";
+  return `Motion from the approved design (personality: ${motion.personality})${
+    signature ? `\n${signature}` : ""
+  }${moments.length ? `\nMoments on this screen:\n${moments.map((m) => `- ${m}`).join("\n")}` : ""}
+Build these with components/motion (Stagger, Appear, PressScale, CountUp, GrowBar, Float) and React Native's Animated for anything they don't cover, using the allowed imports only (no SVG, gestures or Lottie libraries: approximate with Views, LinearGradient and Animated). Colors come from the theme, never the hex values above. Where the motion can't be built exactly, build the closest calm version.`;
 }
 
 /** A request with the approved mockup attached in front of it, when there is one. */
@@ -135,7 +158,7 @@ ${mockupPictures(images)}`;
 
 function mockupPictures(images: Record<string, string> | undefined): string {
   const names = Object.keys(images ?? {});
-  return `${names.length ? `Pictures: these images are added to the app; show them with <AiImage name="..." /> where the mockup shows them, choosing the pose or picture that fits the moment: ${names.map((n) => `"${n}"`).join(", ")}. Size them like the mockup and use resizeMode "contain" for characters. For any other picture in the mockup use <AiImage prompt="..." />.` : `For pictures in the mockup use <AiImage prompt="..." />.`}
+  return `${names.length ? `Pictures: these images are added to the app; show them with <AiImage name="..." /> where the mockup shows them, choosing the pose or picture that fits the moment: ${names.map((n) => `"${n}"`).join(", ")}. Size them like the mockup and add fit="contain" for characters. For any other picture in the mockup use <AiImage prompt="..." />.` : `For pictures in the mockup use <AiImage prompt="..." />.`}
 Where the mockup shows something the allowed imports can't do, build the closest thing that works.`;
 }
 

@@ -34,7 +34,7 @@ export function designSystem(plan: AppPlan): string {
   const theme = plan.themes[0];
   return `You are the lead product designer for an iPhone app. From the plan and the market research, set a distinctive, premium visual direction (not a generic template look) and brief every screen for a high-fidelity mockup.
 
-What the app's code can do: React Native and Expo; solid colors, linear gradients, rounded cards, shadows, SVG shapes, images (generated illustrations, and a mascot as transparent PNGs), system fonts with strong weights, simple animations and haptics. Don't design blur-heavy glass walls, 3D renders as UI, or device frames. Use native iOS patterns: a tab bar at the bottom for tab screens, large titles where they fit, 44pt touch targets, and real, readable copy (no lorem ipsum).
+What the app's code can do: React Native and Expo; solid colors, linear gradients, rounded cards, shadows, shapes made of views, images (generated illustrations, and a mascot as transparent PNGs), system fonts with strong weights. Motion: content that rises in, staggered lists, cards that spring on press, numbers that count up, bars that grow, one gently floating hero picture, and custom React Native Animated motion (fades, slides, scales, loops). No SVG, gesture-driven drags, Lottie or haptics. Plan motion within that. Don't design blur-heavy glass walls, 3D renders as UI, or device frames. Use native iOS patterns: a tab bar at the bottom for tab screens, large titles where they fit, 44pt touch targets, and real, readable copy (no lorem ipsum).
 
 Use the plan's first theme for the mockups: "${theme?.name ?? "the first theme"}", primary ${theme?.primary ?? "(choose one)"}, ${theme?.dark ? "dark" : "light"}. Keep palette.primary equal to that primary.
 

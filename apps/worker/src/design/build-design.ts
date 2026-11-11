@@ -63,8 +63,25 @@ export async function approvedDesignFor(
     images[name] = `${platformUrl()}/api/app-images/${id}`;
   }
   const direction = row.direction as unknown as DesignDirection | null;
+  const motion = direction?.motion
+    ? {
+        personality: direction.motion.personality,
+        signature: direction.motion.signatureInteraction?.name
+          ? direction.motion.signatureInteraction
+          : undefined,
+        perScreen: Object.fromEntries(
+          (direction.motion.perScreen ?? []).map((s) => [s.path, s.moments]),
+        ),
+      }
+    : undefined;
   return {
-    design: { mockups, images, briefs, style: direction ? directionStyle(direction) : undefined },
+    design: {
+      mockups,
+      images,
+      briefs,
+      style: direction ? directionStyle(direction) : undefined,
+      motion,
+    },
     designId: row.id,
   };
 }

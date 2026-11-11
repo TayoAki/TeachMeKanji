@@ -148,7 +148,7 @@ describe("OpenRouter chat endpoint (non-Claude models)", () => {
     ).rejects.toThrow(/OPENROUTER_API_KEY/);
   });
 
-  it("builds from the written briefs when the build model can't see images", async () => {
+  it("builds from the written briefs (and the motion plan) when the build model can't see images", async () => {
     const { plan } = await planApp({
       createMessage: fakeCreateMessage,
       prompt: "A sleep tracker",
@@ -172,11 +172,19 @@ describe("OpenRouter chat endpoint (non-Claude models)", () => {
         mockups: Object.fromEntries(plan.screens.map((s) => [s.path, mockup])),
         briefs: Object.fromEntries(plan.screens.map((s) => [s.path, `BRIEF FOR ${s.path}`])),
         style: "PALETTE midnight navy",
+        motion: {
+          personality: "Slow and hushed",
+          perScreen: { [plan.screens[0]!.path]: ["Rows rise in a 40ms stagger"] },
+        },
       },
     });
     expect(requests.some((r) => r.includes('"type":"image"'))).toBe(false);
     expect(requests.some((r) => r.includes("PALETTE midnight navy"))).toBe(true);
     for (const screen of plan.screens)
       expect(requests.some((r) => r.includes(`BRIEF FOR ${screen.path}`))).toBe(true);
+    // The design's motion plan reaches the screen it belongs to.
+    const first = requests.find((r) => r.includes(`BRIEF FOR ${plan.screens[0]!.path}`))!;
+    expect(first).toContain("Rows rise in a 40ms stagger");
+    expect(first).toContain("components/motion");
   });
 });
