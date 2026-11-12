@@ -75,6 +75,9 @@ export const IMPORTABLE_MODULES: Readonly<Record<string, readonly string[] | "*"
   ],
   // Used through <Lottie> and <Celebrate> from components/lottie (see PLATFORM_ONLY_MODULES).
   "lottie-react-native": ["default"],
+  // Hire Shelby support chat, only in data/support-chat.ts (written by the platform) and used
+  // through useSupport() from components/support.
+  "@hireshelby/react-native": ["HireShelby", "useUnreadCount"],
 };
 
 /**
@@ -110,6 +113,8 @@ export const PLATFORM_ONLY_MODULES: Readonly<Record<string, string>> = {
     'Give haptic feedback with haptic("selection" | "light" | "success" | "warning") from components/motion.',
   "lottie-react-native":
     'Play an animation with <Lottie name="success" | "confetti" | "loading" | "heart" | "sparkle" /> or <Celebrate trigger={…} /> from components/lottie.',
+  "@hireshelby/react-native":
+    "Offer help with useSupport() or <SupportButton /> from components/support.",
 };
 
 /** AsyncStorage may only be used by the data layer, never directly by screens. */

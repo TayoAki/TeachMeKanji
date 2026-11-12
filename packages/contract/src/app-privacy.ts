@@ -5,7 +5,12 @@
  */
 import { APP_INFO_FILE } from "./app-structure";
 import type { ProjectFiles } from "./layout";
-import { readAnalyticsConfig, readPaymentsConfig, readPlatformConfig } from "./platform-config";
+import {
+  readAnalyticsConfig,
+  readPaymentsConfig,
+  readPlatformConfig,
+  readSupportChat,
+} from "./platform-config";
 
 /** Apple's standard licence agreement: subscription apps may link it as their Terms of Use. */
 export const APPLE_STANDARD_EULA_URL =
@@ -30,6 +35,8 @@ export interface AppDataPractices {
   reminders: boolean;
   /** Real purchases through RevenueCat (keys set); otherwise purchases are simulated. */
   purchases: boolean;
+  /** Hire Shelby's support chat is connected: support conversations are kept by Hire Shelby. */
+  supportChat: boolean;
   /** From data/app-info.ts; "" when not set. */
   appName: string;
   supportEmail: string;
@@ -64,6 +71,7 @@ export function readAppDataPractices(files: ProjectFiles): AppDataPractices {
     push: cloud && uses(/\bregisterForPush\s*\(/),
     reminders: uses(/\buseReminder\s*\(/),
     purchases: payments.iosApiKey !== "" || payments.androidApiKey !== "",
+    supportChat: readSupportChat(files).appId !== "",
     appName: appInfoField(files, "name"),
     supportEmail: appInfoField(files, "supportEmail"),
   };

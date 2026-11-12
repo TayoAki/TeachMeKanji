@@ -152,7 +152,12 @@ export function qualityChecks(files: ProjectFiles): QualityFinding[] {
     );
     check("S2", /\b(privacyUrl|termsUrl)\b/.test(settings), "Settings links privacy and terms.", 1);
     check("S2", /\bversion\b/.test(settings), "Settings shows the app version.", 2);
-    check("S2", /\bsupportEmail\b/.test(settings), "Settings offers a way to contact support.", 2);
+    check(
+      "S2",
+      /\b(supportEmail|SupportButton|useSupport)\b/.test(settings),
+      "Settings offers a way to contact support.",
+      2,
+    );
     const accounts = /apiUrl: "[^"]+"/.test(files["data/backend.ts"] ?? "");
     if (accounts) {
       check("S2", /\bsignOut\b/.test(settings), "Settings can sign out.", 1);

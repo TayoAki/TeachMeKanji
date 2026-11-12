@@ -5,7 +5,12 @@
  */
 import { STRUCTURE_SCREENS, isStructureScreen } from "./app-structure";
 import { isScreenFile, type ProjectFiles } from "./layout";
-import { readPaymentsConfig, readPlatformConfig, readStoreSettings } from "./platform-config";
+import {
+  readPaymentsConfig,
+  readPlatformConfig,
+  readStoreSettings,
+  readSupportChat,
+} from "./platform-config";
 
 export type ReviewStatus = "pass" | "warn" | "fail";
 
@@ -138,15 +143,19 @@ export function reviewCheck(files: ProjectFiles, context: ReviewContext): Review
       : "The app has no privacy policy link. Ask the AI to rebuild Settings, or set appInfo.privacyUrl: every app needs one.",
     guideline: "App Store 5.1.1(i) · Google Play User Data",
   });
+  const chat = Boolean(readSupportChat(files).appId);
+  const email = Boolean(infoField("supportEmail"));
   add({
     id: "support",
     title: "A way to contact support",
-    status: pass(Boolean(infoField("supportEmail")), "warn"),
-    detail: infoField("supportEmail")
-      ? "Settings offers a support contact."
-      : "Add a support email (data/app-info.ts) so people and App Review can reach you; the store listing also needs a support URL.",
+    status: pass(chat || email, "warn"),
+    detail: chat
+      ? `Help & support opens the Hire Shelby chat on iOS${email ? " and emails support elsewhere" : "; add a support email for Android, where the chat doesn't run"}.`
+      : email
+        ? "Help & support emails your support address. Connect Hire Shelby for an in-app chat."
+        : "Add a support email (data/app-info.ts) or connect Hire Shelby so people and App Review can reach you; the store listing also needs a support URL.",
     guideline: "App Store 1.5",
-    fix: "Ask me for a support email and put it in data/app-info.ts as supportEmail, then offer it in Settings.",
+    fix: "Ask me for a support email and put it in data/app-info.ts as supportEmail, then offer it in Settings with <SupportButton />.",
   });
 
   // A complete app (2.1, 4.2).

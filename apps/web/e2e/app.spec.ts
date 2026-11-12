@@ -762,3 +762,51 @@ test("errors: a phone's error reaches the Errors tab, and Fix with AI fixes it",
   await page.getByTestId("tab-errors").click();
   await expect(page.getByTestId("errors-view")).toContainText("No open errors");
 });
+
+test("support chat: connecting Hire Shelby installs its SDK for store builds and keeps the preview working", async ({
+  page,
+}) => {
+  await signUp(page, "Helper");
+  await createAndBuild(page, "A gratitude journal");
+  const projectId = page.url().split("/projects/")[1]!;
+  const files = async () =>
+    (
+      (await (await page.request.get(`/api/projects/${projectId}`)).json()) as {
+        files: Record<string, string>;
+      }
+    ).files;
+  // Every app has Help & support (email until a chat is connected).
+  expect((await files())["components/support.tsx"]).toContain("export function SupportButton");
+  expect((await files())["data/support-chat.ts"]).toContain("supportChat = null");
+
+  await page.getByTestId("open-export").click();
+  const section = page.getByTestId("support-chat");
+  await section.getByLabel("Hire Shelby App ID").fill("not-an-id");
+  await page.getByTestId("support-chat-save").click();
+  await expect(page.getByText("Paste the App ID from the Hire Shelby dashboard")).toBeVisible();
+  await section.getByLabel("Hire Shelby App ID").fill("app_K3e2eSupport01");
+  await page.getByTestId("support-chat-save").click();
+  await expect(section).toContainText("Hire Shelby connected");
+
+  const connected = await files();
+  expect(connected["data/support-chat.ts"]).toContain('appId: "app_K3e2eSupport01"');
+  expect(JSON.parse(connected["package.json"]!).dependencies["@hireshelby/react-native"]).toBe(
+    "0.1.0",
+  );
+  // The preview has no native chat: the app's Settings still renders the connected version.
+  await page.keyboard.press("Escape");
+  const settings = page.getByTestId("canvas-screen").filter({ hasText: "settings.tsx" });
+  await expect(settings.frameLocator("iframe").getByText("APPEARANCE")).toBeVisible({
+    timeout: 15_000,
+  });
+
+  // Disconnecting removes the SDK again.
+  await page.getByTestId("open-export").click();
+  await section.getByRole("button", { name: "Disconnect" }).click();
+  await expect(section).not.toContainText("Hire Shelby connected");
+  const after = await files();
+  expect(after["data/support-chat.ts"]).toContain("supportChat = null");
+  expect(
+    JSON.parse(after["package.json"]!).dependencies["@hireshelby/react-native"],
+  ).toBeUndefined();
+});

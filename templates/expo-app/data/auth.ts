@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { backend } from "./backend";
 import { api, setToken } from "./remote";
+import { deleteSupportData, forgetSupportUser, identifySupportUser } from "./support";
 
 export interface AppUser {
   id: string;
@@ -22,6 +23,7 @@ export function useAuth() {
     try {
       const { user: me } = await api<{ user: AppUser }>("/auth/me");
       setUser(me);
+      if (!me.anonymous) identifySupportUser(me);
     } finally {
       setLoading(false);
     }
@@ -38,6 +40,7 @@ export function useAuth() {
     });
     await setToken(result.token);
     setUser(result.user);
+    identifySupportUser(result.user);
     return result.user;
   };
 
@@ -48,10 +51,12 @@ export function useAuth() {
     });
     await setToken(result.token);
     setUser(result.user);
+    identifySupportUser(result.user);
     return result.user;
   };
 
   const signOut = async () => {
+    forgetSupportUser();
     await api("/auth/sign-out", { method: "POST" }).catch(() => {});
     await setToken(null);
     await refresh();
@@ -73,6 +78,7 @@ export function useAuth() {
     });
     await setToken(result.token);
     setUser(result.user);
+    identifySupportUser(result.user);
     return result.user;
   };
 
@@ -81,6 +87,7 @@ export function useAuth() {
    * Apple requires apps with sign-up to offer this in the app (Guideline 5.1.1(v)).
    */
   const deleteAccount = async () => {
+    await deleteSupportData();
     await api("/auth/me", { method: "DELETE" });
     await setToken(null);
     await refresh();

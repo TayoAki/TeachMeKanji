@@ -8,6 +8,7 @@ import { useEffect } from "react";
 import { Pressable, Text, View } from "react-native";
 import { trackScreen } from "../data/analytics";
 import { reportError, setErrorScreen } from "../data/errors";
+import { useSupportSetup } from "../components/support";
 import { appStructure } from "../data/app-structure";
 import { useAppState } from "../data/app-state";
 import { DataProvider } from "../data/repo";
@@ -17,6 +18,8 @@ function RootStack() {
   const theme = useTheme();
   const { ready, onboarded } = useAppState();
   const pathname = usePathname();
+  // The support chat in the app's colors, when the owner connected one (components/support).
+  useSupportSetup();
   // Screen views for the owner's analytics (does nothing while analytics is off), and the
   // screen an error report names.
   useEffect(() => {

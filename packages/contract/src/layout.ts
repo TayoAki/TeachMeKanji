@@ -34,6 +34,9 @@ export const TEMPLATE_FILES = [
   "data/analytics-config.ts",
   "data/errors.ts",
   "data/errors-config.ts",
+  "data/support-chat.ts",
+  "data/support.ts",
+  "components/support.tsx",
 ] as const;
 
 /** Files every generated app must contain in addition to the template. */

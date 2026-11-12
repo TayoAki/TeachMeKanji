@@ -436,6 +436,8 @@ export function ExportDialog({
         {me?.limits.nativeBuilds && expo ? (
           <StoreSubmit projectId={projectId} onAskAI={onAskAI} />
         ) : null}
+
+        <SupportChat projectId={projectId} />
       </DialogContent>
     </Dialog>
   );
@@ -776,6 +778,83 @@ interface StoreState {
 }
 
 /** One click from the latest version to TestFlight or Google Play's internal testing. */
+/**
+ * Hire Shelby (the in-app support chat): the owner creates the app in Hire Shelby's dashboard
+ * and pastes its App ID here; the app's "Help & support" then opens the chat in iOS builds.
+ */
+function SupportChat({ projectId }: { projectId: string }) {
+  const [state, setState] = useState<{ appId: string; connected: boolean } | null>(null);
+  const [appId, setAppId] = useState("");
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    api<{ appId: string; connected: boolean }>(`/api/projects/${projectId}/support-chat`, {
+      quiet: true,
+    })
+      .then((s) => {
+        setState(s);
+        setAppId(s.appId);
+      })
+      .catch(() => {});
+  }, [projectId]);
+  if (!state) return null;
+  const save = async (value: string) => {
+    setSaving(true);
+    try {
+      const r = await api<{ appId: string; connected: boolean }>(
+        `/api/projects/${projectId}/support-chat`,
+        { method: "PUT", json: { appId: value } },
+      );
+      setState(r);
+      setAppId(r.appId);
+      toast.success(r.connected ? "Support chat connected" : "Support chat disconnected");
+    } catch {
+      // api() showed why.
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <section className="space-y-2 border-t pt-4" data-testid="support-chat">
+      <h3 className="flex items-center gap-2 text-sm font-medium">
+        In-app support chat{" "}
+        {state.connected ? <Badge variant="outline">Hire Shelby connected</Badge> : null}
+      </h3>
+      <p className="text-xs text-muted-foreground">
+        Every app has Help &amp; support in Settings, which emails your support address. Connect{" "}
+        <a className="underline" href="https://app.hireshelby.com" target="_blank" rel="noreferrer">
+          Hire Shelby
+        </a>{" "}
+        and it opens a native support chat instead: your users write from inside the app, and you
+        answer from Hire Shelby&rsquo;s inbox, Telegram or its AI. Add the app there, then paste its
+        App ID. The chat runs in iOS builds (TestFlight and the App Store); the preview, Expo Go and
+        Android keep the email.
+      </p>
+      <div className="flex gap-2">
+        <Input
+          value={appId}
+          onChange={(e) => setAppId(e.target.value)}
+          aria-label="Hire Shelby App ID"
+          placeholder="app_…"
+          className="font-mono text-xs"
+        />
+        <Button
+          size="sm"
+          onClick={() => save(appId.trim())}
+          disabled={saving || !appId.trim() || appId.trim() === state.appId}
+          data-testid="support-chat-save"
+        >
+          {saving ? <Loader2 className="animate-spin" /> : null} Connect
+        </Button>
+        {state.connected ? (
+          <Button size="sm" variant="ghost" onClick={() => save("")} disabled={saving}>
+            Disconnect
+          </Button>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 interface ReviewItemView {
   id: string;
   title: string;

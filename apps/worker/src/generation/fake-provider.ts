@@ -1072,6 +1072,7 @@ export default function PaywallScreen() {
 function structureSettingsScreen(root: string) {
   return `import { Linking, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { Stack } from "expo-router";
+import { SupportButton } from "${root}components/support";
 import { appInfo } from "${root}data/app-info";
 import { useAppState } from "${root}data/app-state";
 import { usePurchases } from "${root}data/purchases";
@@ -1122,11 +1123,7 @@ export default function SettingsScreen() {
         ))}
       </View>
       <Text style={header}>SUPPORT</Text>
-      {appInfo.supportEmail ? (
-        <Pressable accessibilityRole="button" onPress={() => Linking.openURL("mailto:" + appInfo.supportEmail)} style={row}>
-          <Text style={label}>Contact support</Text>
-        </Pressable>
-      ) : null}
+      <SupportButton style={row} />
       {appInfo.privacyUrl ? (
         <Pressable accessibilityRole="button" onPress={() => Linking.openURL(appInfo.privacyUrl)} style={row}>
           <Text style={label}>Privacy Policy</Text>

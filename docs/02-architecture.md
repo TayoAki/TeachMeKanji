@@ -162,6 +162,19 @@ and accounts with one switch and no setup.
 - **Password reset (App Cloud):** `/auth/reset-request` emails a six-digit code (hashed in
   `app_password_reset`, 30 minutes, five tries, the same answer whether or not the email has an
   account); `/auth/reset` sets the new password, signs out every session and returns a new one.
+- **Help & support (Hire Shelby):** every app has `components/support.tsx` (template-owned):
+  `<SupportButton />` in Settings and `useSupport()`. It emails `appInfo.supportEmail` until the
+  owner connects [Hire Shelby](https://hireshelby.com) (our in-app support chat) by pasting the
+  app's Hire Shelby App ID under Publish → In-app support chat. That rewrites the platform file
+  `data/support-chat.ts` to import `@hireshelby/react-native` (pinned `HIRESHELBY_VERSION`) and
+  adds it to that app's package.json only, so other apps' builds never depend on it. The root
+  layout configures the chat in the app's theme colors, reports the paywalls (offers open the
+  app's paywall) and the plan; `data/auth.ts` identifies signed-in users, logs out on sign-out
+  and deletes the support data with the account. The chat is native iOS code: store and
+  TestFlight builds on iOS get it; the web preview (a no-op shim), Expo Go previews (the worker
+  writes the unconnected file, `withoutNativeSupportChat`) and Android keep the email. Connecting
+  checks that the SDK version is on npm (`HIRESHELBY_SDK_CHECK=0` skips it). The hosted privacy
+  policy names Hire Shelby when it's connected.
 - **App Review check:** `reviewCheck()` (packages/contract/src/review-check.ts) checks the current
   version for what the stores reject (simulated purchases, paywall terms, restore, account
   deletion, privacy and support links, placeholder screens, minimum functionality, open crashes,

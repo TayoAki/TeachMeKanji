@@ -25,6 +25,7 @@ import { Ionicons } from "./shims/vector-icons";
 import * as haptics from "./shims/haptics";
 import * as svg from "./shims/svg";
 import LottieView from "./shims/lottie";
+import * as hireShelby from "./shims/hireshelby";
 
 function esm(namespace: object, defaultExport?: unknown): Record<string, unknown> {
   return { ...namespace, __esModule: true, default: defaultExport ?? namespace };
@@ -68,4 +69,5 @@ export const vendorModules: Readonly<Record<string, unknown>> = {
   "react-native-svg": esm(svg, svg.Svg),
   "expo-haptics": esm(haptics),
   "lottie-react-native": esm({ LottieView }, LottieView),
+  "@hireshelby/react-native": esm(hireShelby, hireShelby.HireShelby),
 };

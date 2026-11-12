@@ -6,6 +6,78 @@ export const IMAGES_FILE = "data/images.ts";
 export const PAYMENTS_FILE = "data/payments.ts";
 export const ANALYTICS_CONFIG_FILE = "data/analytics-config.ts";
 export const ERRORS_CONFIG_FILE = "data/errors-config.ts";
+export const SUPPORT_CHAT_FILE = "data/support-chat.ts";
+
+/**
+ * Hire Shelby (hireshelby.com), the in-app support chat: its React Native package and the version
+ * apps that connect it install. The chat is native iOS code, so it runs in store and TestFlight
+ * builds; Expo Go, Android and the web fall back to email.
+ */
+export const HIRESHELBY_PACKAGE = "@hireshelby/react-native";
+export const HIRESHELBY_VERSION = "0.1.0";
+/** A Hire Shelby App ID, as its dashboard shows it. */
+export const HIRESHELBY_APP_ID = /^app_[A-Za-z0-9]{8,40}$/;
+
+/**
+ * data/support-chat.ts is written by the platform: null until the owner connects Hire Shelby,
+ * then the SDK and the app's Hire Shelby App ID. components/support reads it.
+ */
+export function supportChatFile(config: { appId: string }): string {
+  if (!config.appId)
+    return `// PLATFORM FILE — written by the platform when you connect Hire Shelby support chat.
+/** Not connected: Help & support emails the support address instead. */
+export const supportChat = null;
+`;
+  return `// PLATFORM FILE — written by the platform when you connect Hire Shelby support chat.
+import { HireShelby, useUnreadCount } from "${HIRESHELBY_PACKAGE}";
+
+/** Hire Shelby's native chat (store and TestFlight builds on iOS; elsewhere it does nothing). */
+export const supportChat = {
+  appId: ${JSON.stringify(config.appId)},
+  sdk: HireShelby,
+  useUnreadCount,
+};
+`;
+}
+
+export function readSupportChat(files: ProjectFiles): { appId: string } {
+  return {
+    appId: /appId:\s*"([^"]*)"/.exec(files[SUPPORT_CHAT_FILE] ?? "")?.[1] ?? "",
+  };
+}
+
+/**
+ * Connect (appId) or disconnect ("") Hire Shelby: writes data/support-chat.ts and adds or removes
+ * the SDK in package.json, so only apps that use it install the native module.
+ */
+export function withSupportChat(files: ProjectFiles, appId: string): ProjectFiles {
+  const next: ProjectFiles = { ...files, [SUPPORT_CHAT_FILE]: supportChatFile({ appId }) };
+  const pkg = files["package.json"];
+  if (pkg) {
+    try {
+      const parsed = JSON.parse(pkg) as { dependencies?: Record<string, string> };
+      const deps = { ...parsed.dependencies };
+      if (appId) deps[HIRESHELBY_PACKAGE] = HIRESHELBY_VERSION;
+      else delete deps[HIRESHELBY_PACKAGE];
+      parsed.dependencies = Object.fromEntries(
+        Object.entries(deps).sort(([a], [b]) => a.localeCompare(b)),
+      );
+      next["package.json"] = JSON.stringify(parsed, null, 2) + "\n";
+    } catch {
+      // A package.json that doesn't parse is left as it is.
+    }
+  }
+  return next;
+}
+
+/**
+ * Expo Go can't load native modules it doesn't ship, and the phone preview's shared runtime
+ * doesn't install the support chat: previews run the email fallback.
+ */
+export function withoutNativeSupportChat(files: ProjectFiles): ProjectFiles {
+  if (!readSupportChat(files).appId) return files;
+  return { ...files, [SUPPORT_CHAT_FILE]: supportChatFile({ appId: "" }) };
+}
 
 export interface ErrorsConfig {
   /** The platform's origin, where the app reports errors on phones. */
@@ -134,6 +206,7 @@ export function refreshTemplate(files: ProjectFiles, template: ProjectFiles): Pr
     PAYMENTS_FILE,
     ANALYTICS_CONFIG_FILE,
     ERRORS_CONFIG_FILE,
+    SUPPORT_CHAT_FILE,
   ]);
   const next: ProjectFiles = { ...files };
   for (const path of TEMPLATE_FILES) {

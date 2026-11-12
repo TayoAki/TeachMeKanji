@@ -64,6 +64,15 @@ export default async function AppPrivacyPage({ params }: PageProps<"/apps/[proje
       it can be fixed. Never your name, email or what you saved.
     </>,
   );
+  if (p.supportChat)
+    collected.push(
+      <>
+        <strong>Support conversations:</strong> what you write in the app&rsquo;s support chat, any
+        photo you attach, and your name and email if you&rsquo;re signed in, so the team can answer.
+        They&rsquo;re kept by Hire Shelby, the support chat provider. If the team turns on AI
+        replies, the chat asks you first and names who would receive your messages.
+      </>,
+    );
   if (p.ai)
     collected.push(
       <>
@@ -119,6 +128,7 @@ export default async function AppPrivacyPage({ params }: PageProps<"/apps/[proje
     </>,
   ];
   if (p.ai) providers.push(<>Anthropic, which answers the questions you ask the app&rsquo;s AI.</>);
+  if (p.supportChat) providers.push(<>Hire Shelby, which runs the in-app support chat.</>);
   if (p.push) providers.push(<>Expo, Apple and Google, which deliver notifications.</>);
   if (p.purchases)
     providers.push(<>Apple, Google and RevenueCat, which handle purchases and subscriptions.</>);
