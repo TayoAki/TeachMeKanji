@@ -21,7 +21,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
-import { lstat, mkdir, readFile, readlink, symlink, unlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, readlink, rm, symlink, unlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { networkInterfaces } from "node:os";
 import { join } from "node:path";
@@ -89,6 +89,18 @@ export function previewHostPool(): string[] {
 export function pickPreviewHost(pool: string[], inUse: Iterable<string>): string | null {
   const taken = new Set(inUse);
   return pool.find((host) => !taken.has(host)) ?? null;
+}
+
+/**
+ * Where one project's dev server keeps Metro's cache (it is the server's TMPDIR). Every session
+ * links the same node_modules, so the files in it have the same path from every project and
+ * Metro's cache key for them is the same too. One of those files, expo-router's route context,
+ * is compiled with the project's own `app/` folder written into it. With a shared cache the
+ * second project got the first project's copy, and the phone showed the first project's app.
+ * It sits beside the project folder, not inside it, so Metro doesn't watch its own cache.
+ */
+export function metroCacheDir(projectId: string): string {
+  return dataDir("device-cache", projectId);
 }
 
 let runtimeInstall: Promise<string> | null = null;
@@ -319,6 +331,8 @@ export class DeviceManager {
       await mkdir(dir, { recursive: true });
       await materialize(exportBundle("Preview", withoutNativeSupportChat(files)), dir);
       await linkNodeModules(join(dir, "node_modules"), nodeModules);
+      const cacheDir = metroCacheDir(projectId);
+      await mkdir(cacheDir, { recursive: true });
       const expo = await this.expoLogin(userId);
 
       const port = await freePort();
@@ -341,6 +355,8 @@ export class DeviceManager {
           env: childEnv({
             EXPO_NO_TELEMETRY: "1",
             BROWSER: "none",
+            // Metro's cache, per project: a shared one serves another project's screens.
+            TMPDIR: cacheDir,
             // Signs the dev server in as the viewer, so Expo Go on their iPhone accepts it.
             ...(expo.token ? { EXPO_TOKEN: expo.token } : {}),
             // Manifest and bundle URLs must point at the public subdomain, not localhost.
@@ -416,6 +432,7 @@ export class DeviceManager {
       await this.db
         .delete(schema.deviceSession)
         .where(eq(schema.deviceSession.projectId, projectId));
+      await rm(metroCacheDir(projectId), { recursive: true, force: true }).catch(() => {});
     }
   }
 

@@ -246,6 +246,11 @@ took them from 60% to 72% and 55% to 62% for $0.77.
 - **Your funnel:** `/admin/funnel` (for `ADMIN_EMAILS`) shows, for people who signed up in a
   period, how many verified, started a project, got a plan, built, edited, opened it on a phone,
   shipped something and pay, plus daily sign-ups, return visits and time to the first app.
+- **Your users:** `/admin/users` (for `ADMIN_EMAILS`) lists every account with its plan, apps,
+  AI runs, what those runs cost you and the credits charged, most expensive first; an account's
+  page shows each app it made, cost by kind of run and every run with its model, tokens and
+  cost. A run's cost is recorded when it finishes (`agent_run.cost_usd`); older runs are
+  estimated from their tokens at list prices and marked with a star.
 - **Limits:** credits, run concurrency, the per-user run and project limits and App Cloud's
   storage caps are enforced in the database, so they hold across instances. The sign-in,
   sign-up and new-device rate limits (Better Auth and App Cloud) are kept in memory per web

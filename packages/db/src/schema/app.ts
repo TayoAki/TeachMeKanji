@@ -4,6 +4,7 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   primaryKey,
   text,
@@ -238,6 +239,11 @@ export const agentRun = pgTable(
     cacheWriteTokens: integer("cache_write_tokens").notNull().default(0),
     creditsReserved: integer("credits_reserved").notNull().default(0),
     creditsCharged: integer("credits_charged").notNull().default(0),
+    /**
+     * What the run cost the platform in model and image spend (USD), free calls included.
+     * Null on runs from before this was recorded, and on runs whose model has no known price.
+     */
+    costUsd: numeric("cost_usd", { precision: 10, scale: 4 }),
     attempts: integer("attempts").notNull().default(0),
     cancelRequested: integer("cancel_requested").notNull().default(0),
     heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),

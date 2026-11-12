@@ -27,6 +27,7 @@ export * from "./email";
 export * from "./funnel";
 export * from "./feedback";
 export * from "./funnel-report";
+export * from "./admin-report";
 export * from "./backup";
 export * from "./store-credentials";
 export * from "./design";

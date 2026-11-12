@@ -234,6 +234,18 @@ export interface RunUsage {
 
 const NO_USAGE: TokenUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
 
+/**
+ * What a run cost the platform: its measured billable cost plus its free calls (repairs, the
+ * mockup check). Null when nothing was measured and the model has no price, so reports can
+ * tell "unknown" from "free".
+ */
+export function runCostUsd(result: RunUsage): string | null {
+  const billable =
+    result.costUsd ?? (result.model ? costUsd(result.model, result.usage ?? NO_USAGE) : null);
+  if (billable === null && !result.freeCostUsd) return null;
+  return ((billable ?? 0) + (result.freeCostUsd ?? 0)).toFixed(4);
+}
+
 /** Mark a run succeeded and settle its credits from measured usage (never above the reserve). */
 export async function completeRun(
   db: Database,
@@ -259,6 +271,7 @@ export async function completeRun(
       cacheReadTokens: usage.cacheRead,
       cacheWriteTokens: usage.cacheWrite,
       creditsCharged: charge,
+      costUsd: runCostUsd(result),
       finishedAt: new Date(),
     })
     .where(eq(agentRun.id, run.id))
@@ -302,6 +315,7 @@ export async function failRun(
       cacheReadTokens: usage.cacheRead,
       cacheWriteTokens: usage.cacheWrite,
       creditsCharged: charge,
+      costUsd: runCostUsd(result),
     })
     .where(eq(agentRun.id, run.id));
   await addEvent(db, run.id, status === "cancelled" ? "cancelled" : "error", {

@@ -38,7 +38,8 @@ export default async function AdminFunnelPage({ searchParams }: PageProps<"/admi
             <h1 className="text-2xl font-semibold">Funnel</h1>
             <p className="text-sm text-muted-foreground">
               People who signed up in the period, and how far they got. Your own accounts
-              (ADMIN_EMAILS) are left out. <Link href="/admin/feedback">Feedback →</Link>
+              (ADMIN_EMAILS) are left out. <Link href="/admin/users">Users →</Link>{" "}
+              <Link href="/admin/feedback">Feedback →</Link>
             </p>
           </div>
           <nav className="flex gap-1 text-sm">
