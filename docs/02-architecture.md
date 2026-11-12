@@ -174,7 +174,14 @@ and accounts with one switch and no setup.
   TestFlight builds on iOS get it; the web preview (a no-op shim), Expo Go previews (the worker
   writes the unconnected file, `withoutNativeSupportChat`) and Android keep the email. Connecting
   checks that the SDK version is on npm (`HIRESHELBY_SDK_CHECK=0` skips it). The hosted privacy
-  policy names Hire Shelby when it's connected.
+  policy names Hire Shelby when it's connected. On paid plans it's included through Hire Shelby's
+  partner API (`HIRESHELBY_API_URL`, `HIRESHELBY_PARTNER_KEY`; contract and HShelby instructions
+  in [11-hire-shelby-partner.md](11-hire-shelby-partner.md)): builds and store builds create the
+  owner's workspace and the project's Hire Shelby app and switch the chat on unless the owner
+  switched it off (`project.support_chat`); "Open support inbox" gives a claim link into Hire
+  Shelby's dashboard; the worker's hourly housekeeping charges AI replies in credits
+  (`support_ai_usage`, ledger `support_ai`, read from `/usage` with a cursor in `sync_cursor`) and
+  keeps each workspace's `active` (paid plan) and `aiAllowed` (credits left) in step.
 - **App Review check:** `reviewCheck()` (packages/contract/src/review-check.ts) checks the current
   version for what the stores reject (simulated purchases, paywall terms, restore, account
   deletion, privacy and support links, placeholder screens, minimum functionality, open crashes,

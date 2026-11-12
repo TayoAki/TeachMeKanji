@@ -12,6 +12,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { project } from "./app";
+import { user } from "./auth";
 
 /**
  * App Cloud: the built-in backend generated apps use once it's enabled for a project.
@@ -221,4 +222,42 @@ export const appPasswordReset = pgTable("app_password_reset", {
   attempts: integer("attempts").notNull().default(0),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * An owner's Hire Shelby workspace (support chat included on paid plans, see
+ * docs/11-hire-shelby-partner.md): created on first use, and the state App Builder last set on it.
+ */
+export const supportWorkspace = pgTable("support_workspace", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  /** Paid plan: Hire Shelby counts the workspace as subscribed. */
+  active: boolean("active").notNull().default(true),
+  /** At least a credit left: AI replies may run (they're charged in credits). */
+  aiAllowed: boolean("ai_allowed").notNull().default(true),
+  syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Hire Shelby's AI replies per app per day, charged in whole credits as they add up. */
+export const supportAiUsage = pgTable(
+  "support_ai_usage",
+  {
+    projectId: text("project_id")
+      .notNull()
+      .references(() => project.id, { onDelete: "cascade" }),
+    /** UTC date, YYYY-MM-DD. */
+    day: text("day").notNull(),
+    replies: integer("replies").notNull().default(0),
+    costMicroUsd: bigint("cost_micro_usd", { mode: "number" }).notNull().default(0),
+    creditsCharged: integer("credits_charged").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.projectId, t.day] })],
+);
+
+/** Where a feed from another service was last read up to (e.g. Hire Shelby's AI usage). */
+export const syncCursor = pgTable("sync_cursor", {
+  name: text("name").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

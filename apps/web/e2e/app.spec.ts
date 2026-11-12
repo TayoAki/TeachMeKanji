@@ -786,7 +786,7 @@ test("support chat: connecting Hire Shelby installs its SDK for store builds and
   await expect(page.getByText("Paste the App ID from the Hire Shelby dashboard")).toBeVisible();
   await section.getByLabel("Hire Shelby App ID").fill("app_K3e2eSupport01");
   await page.getByTestId("support-chat-save").click();
-  await expect(section).toContainText("Hire Shelby connected");
+  await expect(section).toContainText("Your Hire Shelby app");
 
   const connected = await files();
   expect(connected["data/support-chat.ts"]).toContain('appId: "app_K3e2eSupport01"');
@@ -803,7 +803,7 @@ test("support chat: connecting Hire Shelby installs its SDK for store builds and
   // Disconnecting removes the SDK again.
   await page.getByTestId("open-export").click();
   await section.getByRole("button", { name: "Disconnect" }).click();
-  await expect(section).not.toContainText("Hire Shelby connected");
+  await expect(section).not.toContainText("Your Hire Shelby app");
   const after = await files();
   expect(after["data/support-chat.ts"]).toContain("supportChat = null");
   expect(

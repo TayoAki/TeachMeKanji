@@ -51,6 +51,9 @@ const REASONS: Record<string, string> = {
   purchase: "Purchased",
   monthly: "Monthly credits",
   app_ai: "AI in your apps",
+  support_ai: "Support chat AI replies",
+  refund: "Undone AI edit refunded",
+  reclaim: "Refunded edit restored",
 };
 
 function Integration({

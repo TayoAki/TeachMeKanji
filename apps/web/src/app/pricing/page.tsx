@@ -34,6 +34,7 @@ export default async function PricingPage() {
         "TestFlight and Google Play builds",
         "Real in-app purchases with RevenueCat",
         "AI features and App Cloud inside your apps",
+        "In-app support chat in every app (Hire Shelby); its AI replies use credits",
       ],
     },
     {

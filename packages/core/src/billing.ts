@@ -39,6 +39,8 @@ export interface PlanLimits {
   nativeBuilds: boolean;
   /** Use the builder from your own AI assistant (Claude, ChatGPT, Cursor…) through MCP. */
   mcp: boolean;
+  /** Hire Shelby's in-app support chat is included (its AI replies are paid in credits). */
+  supportChat: boolean;
 }
 
 export const PLANS: Record<PlanId, PlanLimits> = {
@@ -52,6 +54,7 @@ export const PLANS: Record<PlanId, PlanLimits> = {
     maxScreensPerProject: 5,
     nativeBuilds: false,
     mcp: false,
+    supportChat: false,
   },
   builder: {
     name: "Builder",
@@ -62,6 +65,7 @@ export const PLANS: Record<PlanId, PlanLimits> = {
     maxScreensPerProject: 12,
     nativeBuilds: true,
     mcp: false,
+    supportChat: true,
   },
   pro: {
     name: "Pro",
@@ -72,6 +76,7 @@ export const PLANS: Record<PlanId, PlanLimits> = {
     maxScreensPerProject: 20,
     nativeBuilds: true,
     mcp: true,
+    supportChat: true,
   },
 };
 

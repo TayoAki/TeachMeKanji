@@ -184,6 +184,12 @@ set up.
   themselves. Users find the URL in Settings → Build from your AI assistant.
 - **Email:** verify the sending domain in Resend and use it in `EMAIL_FROM`.
 
+**Hire Shelby support chat (optional).** Set `HIRESHELBY_API_URL` (e.g.
+`https://api.hireshelby.com`) and `HIRESHELBY_PARTNER_KEY` (the same value as Hire Shelby's
+`PARTNER_API_KEY`) on web and worker once Hire Shelby has its partner API
+([11-hire-shelby-partner.md](11-hire-shelby-partner.md)), and publish `@hireshelby/react-native` to
+npm first: switching the chat on refuses while the pinned version isn't there.
+
 ## Operating it
 
 **Design first (mockups before the build).** A first plan now starts with web research

@@ -22,6 +22,7 @@ export * from "./app-push";
 export * from "./app-ai";
 export * from "./app-analytics";
 export * from "./app-errors";
+export * from "./hire-shelby";
 export * from "./email";
 export * from "./funnel";
 export * from "./feedback";

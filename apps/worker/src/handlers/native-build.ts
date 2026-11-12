@@ -13,8 +13,9 @@ import { chmod, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 import { and, eq } from "drizzle-orm";
-import { readStoreSettings, withAppIdentifiers } from "@appbuilder/contract";
+import { readStoreSettings, readSupportChat, withAppIdentifiers } from "@appbuilder/contract";
 import {
+  commitVersion,
   dataDir,
   decryptSecret,
   exportBundle,
@@ -28,6 +29,7 @@ import { schema } from "@appbuilder/db";
 import { AgentError } from "../agents/agents";
 import { ensureRuntime } from "../device";
 import { withHostedLegalLinks } from "../platform-url";
+import { withIncludedSupportChat } from "../support-chat";
 import { childEnv, materialize } from "../project";
 import type { HandlerContext, HandlerResult } from "./context";
 import { integrationToken } from "./github";
@@ -87,15 +89,32 @@ export async function handleNativeBuild(ctx: HandlerContext): Promise<HandlerRes
   const token = await integrationToken(ctx, "expo");
   const current = await getCurrentFiles(ctx.db, ctx.run.projectId);
   if (!current.versionId) throw new AgentError("Build the app before creating a native build.");
-  // Store builds always carry Privacy and Terms links (subscriptions need both).
-  const files = withHostedLegalLinks(
-    withAppIdentifiers(current.files, ctx.run.projectId),
-    ctx.run.projectId,
-  );
   const [project] = await ctx.db
     .select()
     .from(schema.project)
     .where(eq(schema.project.id, ctx.run.projectId));
+  // Store builds always carry Privacy and Terms links (subscriptions need both), and the support
+  // chat paid plans include (saved as a version, so the code matches what was built).
+  let base = current.files;
+  if (project) {
+    const withChat = await withIncludedSupportChat(ctx.db, project, base);
+    if (withChat !== base) {
+      await commitVersion(ctx.db, {
+        projectId: project.id,
+        files: withChat,
+        kind: "inline_edit",
+        summary: readSupportChat(withChat).appId
+          ? "Turned on Hire Shelby support chat"
+          : "Switched Help & support back to email",
+        createdBy: ctx.run.userId,
+      });
+      base = withChat;
+    }
+  }
+  const files = withHostedLegalLinks(
+    withAppIdentifiers(base, ctx.run.projectId),
+    ctx.run.projectId,
+  );
 
   // Store submission: the keys, and where the build goes.
   const env: Record<string, string> = {};

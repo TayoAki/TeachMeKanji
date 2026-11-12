@@ -37,6 +37,7 @@ import {
   DESIGN_REVIEW_MODEL,
 } from "../design/build-design";
 import { lockEdit } from "../design/edit-lock";
+import { withIncludedSupportChat } from "../support-chat";
 import { addPromptPictures, matchMockups, matchSummary } from "../design/match-loop";
 import { researchIdea } from "../design/research";
 import { researchForPlanner } from "../design/prompts";
@@ -282,7 +283,12 @@ export async function handleBuild(ctx: HandlerContext): Promise<HandlerResult> {
     withHostedLegalLinks(built.files, project.id),
   );
   // Pictures the screens describe (<AiImage prompt="...">) are drawn now, not left as grey boxes.
-  const files = await addPromptPictures(ctx, project.id, cloud.files, approved?.design.style);
+  // Paid plans include the Hire Shelby support chat (switched on here unless the owner said no).
+  const files = await withIncludedSupportChat(
+    ctx.db,
+    project,
+    await addPromptPictures(ctx, project.id, cloud.files, approved?.design.style),
+  );
   let version = await commitVersion(ctx.db, {
     projectId: project.id,
     files,

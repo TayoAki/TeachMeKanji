@@ -127,6 +127,13 @@
       "when": 1794450511895,
       "tag": "0017_app_password_reset",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794456396691,
+      "tag": "0018_hire_shelby_partner",
+      "breakpoints": true
     }
   ]
 }

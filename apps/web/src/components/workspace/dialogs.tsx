@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import QRCode from "qrcode";
 import {
   AlertTriangle,
@@ -778,79 +778,172 @@ interface StoreState {
 }
 
 /** One click from the latest version to TestFlight or Google Play's internal testing. */
+interface SupportChatState {
+  appId: string;
+  connected: boolean;
+  /** Paid plans include the chat on this server (Hire Shelby's partner API is set up). */
+  partner: boolean;
+  included: boolean;
+  enabled: boolean;
+  /** The App ID is the one App Builder created (not the owner's own account). */
+  managed: boolean;
+  ai: { replies: number; credits: number };
+}
+
 /**
- * Hire Shelby (the in-app support chat): the owner creates the app in Hire Shelby's dashboard
- * and pastes its App ID here; the app's "Help & support" then opens the chat in iOS builds.
+ * Hire Shelby (our in-app support chat). Included on paid plans: on for every app by default,
+ * with a switch, and the owner answers in Hire Shelby's inbox; its AI replies cost credits.
+ * Anyone can instead paste the App ID of a Hire Shelby account they pay for themselves.
  */
 function SupportChat({ projectId }: { projectId: string }) {
-  const [state, setState] = useState<{ appId: string; connected: boolean } | null>(null);
+  const [state, setState] = useState<SupportChatState | null>(null);
   const [appId, setAppId] = useState("");
   const [saving, setSaving] = useState(false);
+  const [own, setOwn] = useState(false);
+  const load = useCallback(
+    () =>
+      api<SupportChatState>(`/api/projects/${projectId}/support-chat`, { quiet: true })
+        .then((s) => {
+          setState(s);
+          setAppId(s.managed ? "" : s.appId);
+          setOwn(Boolean(s.appId) && !s.managed);
+        })
+        .catch(() => {}),
+    [projectId],
+  );
   useEffect(() => {
-    api<{ appId: string; connected: boolean }>(`/api/projects/${projectId}/support-chat`, {
-      quiet: true,
-    })
-      .then((s) => {
-        setState(s);
-        setAppId(s.appId);
-      })
-      .catch(() => {});
-  }, [projectId]);
+    void load();
+  }, [load]);
   if (!state) return null;
-  const save = async (value: string) => {
+  const put = async (json: { appId: string } | { enabled: boolean }, done: string) => {
     setSaving(true);
     try {
-      const r = await api<{ appId: string; connected: boolean }>(
-        `/api/projects/${projectId}/support-chat`,
-        { method: "PUT", json: { appId: value } },
-      );
-      setState(r);
-      setAppId(r.appId);
-      toast.success(r.connected ? "Support chat connected" : "Support chat disconnected");
+      await api(`/api/projects/${projectId}/support-chat`, { method: "PUT", json });
+      toast.success(done);
+      await load();
     } catch {
       // api() showed why.
     } finally {
       setSaving(false);
     }
   };
+  const openInbox = async () => {
+    const tab = window.open("", "_blank");
+    try {
+      const { url } = await api<{ url: string }>("/api/support-chat/inbox", { method: "POST" });
+      if (tab) tab.location.href = url;
+      else window.location.href = url;
+    } catch {
+      tab?.close();
+    }
+  };
+  const includedOn = state.included && state.enabled && state.managed;
   return (
     <section className="space-y-2 border-t pt-4" data-testid="support-chat">
       <h3 className="flex items-center gap-2 text-sm font-medium">
         In-app support chat{" "}
-        {state.connected ? <Badge variant="outline">Hire Shelby connected</Badge> : null}
+        {state.connected ? (
+          <Badge variant="outline">{state.managed ? "On" : "Your Hire Shelby app"}</Badge>
+        ) : null}
       </h3>
       <p className="text-xs text-muted-foreground">
-        Every app has Help &amp; support in Settings, which emails your support address. Connect{" "}
-        <a className="underline" href="https://app.hireshelby.com" target="_blank" rel="noreferrer">
+        Help &amp; support in the app opens a native chat with you, powered by{" "}
+        <a className="underline" href="https://hireshelby.com" target="_blank" rel="noreferrer">
           Hire Shelby
-        </a>{" "}
-        and it opens a native support chat instead: your users write from inside the app, and you
-        answer from Hire Shelby&rsquo;s inbox, Telegram or its AI. Add the app there, then paste its
-        App ID. The chat runs in iOS builds (TestFlight and the App Store); the preview, Expo Go and
-        Android keep the email.
+        </a>
+        : your users write from inside the app, you answer from the inbox, Telegram or its AI. It
+        runs in iOS builds (TestFlight and the App Store); the preview, Expo Go and Android email
+        your support address instead.
       </p>
-      <div className="flex gap-2">
-        <Input
-          value={appId}
-          onChange={(e) => setAppId(e.target.value)}
-          aria-label="Hire Shelby App ID"
-          placeholder="app_…"
-          className="font-mono text-xs"
-        />
-        <Button
-          size="sm"
-          onClick={() => save(appId.trim())}
-          disabled={saving || !appId.trim() || appId.trim() === state.appId}
-          data-testid="support-chat-save"
+
+      {state.partner ? (
+        state.included ? (
+          <div className="space-y-2 rounded-lg border p-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm">
+                {includedOn ? "On for this app" : "Off for this app"}
+                <span className="block text-xs text-muted-foreground">
+                  Included in your plan. AI replies use credits
+                  {state.ai.replies
+                    ? ` (this month: ${state.ai.replies} replies, ${state.ai.credits} credits)`
+                    : ", usually a fifth of a credit or less each"}
+                  .
+                </span>
+              </span>
+              <Switch
+                checked={includedOn}
+                disabled={saving || own}
+                onCheckedChange={(on) =>
+                  put({ enabled: on }, on ? "Support chat on" : "Help & support switched to email")
+                }
+                aria-label="Support chat for this app"
+                data-testid="support-chat-switch"
+              />
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void openInbox()}
+              data-testid="support-chat-inbox"
+            >
+              <ExternalLink /> Open support inbox
+            </Button>
+          </div>
+        ) : (
+          <p className="rounded-lg border p-3 text-xs" data-testid="support-chat-upgrade">
+            Included on{" "}
+            <Link href="/pricing" className="underline">
+              Builder and Pro
+            </Link>
+            : every app gets the chat, and you answer from one inbox.
+          </p>
+        )
+      ) : null}
+
+      {state.partner && !own ? (
+        <button
+          type="button"
+          className="text-xs text-muted-foreground underline underline-offset-2"
+          onClick={() => setOwn(true)}
         >
-          {saving ? <Loader2 className="animate-spin" /> : null} Connect
-        </Button>
-        {state.connected ? (
-          <Button size="sm" variant="ghost" onClick={() => save("")} disabled={saving}>
-            Disconnect
-          </Button>
-        ) : null}
-      </div>
+          Use your own Hire Shelby account instead
+        </button>
+      ) : (
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground">
+            {state.partner
+              ? "Your own Hire Shelby account: add the app there and paste its App ID."
+              : "Add the app in Hire Shelby's dashboard, then paste its App ID."}
+          </p>
+          <div className="flex gap-2">
+            <Input
+              value={appId}
+              onChange={(e) => setAppId(e.target.value)}
+              aria-label="Hire Shelby App ID"
+              placeholder="app_…"
+              className="font-mono text-xs"
+            />
+            <Button
+              size="sm"
+              onClick={() => put({ appId: appId.trim() }, "Support chat connected")}
+              disabled={saving || !appId.trim() || appId.trim() === state.appId}
+              data-testid="support-chat-save"
+            >
+              {saving ? <Loader2 className="animate-spin" /> : null} Connect
+            </Button>
+            {state.connected && !state.managed ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => put({ appId: "" }, "Support chat disconnected")}
+                disabled={saving}
+              >
+                Disconnect
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

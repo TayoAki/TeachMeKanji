@@ -13,12 +13,15 @@ import {
   heartbeat,
   latestPlan,
   emailProviderSet,
+  hireShelbyEnabled,
   pruneAnalytics,
   pruneAppErrors,
   sendDueFunnelEmails,
   sendEmail,
   pruneAppCloud,
   reapAbandonedRuns,
+  syncSupportUsage,
+  syncSupportWorkspaces,
   recordWorkerHeartbeat,
   reportError,
   runBudgetUsd,
@@ -231,6 +234,16 @@ export async function runWorker(
         // Analytics events past their retention window.
         await pruneAnalytics(db);
         await pruneAppErrors(db);
+        // Hire Shelby (support chat on paid plans): AI replies into credits, and each owner's
+        // workspace in step with their plan and credits.
+        if (hireShelbyEnabled()) {
+          await syncSupportUsage(db).catch((error) =>
+            reportError(error, { where: "hire-shelby usage" }),
+          );
+          await syncSupportWorkspaces(db).catch((error) =>
+            reportError(error, { where: "hire-shelby workspaces" }),
+          );
+        }
         // Today's database backup into the bucket, if it isn't there yet (in the background:
         // a dump takes seconds and never blocks the run queue; it reports its own errors).
         if (!backingUp) {
