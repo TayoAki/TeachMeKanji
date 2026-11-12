@@ -150,6 +150,19 @@ export const RUN_CREDITS: Record<string, { reserve: number; minimum: number }> =
 };
 
 /** Credits for a measured cost, before minimums and caps. */
+/** A build from mockups costs about 32 credits on Sonnet; this much it always reserves. */
+export const BUILD_FROM_MOCKUPS_FLOOR = 40;
+
+/**
+ * What a build from mockups reserves: its full reserve (room for the match check) when the
+ * account has it, otherwise what the account has, down to the floor a build needs. So a free
+ * account that designed an app can always build it; only the match check gets less room.
+ */
+export function buildFromMockupsReserve(balance: number): number {
+  const full = RUN_CREDITS.build_from_mockups!.reserve;
+  return Math.max(BUILD_FROM_MOCKUPS_FLOOR, Math.min(full, balance));
+}
+
 export function creditsForCost(costUsd: number | null): number {
   return costUsd === null ? 0 : Math.ceil(costUsd / CREDIT_USD);
 }

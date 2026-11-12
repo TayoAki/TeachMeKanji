@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import {
   activeRun,
   assertRunRate,
+  buildFromMockupsReserve,
+  creditBalance,
   currentDesign,
   designApproved,
   enqueueRun,
   latestPlan,
-  RUN_CREDITS,
 } from "@appbuilder/core";
 import { db, HttpError, readJson, requireProject, route } from "@/lib/server";
 
@@ -30,13 +31,14 @@ export const POST = route(
           : "Approve every mockup first, or build without them.",
       );
     await assertRunRate(db(), viewer!.id);
-    // A build from approved mockups runs on a cheaper model, so it reserves less.
+    // A build from approved mockups runs on a cheaper model, so it reserves less (and fits what
+    // the account has left after designing).
     const run = await enqueueRun(db(), {
       projectId: id,
       userId: viewer!.id,
       kind: "build",
       ...(design && designApproved(design)
-        ? { reserve: RUN_CREDITS.build_from_mockups!.reserve }
+        ? { reserve: buildFromMockupsReserve(await creditBalance(db(), viewer!.id)) }
         : {}),
     });
     return NextResponse.json({ runId: run.id });
