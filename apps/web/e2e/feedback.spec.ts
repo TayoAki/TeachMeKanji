@@ -95,8 +95,17 @@ test("bug reports: sent from anywhere with a screenshot, triaged by the operator
   await expect(admin.getByTestId("funnel-steps")).toContainText("Signed up");
   expect(Number(await admin.getByTestId("funnel-signed_up").innerText())).toBeGreaterThanOrEqual(1);
   await expect(admin.getByTestId("funnel-daily")).toBeVisible();
+  // The operator's users list: every account, and each one's own page; a 404 for anyone else.
+  await admin.goto("/admin/users");
+  await expect(admin.getByTestId("admin-users-table")).toContainText("Credits charged");
+  await admin.getByTestId("admin-user-link").first().click();
+  await expect(admin.getByTestId("admin-user-apps")).toBeVisible();
+  await expect(admin.getByTestId("admin-user-runs")).toBeVisible();
+  const userPage = new URL(admin.url()).pathname;
   await operator.close();
   expect((await page.goto("/admin/funnel"))?.status()).toBe(404);
+  expect((await page.goto("/admin/users"))?.status()).toBe(404);
+  expect((await page.goto(userPage))?.status()).toBe(404);
 
   // The sender sees the new status and the reply.
   await page.goto("/settings#feedback");

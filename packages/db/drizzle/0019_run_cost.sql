@@ -1,0 +1,1 @@
+ALTER TABLE "agent_run" ADD COLUMN "cost_usd" numeric(10, 4);

@@ -134,6 +134,13 @@
       "when": 1794456396691,
       "tag": "0018_hire_shelby_partner",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794501022963,
+      "tag": "0019_run_cost",
+      "breakpoints": true
     }
   ]
 }
