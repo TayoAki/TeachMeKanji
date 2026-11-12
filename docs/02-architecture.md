@@ -150,6 +150,22 @@ and accounts with one switch and no setup.
   holds the app's data; no bearer token, because every install sends them. Limits: 50 events a
   request, 30 requests per install and 600 per network address a minute, 50,000 events per app a day (`app_analytics_day`).
   Events (`app_event`) are pruned after 90 days by the worker's hourly housekeeping.
+- **Errors from phones:** every app reports its errors (template `data/errors.ts`, pointed at the
+  platform by the platform-written `data/errors-config.ts`): a global JS handler and an
+  expo-router `ErrorBoundary` in the root layout ("Something went wrong / Try again"); crashes
+  are saved and sent on the next launch. Nothing is sent from the preview. `/api/app/<id>/errors`
+  (`appRoute(..., { requires: "app" })`, rate limited) groups reports by fingerprint (message
+  without numbers or quoted values, plus the top stack frames) in `app_error`, capped at 500 per
+  app and pruned 90 days after last seen. The workspace's Errors tab lists them with "Fix with
+  AI"; the edit agent is told about open errors before every change, and errors it was asked to
+  fix are marked fixed when the edit is saved (a new report reopens them).
+- **Password reset (App Cloud):** `/auth/reset-request` emails a six-digit code (hashed in
+  `app_password_reset`, 30 minutes, five tries, the same answer whether or not the email has an
+  account); `/auth/reset` sets the new password, signs out every session and returns a new one.
+- **App Review check:** `reviewCheck()` (packages/contract/src/review-check.ts) checks the current
+  version for what the stores reject (simulated purchases, paywall terms, restore, account
+  deletion, privacy and support links, placeholder screens, minimum functionality, open crashes,
+  identifiers, the listing) and is shown under "Send to the stores", with "Fix with AI".
 - **Summary:** `analyticsSummary()` (packages/core/src/app-analytics.ts) computes everything from
   non-test events with SQL: daily active and new installs, next-day and day-7 return of new
   installs, the funnel (`app_open` → `onboarding_complete` → `screen_view /paywall` →
@@ -247,7 +263,20 @@ creates a `restore` version so history stays linear.
   `react-native-svg` (rings, ribbons, charts; colors from the theme; a DOM `<svg>` shim in the
   preview), drag with `PanResponder`, and give haptic taps with `haptic()` from the kit
   (`expo-haptics` is platform-only; a no-op in the browser). Both modules are pinned to SDK 58's
-  bundled versions and run in Expo Go.
+  bundled versions and run in Expo Go. The kit also has loading skeletons (`Skeleton`,
+  `SkeletonList`), onboarding pieces (`StepTransition`, `PageDots`) and a paywall `Pulse`; the
+  template's `components/lottie.tsx` plays Lottie animations (`lottie-react-native` ~7.5.0,
+  platform-only; lottie-web in the preview) that it builds in code in the app's theme colors
+  (success, confetti, loading, heart, sparkle), and `<Celebrate>` bursts confetti with a success
+  haptic. No Lottie files are shipped or fetched.
+- **Regression lock (every chat edit):** after the edit passes the platform's checks, every
+  screen it can reach (through imports, or a layout above it) is rendered before and after on
+  the worker (`apps/worker/src/design/regression.ts`, `edit-lock.ts`). A screen that rendered and
+  now throws is broken; for a request about one screen or element, an untargeted screen that now
+  matches its approved mockup 10+ points less has drifted, and other screens that look different
+  (stable across two renders before the edit) are named in the chat. Broken or drifted screens
+  get one free repair; a screen still broken means the edit isn't saved and the run fails (free).
+  A render that times out is retried and never counted as broken.
 - **Other models:** every model setting accepts an OpenRouter id (`vendor/model`, e.g. a Gemini
   or DeepSeek model). Those requests go to OpenRouter's chat completions endpoint through an
   adapter (`apps/worker/src/generation/openrouter-chat.ts`) that keeps the Messages shape
@@ -302,7 +331,11 @@ users can undo.
   template sources). Check `stop_reason` before using output, and handle `refusal` and
   `max_tokens` (enable server-side fallbacks as the SDK docs recommend).
 - **Credits:** reserve an estimate when a run starts, then settle from `response.usage`
-  (input, output and cache tokens) when it ends.
+  (input, output and cache tokens) when it ends. "Never pay for our mistakes": a failed run
+  costs nothing; calls marked free (repairs after a failed check, the mockup match check, the
+  regression lock's repairs) count toward the run's budget but not its charge
+  (`metered().billable()`); restoring the version before a chat edit within 24 hours refunds that
+  edit (`settleUndo`, at most five a day; restoring the refunded edit charges it again).
 - **Rough cost** at current Opus-tier list prices ($4 in / $20 out per million tokens):
   - plan ≈ $0.10
   - shared layer ≈ $0.30
