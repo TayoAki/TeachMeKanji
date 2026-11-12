@@ -25,7 +25,10 @@ import { configureNavigation, getNavigation, RouterRoot } from "./shims/expo-rou
 import { PREVIEW_INSETS, SafeAreaProvider } from "./shims/safe-area";
 import { subscribeStatusBar } from "./shims/status-bar";
 import { Ionicons } from "./shims/vector-icons";
+import { installStillMotion } from "./still-motion";
 import { vendorModules } from "./vendor";
+
+installStillMotion();
 
 const frameId = new URLSearchParams(location.hash.slice(1)).get("frame") ?? "default";
 

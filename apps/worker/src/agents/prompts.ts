@@ -124,7 +124,7 @@ export function screenMotion(motion: BuildMotion | undefined, path: string): str
   return `Motion from the approved design (personality: ${motion.personality})${
     signature ? `\n${signature}` : ""
   }${moments.length ? `\nMoments on this screen:\n${moments.map((m) => `- ${m}`).join("\n")}` : ""}
-Build these with components/motion (Stagger, Appear, PressScale, CountUp, GrowBar, Float) and React Native's Animated for anything they don't cover, using the allowed imports only (no SVG, gestures or Lottie libraries: approximate with Views, LinearGradient and Animated). Colors come from the theme, never the hex values above. Where the motion can't be built exactly, build the closest calm version.`;
+Build these with components/motion (Stagger, Appear, PressScale, CountUp, GrowBar, Float, Mascot, haptic), react-native-svg for drawn shapes and animated rings, PanResponder for drags, and React Native's Animated for anything else (no Lottie). Colors come from the theme, never the hex values above. Where the motion can't be built exactly, build the closest calm version.`;
 }
 
 /** A request with the approved mockup attached in front of it, when there is one. */

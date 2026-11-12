@@ -16,6 +16,13 @@ import {
   type TextStyle,
   type ViewStyle,
 } from "react-native";
+import {
+  ImpactFeedbackStyle,
+  impactAsync,
+  NotificationFeedbackType,
+  notificationAsync,
+  selectionAsync,
+} from "expo-haptics";
 import { Image } from "expo-image";
 import { appImages } from "../data/images";
 import { useTheme } from "../theme/ThemeProvider";
@@ -45,6 +52,40 @@ export function useReducedMotion(): boolean {
     };
   }, []);
   return reduced;
+}
+
+export type HapticKind =
+  "selection" | "light" | "medium" | "heavy" | "success" | "warning" | "error";
+
+/**
+ * A small physical tap on the phone: "selection" when a value snaps or a chip toggles, "light"
+ * on a primary press, "success" when something is saved or finished, "warning" before
+ * something destructive. Nothing happens where there is no motor (the web preview).
+ */
+export function haptic(kind: HapticKind = "light"): void {
+  try {
+    const done =
+      kind === "selection"
+        ? selectionAsync()
+        : kind === "success" || kind === "warning" || kind === "error"
+          ? notificationAsync(
+              kind === "success"
+                ? NotificationFeedbackType.Success
+                : kind === "warning"
+                  ? NotificationFeedbackType.Warning
+                  : NotificationFeedbackType.Error,
+            )
+          : impactAsync(
+              kind === "heavy"
+                ? ImpactFeedbackStyle.Heavy
+                : kind === "medium"
+                  ? ImpactFeedbackStyle.Medium
+                  : ImpactFeedbackStyle.Light,
+            );
+    void Promise.resolve(done).catch(() => {});
+  } catch {
+    // No haptics engine here.
+  }
 }
 
 /** Fades content in and lifts it into place when it first appears. */
@@ -118,6 +159,7 @@ export function PressScale({
   children,
   style,
   scaleTo = 0.97,
+  haptic: hapticKind,
   onPressIn,
   onPressOut,
   ...props
@@ -126,6 +168,8 @@ export function PressScale({
   style?: StyleProp<ViewStyle>;
   /** The size while pressed (0.97 for cards, 0.94 for small buttons). */
   scaleTo?: number;
+  /** A tap on the phone when pressed (e.g. "light" for a primary button). */
+  haptic?: HapticKind;
 }) {
   const reduced = useReducedMotion();
   const scale = useRef(new Animated.Value(1)).current;
@@ -141,6 +185,7 @@ export function PressScale({
       {...props}
       onPressIn={(event) => {
         if (!reduced) springTo(scaleTo);
+        if (hapticKind) haptic(hapticKind);
         onPressIn?.(event);
       }}
       onPressOut={(event) => {

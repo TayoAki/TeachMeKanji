@@ -241,7 +241,13 @@ creates a `restore` version so history stays linear.
   `CountUp`, `GrowBar` and `Float`, on React Native's `Animated`. Rule 16 of the contract asks
   every screen to use them. They respect Reduce Motion, and in still renders (the preview's
   `screen` mode: canvas frames and screenshots) they show their final state at once, so a
-  captured screen is never half-faded. The design prompt only plans motion the code can do.
+  captured screen is never half-faded (the preview also makes the app's own `Animated`
+  timings, springs and loops finish at once in that mode, `apps/preview/src/still-motion.ts`).
+  The design prompt only plans motion the code can do. Generated code can also draw with
+  `react-native-svg` (rings, ribbons, charts; colors from the theme; a DOM `<svg>` shim in the
+  preview), drag with `PanResponder`, and give haptic taps with `haptic()` from the kit
+  (`expo-haptics` is platform-only; a no-op in the browser). Both modules are pinned to SDK 58's
+  bundled versions and run in Expo Go.
 - **Other models:** every model setting accepts an OpenRouter id (`vendor/model`, e.g. a Gemini
   or DeepSeek model). Those requests go to OpenRouter's chat completions endpoint through an
   adapter (`apps/worker/src/generation/openrouter-chat.ts`) that keeps the Messages shape

@@ -45,6 +45,34 @@ export const IMPORTABLE_MODULES: Readonly<Record<string, readonly string[] | "*"
   ],
   "expo-constants": "*",
   "react-native-purchases": "*",
+  // Drawing: rings, ribbons, curves and charts (colors still come from the theme).
+  "react-native-svg": [
+    "default",
+    "Svg",
+    "Circle",
+    "Ellipse",
+    "G",
+    "Line",
+    "Path",
+    "Polygon",
+    "Polyline",
+    "Rect",
+    "Defs",
+    "LinearGradient",
+    "RadialGradient",
+    "Stop",
+    "ClipPath",
+    "Text",
+    "TSpan",
+  ],
+  // Used through haptic() from components/motion (see PLATFORM_ONLY_MODULES).
+  "expo-haptics": [
+    "impactAsync",
+    "notificationAsync",
+    "selectionAsync",
+    "ImpactFeedbackStyle",
+    "NotificationFeedbackType",
+  ],
 };
 
 /**
@@ -76,6 +104,8 @@ export const PLATFORM_ONLY_MODULES: Readonly<Record<string, string>> = {
   "expo-location": "Get the person's location with useLocation() from data/location.",
   "expo-constants": "The platform's helpers read the app's configuration.",
   "react-native-purchases": "Sell premium with usePurchases() from data/purchases.",
+  "expo-haptics":
+    'Give haptic feedback with haptic("selection" | "light" | "success" | "warning") from components/motion.',
 };
 
 /** AsyncStorage may only be used by the data layer, never directly by screens. */

@@ -56,7 +56,11 @@ ${modules}
    - <GrowBar progress={0.7} /> for progress and breakdown bars.
    - <Float> around one hero picture per screen, never around text or controls.
    - <Mascot pose="<pose image name>" size={120} /> for the app's mascot (never AiImage): it breathes, bounces into a new pose when \`pose\` changes and wiggles when tapped. Switch the pose to fit the moment (a happy pose after a success, a sleepy one at night).
-   Every screen uses at least one of these. Keep it calm: no looping motion besides one Float, nothing that delays a tap. For a FlatList, wrap each row in <Appear delay={Math.min(index, 8) * 50}>.`;
+   Every screen uses at least one of these. Keep it calm: no looping motion besides one Float, nothing that delays a tap. For a FlatList, wrap each row in <Appear delay={Math.min(index, 8) * 50}>.
+17. Drawing, dragging and feel:
+   - Draw rings, gauges, ribbons, sparklines, charts and custom shapes with react-native-svg (Svg, Circle, Path, Rect, Line, Polyline, G, Defs, LinearGradient, Stop, Text). Give Svg a width, height and viewBox; take every fill and stroke from the theme (never a color literal). Animate one with Animated.createAnimatedComponent, e.g. a progress ring whose strokeDashoffset animates.
+   - Drag with PanResponder from react-native and Animated values: handles, sliders, swipe to dismiss, reordering. Snap to steps, keep the handle at least 44pt, and give it accessibilityRole="adjustable" with increment and decrement actions so it also works without dragging.
+   - Haptics: haptic("selection") when a value snaps or a chip toggles, haptic("light") on primary presses (or PressScale haptic="light"), haptic("success") when something is saved or finished, haptic("warning") before something destructive; from components/motion. Never on every frame or while scrolling.`;
 }
 
 /** Files the model always sees for context, in a fixed order (stable for caching). */
