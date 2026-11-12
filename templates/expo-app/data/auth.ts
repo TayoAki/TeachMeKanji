@@ -58,6 +58,25 @@ export function useAuth() {
   };
 
   /**
+   * "Forgot password", step 1: email a six-digit code to the account (the answer is the same
+   * whether or not the email has an account).
+   */
+  const requestPasswordReset = async (email: string) => {
+    await api("/auth/reset-request", { method: "POST", body: JSON.stringify({ email }) });
+  };
+
+  /** Step 2: the emailed code and a new password; signs the person in. */
+  const resetPassword = async (email: string, code: string, password: string) => {
+    const result = await api<{ token: string; user: AppUser }>("/auth/reset", {
+      method: "POST",
+      body: JSON.stringify({ email, code, password }),
+    });
+    await setToken(result.token);
+    setUser(result.user);
+    return result.user;
+  };
+
+  /**
    * Delete the account and everything stored for it, then continue as a new anonymous user.
    * Apple requires apps with sign-up to offer this in the app (Guideline 5.1.1(v)).
    */
@@ -76,5 +95,7 @@ export function useAuth() {
     signIn,
     signOut,
     deleteAccount,
+    requestPasswordReset,
+    resetPassword,
   };
 }

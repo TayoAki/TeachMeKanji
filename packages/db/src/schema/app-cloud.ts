@@ -205,3 +205,20 @@ export const appError = pgTable(
     index("app_error_project_seen_idx").on(t.projectId, t.lastSeen),
   ],
 );
+
+/**
+ * A password reset in progress for an app user: a six-digit code emailed to them, stored hashed,
+ * valid for a short time and a few tries. One per user; a new request replaces it.
+ */
+export const appPasswordReset = pgTable("app_password_reset", {
+  appUserId: text("app_user_id")
+    .primaryKey()
+    .references(() => appUser.id, { onDelete: "cascade" }),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => project.id, { onDelete: "cascade" }),
+  codeHash: text("code_hash").notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

@@ -120,6 +120,13 @@
       "when": 1794449301439,
       "tag": "0016_app_errors",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794450511895,
+      "tag": "0017_app_password_reset",
+      "breakpoints": true
     }
   ]
 }
