@@ -251,6 +251,9 @@ took them from 60% to 72% and 55% to 62% for $0.77.
   page shows each app it made, cost by kind of run and every run with its model, tokens and
   cost. A run's cost is recorded when it finishes (`agent_run.cost_usd`); older runs are
   estimated from their tokens at list prices and marked with a star.
+  The Money row at the top shows revenue (paid Stripe invoices, recorded in the `payment` table
+  as they arrive; earlier invoices are counted at list price from their monthly credit grant),
+  monthly recurring revenue, costs (AI spend, estimated card fees and hosting) and profit.
 - **Limits:** credits, run concurrency, the per-user run and project limits and App Cloud's
   storage caps are enforced in the database, so they hold across instances. The sign-in,
   sign-up and new-device rate limits (Better Auth and App Cloud) are kept in memory per web
