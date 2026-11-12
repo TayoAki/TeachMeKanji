@@ -316,6 +316,26 @@ export const subscription = pgTable("subscription", {
   updatedAt: updatedAt(),
 });
 
+/**
+ * One row per paid Stripe invoice for a price this server sells: what was actually collected,
+ * after discounts. The operator's dashboard sums it as revenue.
+ */
+export const payment = pgTable(
+  "payment",
+  {
+    /** The Stripe invoice id, so a webhook delivered twice records it once. */
+    id: text("id").primaryKey(),
+    userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+    plan: text("plan").notNull(),
+    /** Stripe's amount_paid, in the currency's smallest unit (cents). */
+    amountCents: integer("amount_cents").notNull(),
+    currency: text("currency").notNull().default("usd"),
+    billingReason: text("billing_reason"),
+    paidAt: timestamp("paid_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("payment_paid_at_idx").on(t.paidAt), index("payment_user_idx").on(t.userId)],
+);
+
 export const integration = pgTable(
   "integration",
   {

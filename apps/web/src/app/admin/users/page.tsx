@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { adminUsers, creditsToUsd, isAdminEmail } from "@appbuilder/core";
+import { adminRevenue, adminUsers, creditsToUsd, isAdminEmail } from "@appbuilder/core";
 import {
   adminPeriod,
   AdminNav,
@@ -29,6 +29,8 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
   const search = String(Array.isArray(params.q) ? params.q[0] : (params.q ?? "")).slice(0, 100);
   const report = await adminUsers(db(), { sinceDays: days || null, search });
   const { totals } = report;
+  const money = await adminRevenue(db(), days || null);
+  const paying = money.subscribers.reduce((n, s) => n + s.count, 0);
   const query = (d: number) =>
     `/admin/users?days=${d}${search ? `&q=${encodeURIComponent(search)}` : ""}`;
 
@@ -46,6 +48,58 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
           </div>
           <PeriodLinks days={days} href={query} />
         </div>
+
+        <section className="space-y-2" data-testid="admin-money">
+          <h2 className="text-sm font-medium">Money</h2>
+          <div className="grid gap-3 sm:grid-cols-4">
+            <Stat
+              label="Revenue"
+              value={usd(money.revenueUsd)}
+              hint={
+                money.estimatedInvoices
+                  ? `${money.invoices} paid invoices, ${money.estimatedInvoices} at list price*`
+                  : `${money.invoices} paid invoices`
+              }
+            />
+            <Stat
+              label="Monthly recurring"
+              value={usd(money.mrrUsd)}
+              hint={
+                paying
+                  ? money.subscribers.map((s) => `${s.count} ${s.plan}`).join(", ")
+                  : "no paying subscribers"
+              }
+            />
+            <Stat
+              label="Costs"
+              value={usd(money.aiCostUsd + money.paymentFeesUsd + money.hostingUsd)}
+              hint={`AI ${usd(money.aiCostUsd)}, card fees ${usd(money.paymentFeesUsd)}${
+                days ? `, hosting ${usd(money.hostingUsd)}` : ""
+              }`}
+            />
+            <Stat
+              label="Profit"
+              value={`${money.profitUsd < 0 ? "-" : ""}${usd(Math.abs(money.profitUsd))}`}
+              hint={
+                money.margin === null
+                  ? "no revenue yet"
+                  : `${Math.round(money.margin * 100)}% margin`
+              }
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Revenue is what Stripe collected on paid invoices in the period, after discounts and
+            before refunds. Card fees are estimated at 3.6% + $0.30 an invoice, and hosting at $2 a
+            paying subscriber a month (left out of All time). AI cost covers every account, free
+            ones included.
+            {money.estimatedInvoices
+              ? " * Invoices paid before payments were recorded are counted at the plan's list price."
+              : ""}
+            {money.otherCurrencyInvoices
+              ? ` ${money.otherCurrencyInvoices} invoice(s) in another currency are not added.`
+              : ""}
+          </p>
+        </section>
 
         <section className="grid gap-3 sm:grid-cols-4">
           <Stat label="Accounts" value={`${totals.users}`} hint={`${totals.apps} apps`} />
@@ -96,6 +150,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
                 <th className="px-3 py-2 font-medium">Plan</th>
                 <th className="px-3 py-2 text-right font-medium">Apps</th>
                 <th className="px-3 py-2 text-right font-medium">Runs</th>
+                <th className="px-3 py-2 text-right font-medium">Paid</th>
                 <th className="px-3 py-2 text-right font-medium">Cost</th>
                 <th className="px-3 py-2 text-right font-medium">Credits charged</th>
                 <th className="px-3 py-2 text-right font-medium">Credits left</th>
@@ -131,6 +186,9 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
                     {user.failedRuns ? (
                       <span className="text-muted-foreground"> ({user.failedRuns} failed)</span>
                     ) : null}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {user.paidUsd ? usd(user.paidUsd) : "–"}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     <Cost totals={user} />
