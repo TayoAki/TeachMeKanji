@@ -1,7 +1,7 @@
 import { createServer, request, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { pickPreviewHost, previewHostPool } from "./device";
+import { metroCacheDir, pickPreviewHost, previewHostPool } from "./device";
 import { createDeviceRouter } from "./device-router";
 
 const POOL = ["worker-production.up.railway.app", "preview-relay-1.up.railway.app"];
@@ -76,5 +76,22 @@ describe("phone preview router behind a relay", () => {
     expect(headers["x-forwarded-host"]).toBe(POOL[1]);
     expect(headers["x-forwarded-proto"]).toBe("https");
     expect((await get(POOL[0]!)).status).toBe(404);
+  });
+});
+
+describe("phone preview Metro cache", () => {
+  // Sessions share one node_modules, so a shared Metro cache hands one project the route
+  // context compiled for another, and the phone opens the other project's app.
+  it("is one folder per project, outside the folder Metro watches", () => {
+    const saved = process.env.APP_DATA_DIR;
+    try {
+      process.env.APP_DATA_DIR = "/data";
+      expect(metroCacheDir("p1")).toBe("/data/device-cache/p1");
+      expect(metroCacheDir("p2")).not.toBe(metroCacheDir("p1"));
+      expect(metroCacheDir("p1").startsWith("/data/device/")).toBe(false);
+    } finally {
+      if (saved === undefined) delete process.env.APP_DATA_DIR;
+      else process.env.APP_DATA_DIR = saved;
+    }
   });
 });
