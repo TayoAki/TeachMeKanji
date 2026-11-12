@@ -717,3 +717,38 @@ test("analytics: preview taps are test events, phones count, and the funnel adds
   await expect(funnel).toContainText("Started a trial or subscribed1 · 50%");
   await expect(view).toContainText("streak_kept");
 });
+
+test("errors: a phone's error reaches the Errors tab, and Fix with AI fixes it", async ({
+  page,
+  request,
+}) => {
+  await signUp(page, "Fixer");
+  await createAndBuild(page, "A habit tracker with streaks");
+  const projectId = page.url().split("/projects/")[1]!;
+  const report = (data: Record<string, unknown>) =>
+    request.post(`/api/app/${projectId}/errors`, { data });
+
+  // Every app reports its errors (no App Cloud or analytics needed); malformed reports bounce.
+  expect((await report({ install: "x", message: "boom" })).status()).toBe(400);
+  const sent = await report({
+    install: "e2e-phone-0101",
+    message: "Cannot read property 'streak' of undefined",
+    stack:
+      "TypeError: Cannot read property 'streak' of undefined\n    at StatsScreen (app/(tabs)/stats.tsx:20:12)",
+    screen: "/stats",
+    platform: "ios",
+    test: false,
+  });
+  expect(await sent.json()).toEqual({ accepted: true });
+
+  await page.getByTestId("tab-errors").click();
+  await expect(page.getByTestId("app-error")).toContainText("Cannot read property");
+  await expect(page.getByTestId("app-error")).toContainText("iPhone");
+  await page.getByTestId("fix-error").click();
+  await expect(page.getByTestId("chat-assistant").last()).toContainText(
+    "Fixed the reported error",
+    { timeout: 60_000 },
+  );
+  await page.getByTestId("tab-errors").click();
+  await expect(page.getByTestId("errors-view")).toContainText("No open errors");
+});

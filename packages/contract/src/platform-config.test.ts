@@ -90,3 +90,22 @@ describe("platform files", () => {
     expect(readPaymentsConfig({})).toEqual(DEFAULT_PAYMENTS);
   });
 });
+
+describe("error reporting config", () => {
+  it("is written by the platform and kept when the template is refreshed", async () => {
+    const { ERRORS_CONFIG_FILE, refreshTemplate, withErrorReporting } = await import(
+      "./platform-config"
+    );
+    const files = withErrorReporting(
+      { "app/(tabs)/index.tsx": "x" },
+      { url: "https://builder.example", projectId: "p_1" },
+    );
+    expect(files[ERRORS_CONFIG_FILE]).toContain('"url": "https://builder.example"');
+    const refreshed = refreshTemplate(files, {
+      [ERRORS_CONFIG_FILE]: 'export const errorsConfig = { url: "", projectId: "" };\n',
+      "data/errors.ts": "// reporter\n",
+    });
+    expect(refreshed[ERRORS_CONFIG_FILE]).toBe(files[ERRORS_CONFIG_FILE]);
+    expect(refreshed["data/errors.ts"]).toBe("// reporter\n");
+  });
+});

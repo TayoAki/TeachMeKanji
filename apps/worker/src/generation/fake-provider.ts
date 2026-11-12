@@ -1200,6 +1200,14 @@ function fakeEdit(request: string, system: string): string {
     )}`;
   }
 
+  // "Fix with AI" on errors the app reported from phones: a guard where the error happened.
+  if (/^Fix (?:this|these) errors?/i.test(ask) && request.includes("Errors the app reported")) {
+    const path = "app/(tabs)/index.tsx";
+    return `<summary>Fixed the reported error: the screen now handles the missing data that caused it.</summary>\n${formatFileBlocks(
+      { [path]: `${files[path] ?? ""}\n// Handles the missing data behind a reported error.\n` },
+    )}`;
+  }
+
   const add = /add (?:an? |the )?([a-z ]+?) (?:screen|tab|page)/i.exec(ask);
   if (add) {
     const title = add[1]!.trim().replace(/^\w/, (c) => c.toUpperCase());

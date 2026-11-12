@@ -303,12 +303,18 @@ export function editRequest(input: {
   history?: string[];
   maxScreens: number;
   connectorBrief?: string;
+  /** Errors the app reported from phones (see errorsForAgent). */
+  appErrors?: string;
 }): string {
   const parts: string[] = [];
   if (input.history?.length)
     parts.push(`Recent conversation:\n${input.history.map((h) => `- ${h}`).join("\n")}`);
   parts.push(`Change request: ${input.request}`);
   if (input.connectorBrief) parts.push(connectorContext(input.connectorBrief));
+  if (input.appErrors)
+    parts.push(
+      `Errors the app reported from people's phones recently:\n${input.appErrors}\nIf the user asks to fix errors, fix these at their cause (not by hiding them). Otherwise fix one only when your change touches the code that causes it.`,
+    );
   if (input.selection?.kind === "screen") {
     const role = structureRoleOf(input.selection.path);
     const part = role ? `the app's ${role} screen` : "a screen of the main app";

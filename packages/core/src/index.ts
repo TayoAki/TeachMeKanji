@@ -21,6 +21,7 @@ export * from "./connectors";
 export * from "./app-push";
 export * from "./app-ai";
 export * from "./app-analytics";
+export * from "./app-errors";
 export * from "./email";
 export * from "./funnel";
 export * from "./feedback";

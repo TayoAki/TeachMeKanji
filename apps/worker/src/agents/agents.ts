@@ -343,6 +343,7 @@ export async function editApp(input: {
   history?: string[];
   maxScreens: number;
   connectorBrief?: string;
+  appErrors?: string;
   onEvent?: (event: AgentEvent) => Promise<void> | void;
   model?: string;
 }): Promise<{

@@ -170,3 +170,38 @@ export const appAnalyticsDay = pgTable(
   },
   (t) => [primaryKey({ columns: [t.projectId, t.day] })],
 );
+
+/**
+ * Errors reported by a generated app from phones (template data/errors.ts), grouped by what
+ * went wrong: one row per distinct error, counted. The owner sees them, and the edit agent reads
+ * the open ones before changing the app.
+ */
+export const appError = pgTable(
+  "app_error",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => project.id, { onDelete: "cascade" }),
+    /** A hash of the message and the first frames of the stack: the same error, the same row. */
+    fingerprint: text("fingerprint").notNull(),
+    message: text("message").notNull(),
+    stack: text("stack"),
+    /** The screen showing when it happened (expo-router path). */
+    screen: text("screen"),
+    platform: text("platform").notNull(),
+    /** Crashed the app (an unhandled error) rather than one screen. */
+    fatal: boolean("fatal").notNull().default(false),
+    /** Only seen in Expo Go or development builds. */
+    test: boolean("test").notNull().default(true),
+    count: integer("count").notNull().default(1),
+    firstSeen: timestamp("first_seen", { withTimezone: true }).notNull().defaultNow(),
+    lastSeen: timestamp("last_seen", { withTimezone: true }).notNull().defaultNow(),
+    /** Fixed or dismissed; a report after this reopens it. */
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("app_error_fingerprint_idx").on(t.projectId, t.fingerprint),
+    index("app_error_project_seen_idx").on(t.projectId, t.lastSeen),
+  ],
+);

@@ -37,7 +37,8 @@ export interface AppContext {
  */
 export function appRoute<P extends { projectId: string }>(
   handler: (request: Request, ctx: AppContext, params: P) => Promise<Response>,
-  options: { requires?: "cloud" | "analytics" } = {},
+  /** What the app must have turned on: App Cloud (the default), analytics, or nothing ("app"). */
+  options: { requires?: "cloud" | "analytics" | "app" } = {},
 ) {
   return async (request: Request, context: { params: Promise<P> }): Promise<Response> => {
     try {
@@ -50,7 +51,9 @@ export function appRoute<P extends { projectId: string }>(
         })
         .from(schema.project)
         .where(and(eq(schema.project.id, params.projectId), isNull(schema.project.deletedAt)));
-      if (options.requires === "analytics") {
+      if (options.requires === "app") {
+        if (!project) throw new AppCloudError(404, "App not found.");
+      } else if (options.requires === "analytics") {
         if (!project?.analytics) throw new AppCloudError(404, "Analytics is off for this app.");
       } else if (!project || project.backend !== "cloud") {
         throw new AppCloudError(404, "App Cloud isn't enabled for this app.");

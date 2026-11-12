@@ -29,6 +29,9 @@ import { installStillMotion } from "./still-motion";
 import { vendorModules } from "./vendor";
 
 installStillMotion();
+// Apps report errors on phones to their builder (template data/errors.ts); the preview shows
+// its own errors instead, so apps running here never report.
+(globalThis as { __appbuilderPreview?: boolean }).__appbuilderPreview = true;
 
 const frameId = new URLSearchParams(location.hash.slice(1)).get("frame") ?? "default";
 

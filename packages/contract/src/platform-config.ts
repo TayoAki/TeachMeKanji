@@ -5,6 +5,26 @@ export const BACKEND_CONFIG_FILE = "data/backend.ts";
 export const IMAGES_FILE = "data/images.ts";
 export const PAYMENTS_FILE = "data/payments.ts";
 export const ANALYTICS_CONFIG_FILE = "data/analytics-config.ts";
+export const ERRORS_CONFIG_FILE = "data/errors-config.ts";
+
+export interface ErrorsConfig {
+  /** The platform's origin, where the app reports errors on phones. */
+  url: string;
+  projectId: string;
+}
+
+/** data/errors-config.ts is written by the platform for every app, never by the model. */
+export function errorsConfigFile(config: ErrorsConfig): string {
+  return `// PLATFORM FILE — written by the platform for every app it builds.
+/** Where errors on phones are reported; an empty url means they aren't. */
+export const errorsConfig = ${JSON.stringify(config, null, 2)};
+`;
+}
+
+/** Point the app's error reports at the platform (the builder's Errors tab and its AI). */
+export function withErrorReporting(files: ProjectFiles, config: ErrorsConfig): ProjectFiles {
+  return { ...files, [ERRORS_CONFIG_FILE]: errorsConfigFile(config) };
+}
 
 export interface AnalyticsConfig {
   /** The platform's origin when analytics is on, else "" (track() does nothing). */
@@ -113,6 +133,7 @@ export function refreshTemplate(files: ProjectFiles, template: ProjectFiles): Pr
     IMAGES_FILE,
     PAYMENTS_FILE,
     ANALYTICS_CONFIG_FILE,
+    ERRORS_CONFIG_FILE,
   ]);
   const next: ProjectFiles = { ...files };
   for (const path of TEMPLATE_FILES) {

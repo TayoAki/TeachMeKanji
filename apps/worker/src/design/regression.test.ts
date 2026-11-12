@@ -60,7 +60,7 @@ describe("the regression lock on a real render", () => {
       before,
       after: broken,
       changed: [STATS],
-      settleMs: 150,
+      settleMs: 400,
     });
     expect(report!.broken.map((b) => b.path)).toEqual([STATS]);
     expect(report!.broken[0]!.error).toContain("stats exploded");
@@ -78,7 +78,7 @@ describe("the regression lock on a real render", () => {
       after: restyled,
       changed: ["components/Card.tsx"],
       selected: HOME,
-      settleMs: 150,
+      settleMs: 400,
       mockups: new Map([[STATS, Buffer.from("mockup")]]),
       // Before the edit Stats matched its mockup at 90%, after it at 62%.
       score: (() => {
@@ -95,7 +95,7 @@ describe("the regression lock on a real render", () => {
       before,
       after: restyled,
       changed: ["components/Card.tsx"],
-      settleMs: 150,
+      settleMs: 400,
     });
     expect(global!.alsoChanged).toEqual([]);
   }, 120_000);

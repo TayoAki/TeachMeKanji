@@ -16,6 +16,7 @@ import {
   commitVersion,
   confirmPlan,
   connectorAccess,
+  errorsForAgent,
   getCurrentFiles,
   getStorage,
   latestPlan,
@@ -23,6 +24,7 @@ import {
   PLANS,
   previewSession,
   repoRoot,
+  resolveAppErrors,
   savePlan,
   updateProject,
   userPlan,
@@ -336,6 +338,8 @@ export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
   const input = ctx.run.input as {
     request: string;
     selection?: { path: string; snippet: string; kind?: "element" | "screen" } | null;
+    /** Reported errors the user asked to fix ("Fix with AI" in the Errors tab). */
+    errorIds?: string[];
   };
   const current = await getCurrentFiles(ctx.db, project.id);
   // Projects made with an older template get the current platform files before editing.
@@ -367,6 +371,7 @@ export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
     history,
     maxScreens: await maxScreens(ctx),
     connectorBrief: connectors.brief,
+    appErrors: (await errorsForAgent(ctx.db, project.id))?.brief,
     onEvent: forwardAgentEvent(ctx),
   });
 
@@ -412,6 +417,8 @@ export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
     });
     versionId = version.id;
     await ctx.emit("files", { files: cloud.files });
+    // The errors the user asked to fix are fixed now; a new report would reopen them.
+    if (input.errorIds?.length) await resolveAppErrors(ctx.db, project.id, input.errorIds);
   }
   await addMessage(ctx.db, {
     projectId: project.id,

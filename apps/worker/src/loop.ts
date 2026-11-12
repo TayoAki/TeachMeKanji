@@ -14,6 +14,7 @@ import {
   latestPlan,
   emailProviderSet,
   pruneAnalytics,
+  pruneAppErrors,
   sendDueFunnelEmails,
   sendEmail,
   pruneAppCloud,
@@ -229,6 +230,7 @@ export async function runWorker(
         await pruneAppCloud(db);
         // Analytics events past their retention window.
         await pruneAnalytics(db);
+        await pruneAppErrors(db);
         // Today's database backup into the bucket, if it isn't there yet (in the background:
         // a dump takes seconds and never blocks the run queue; it reports its own errors).
         if (!backingUp) {
