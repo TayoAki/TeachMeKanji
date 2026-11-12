@@ -150,6 +150,42 @@ and accounts with one switch and no setup.
   holds the app's data; no bearer token, because every install sends them. Limits: 50 events a
   request, 30 requests per install and 600 per network address a minute, 50,000 events per app a day (`app_analytics_day`).
   Events (`app_event`) are pruned after 90 days by the worker's hourly housekeeping.
+- **Errors from phones:** every app reports its errors (template `data/errors.ts`, pointed at the
+  platform by the platform-written `data/errors-config.ts`): a global JS handler and an
+  expo-router `ErrorBoundary` in the root layout ("Something went wrong / Try again"); crashes
+  are saved and sent on the next launch. Nothing is sent from the preview. `/api/app/<id>/errors`
+  (`appRoute(..., { requires: "app" })`, rate limited) groups reports by fingerprint (message
+  without numbers or quoted values, plus the top stack frames) in `app_error`, capped at 500 per
+  app and pruned 90 days after last seen. The workspace's Errors tab lists them with "Fix with
+  AI"; the edit agent is told about open errors before every change, and errors it was asked to
+  fix are marked fixed when the edit is saved (a new report reopens them).
+- **Password reset (App Cloud):** `/auth/reset-request` emails a six-digit code (hashed in
+  `app_password_reset`, 30 minutes, five tries, the same answer whether or not the email has an
+  account); `/auth/reset` sets the new password, signs out every session and returns a new one.
+- **Help & support (Hire Shelby):** every app has `components/support.tsx` (template-owned):
+  `<SupportButton />` in Settings and `useSupport()`. It emails `appInfo.supportEmail` until the
+  owner connects [Hire Shelby](https://hireshelby.com) (our in-app support chat) by pasting the
+  app's Hire Shelby App ID under Publish → In-app support chat. That rewrites the platform file
+  `data/support-chat.ts` to import `@hireshelby/react-native` (pinned `HIRESHELBY_VERSION`) and
+  adds it to that app's package.json only, so other apps' builds never depend on it. The root
+  layout configures the chat in the app's theme colors, reports the paywalls (offers open the
+  app's paywall) and the plan; `data/auth.ts` identifies signed-in users, logs out on sign-out
+  and deletes the support data with the account. The chat is native iOS code: store and
+  TestFlight builds on iOS get it; the web preview (a no-op shim), Expo Go previews (the worker
+  writes the unconnected file, `withoutNativeSupportChat`) and Android keep the email. Connecting
+  checks that the SDK version is on npm (`HIRESHELBY_SDK_CHECK=0` skips it). The hosted privacy
+  policy names Hire Shelby when it's connected. On paid plans it's included through Hire Shelby's
+  partner API (`HIRESHELBY_API_URL`, `HIRESHELBY_PARTNER_KEY`; contract and HShelby instructions
+  in [11-hire-shelby-partner.md](11-hire-shelby-partner.md)): builds and store builds create the
+  owner's workspace and the project's Hire Shelby app and switch the chat on unless the owner
+  switched it off (`project.support_chat`); "Open support inbox" gives a claim link into Hire
+  Shelby's dashboard; the worker's hourly housekeeping charges AI replies in credits
+  (`support_ai_usage`, ledger `support_ai`, read from `/usage` with a cursor in `sync_cursor`) and
+  keeps each workspace's `active` (paid plan) and `aiAllowed` (credits left) in step.
+- **App Review check:** `reviewCheck()` (packages/contract/src/review-check.ts) checks the current
+  version for what the stores reject (simulated purchases, paywall terms, restore, account
+  deletion, privacy and support links, placeholder screens, minimum functionality, open crashes,
+  identifiers, the listing) and is shown under "Send to the stores", with "Fix with AI".
 - **Summary:** `analyticsSummary()` (packages/core/src/app-analytics.ts) computes everything from
   non-test events with SQL: daily active and new installs, next-day and day-7 return of new
   installs, the funnel (`app_open` → `onboarding_complete` → `screen_view /paywall` →
@@ -212,7 +248,8 @@ creates a `restore` version so history stays linear.
   background with sharp), two options for the key screen (the main tab) rated by Claude, then
   every other screen drawn with the key screen (and mascot) as references, each checked by
   Claude (vision) for a drawn device frame, two screens in one image or leaked design notes and fixed with one image edit.
-  Images come from an image model through OpenRouter (`IMAGE_MODEL`); their cost is added to
+  Images come from an image model through OpenRouter (`IMAGE_MODEL`, default Nano Banana 2.1,
+  chosen by a blind test of every image model there); their cost is added to
   the run's meter, and no new image starts once the reserve is spent.
 - **Approval:** the canvas shows the mockups; the user approves each or asks for a change
   (a `mockup` run redraws one, from the current image plus the note). The build waits until
@@ -221,6 +258,52 @@ creates a `restore` version so history stays linear.
   sees its own; the mascot's poses become `data/images.ts` entries; the default theme is set to
   the plan's first theme by the platform. Builds from mockups run on `DESIGN_BUILD_MODEL`
   (Sonnet), which matched the mockups as well as Opus at half the cost.
+- **Match check (end of a build from mockups):** pictures the screens describe
+  (`<AiImage prompt="...">` with literal text) are drawn by the image model and stored as app
+  images keyed by that text, which `AiImage` looks up first, so they aren't grey boxes. Then the
+  worker renders every screen itself (`apps/worker/src/render/screens.ts`: the preview runtime in
+  headless Chrome, `screen` mode, the preview user's sample data for App Cloud apps) and
+  `DESIGN_REVIEW_MODEL` scores each against its mockup (0–100, with the gaps and missing
+  pictures; a different step of the same screen, tab names from the plan and sample values don't
+  count). Screens under `MATCH_TARGET` (90) are rebuilt with both images, the gaps and the shared
+  layer as context, the three furthest first, for up to `MATCH_ROUNDS` (2) rounds; each round
+  commits a version, and the build's chat message lists every screen's score and what still
+  differs. It runs inside the build's reserve and stops when that is spent. Mascot poses are drawn
+  on one canvas at one scale and shown with `<Mascot>` from the motion kit (breathes, bounces
+  into a new pose, wiggles on tap).
+- **Motion:** each screen's build call also gets the direction's motion plan for that screen
+  (its moments, and the signature interaction on its screen) and builds it with the platform's
+  motion kit, `components/motion.tsx` (template-owned): `Appear`, `Stagger`, `PressScale`,
+  `CountUp`, `GrowBar` and `Float`, on React Native's `Animated`. Rule 16 of the contract asks
+  every screen to use them. They respect Reduce Motion, and in still renders (the preview's
+  `screen` mode: canvas frames and screenshots) they show their final state at once, so a
+  captured screen is never half-faded (the preview also makes the app's own `Animated`
+  timings, springs and loops finish at once in that mode, `apps/preview/src/still-motion.ts`).
+  The design prompt only plans motion the code can do. Generated code can also draw with
+  `react-native-svg` (rings, ribbons, charts; colors from the theme; a DOM `<svg>` shim in the
+  preview), drag with `PanResponder`, and give haptic taps with `haptic()` from the kit
+  (`expo-haptics` is platform-only; a no-op in the browser). Both modules are pinned to SDK 58's
+  bundled versions and run in Expo Go. The kit also has loading skeletons (`Skeleton`,
+  `SkeletonList`), onboarding pieces (`StepTransition`, `PageDots`) and a paywall `Pulse`; the
+  template's `components/lottie.tsx` plays Lottie animations (`lottie-react-native` ~7.5.0,
+  platform-only; lottie-web in the preview) that it builds in code in the app's theme colors
+  (success, confetti, loading, heart, sparkle), and `<Celebrate>` bursts confetti with a success
+  haptic. No Lottie files are shipped or fetched.
+- **Regression lock (every chat edit):** after the edit passes the platform's checks, every
+  screen it can reach (through imports, or a layout above it) is rendered before and after on
+  the worker (`apps/worker/src/design/regression.ts`, `edit-lock.ts`). A screen that rendered and
+  now throws is broken; for a request about one screen or element, an untargeted screen that now
+  matches its approved mockup 10+ points less has drifted, and other screens that look different
+  (stable across two renders before the edit) are named in the chat. Broken or drifted screens
+  get one free repair; a screen still broken means the edit isn't saved and the run fails (free).
+  A render that times out is retried and never counted as broken.
+- **Other models:** every model setting accepts an OpenRouter id (`vendor/model`, e.g. a Gemini
+  or DeepSeek model). Those requests go to OpenRouter's chat completions endpoint through an
+  adapter (`apps/worker/src/generation/openrouter-chat.ts`) that keeps the Messages shape
+  (structured output, effort, images, web search through OpenRouter's web plugin) and meters
+  the cost OpenRouter reports. A build model that reads text only gets each screen's written
+  brief and the direction's style instead of the mockup images. `DETAIL_IMAGE_MODEL` draws
+  everything but the key screen's two options with a cheaper image model.
 
 ### 4.2 Build (orchestrated by our code; one `agent_run`)
 1. **Scaffold** the template files.
@@ -268,7 +351,11 @@ users can undo.
   template sources). Check `stop_reason` before using output, and handle `refusal` and
   `max_tokens` (enable server-side fallbacks as the SDK docs recommend).
 - **Credits:** reserve an estimate when a run starts, then settle from `response.usage`
-  (input, output and cache tokens) when it ends.
+  (input, output and cache tokens) when it ends. "Never pay for our mistakes": a failed run
+  costs nothing; calls marked free (repairs after a failed check, the mockup match check, the
+  regression lock's repairs) count toward the run's budget but not its charge
+  (`metered().billable()`); restoring the version before a chat edit within 24 hours refunds that
+  edit (`settleUndo`, at most five a day; restoring the refunded edit charges it again).
 - **Rough cost** at current Opus-tier list prices ($4 in / $20 out per million tokens):
   - plan ≈ $0.10
   - shared layer ≈ $0.30

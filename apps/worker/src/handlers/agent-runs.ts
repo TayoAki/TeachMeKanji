@@ -16,18 +16,29 @@ import {
   commitVersion,
   confirmPlan,
   connectorAccess,
+  errorsForAgent,
   getCurrentFiles,
   getStorage,
   latestPlan,
   listMessages,
   PLANS,
+  previewSession,
   repoRoot,
+  resolveAppErrors,
   savePlan,
   updateProject,
   userPlan,
 } from "@appbuilder/core";
 import { schema } from "@appbuilder/db";
-import { approvedDesignFor, DESIGN_BUILD_MODEL } from "../design/build-design";
+import {
+  approvedDesignFor,
+  approvedMockups,
+  DESIGN_BUILD_MODEL,
+  DESIGN_REVIEW_MODEL,
+} from "../design/build-design";
+import { lockEdit } from "../design/edit-lock";
+import { withIncludedSupportChat } from "../support-chat";
+import { addPromptPictures, matchMockups, matchSummary } from "../design/match-loop";
 import { researchIdea } from "../design/research";
 import { researchForPlanner } from "../design/prompts";
 import { platformUrl, withHostedLegalLinks } from "../platform-url";
@@ -44,6 +55,9 @@ import type { UsageTotals } from "../generation/client";
 import type { HandlerContext, HandlerResult } from "./context";
 
 const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+
+/** The plan sets up everything after it, so it gets a stronger model than the build. */
+const PLAN_MODEL = () => process.env.PLAN_MODEL || "claude-sonnet-5-5";
 
 async function loadProject(ctx: HandlerContext) {
   const [project] = await ctx.db
@@ -195,7 +209,7 @@ export async function handlePlan(ctx: HandlerContext): Promise<HandlerResult> {
   }
   const result = await planApp({
     createMessage: ctx.createMessage,
-    model: ctx.model,
+    model: ctx.offline ? ctx.model : PLAN_MODEL(),
     prompt: project.prompt,
     platforms: project.platforms,
     images: await loadImages(ctx, input.assetIds ?? []),
@@ -268,29 +282,64 @@ export async function handleBuild(ctx: HandlerContext): Promise<HandlerResult> {
     project,
     withHostedLegalLinks(built.files, project.id),
   );
-  const version = await commitVersion(ctx.db, {
+  // Pictures the screens describe (<AiImage prompt="...">) are drawn now, not left as grey boxes.
+  // Paid plans include the Hire Shelby support chat (switched on here unless the owner said no).
+  const files = await withIncludedSupportChat(
+    ctx.db,
+    project,
+    await addPromptPictures(ctx, project.id, cloud.files, approved?.design.style),
+  );
+  let version = await commitVersion(ctx.db, {
     projectId: project.id,
-    files: cloud.files,
+    files,
     kind: "generate",
     summary: `Built ${plan.screens.length} screens from plan ${planRow.number}`,
     runId: ctx.run.id,
     createdBy: ctx.run.userId,
   });
-  await updateProject(ctx.db, project.id, {
-    status: "ready",
-    activeThemeId: project.activeThemeId ?? plan.themes[0]?.id,
-  });
+  const themeId = project.activeThemeId ?? plan.themes[0]?.id;
+  await updateProject(ctx.db, project.id, { status: "ready", activeThemeId: themeId });
+
+  // Built from mockups: check every screen against its mockup and rebuild the ones that miss.
+  const match = approved
+    ? await matchMockups(ctx, {
+        projectId: project.id,
+        plan,
+        files,
+        design: approved.design,
+        themeId,
+        buildModel: ctx.offline ? ctx.model : DESIGN_BUILD_MODEL(),
+        reviewModel: ctx.offline ? ctx.model : DESIGN_REVIEW_MODEL(),
+        versionId: version.id,
+        template,
+        settleMs: ctx.offline ? 150 : undefined,
+        storage:
+          cloud.enabled || project.backend === "cloud"
+            ? { "app:auth:token": await previewSession(ctx.db, project.id) }
+            : {},
+      })
+    : null;
+  if (match?.versionId && match.versionId !== version.id)
+    version = { ...version, id: match.versionId };
   const screenList = plan.screens.map((s) => s.title).join(", ");
   await addMessage(ctx.db, {
     projectId: project.id,
     role: "assistant",
     runId: ctx.run.id,
     content: {
-      text: `${plan.appName} is ready: ${screenList}.${built.warnings.length ? ` ${built.warnings.length} screen(s) need another try; ask me to regenerate them.` : ""} Switch themes on the right, click any element to edit it, or tell me what to change.${cloud.enabled ? ` ${APP_CLOUD_FOR_AI_NOTE}` : ""}`,
+      text: `${plan.appName} is ready: ${screenList}.${built.warnings.length ? ` ${built.warnings.length} screen(s) need another try; ask me to regenerate them.` : ""}${match ? ` ${matchSummary(match)}` : ""} Switch themes on the right, click any element to edit it, or tell me what to change.${cloud.enabled ? ` ${APP_CLOUD_FOR_AI_NOTE}` : ""}`,
       versionId: version.id,
+      ...(match ? { match: match.screens } : {}),
     },
   });
-  return { output: { versionId: version.id, warnings: built.warnings }, usage: built.usage };
+  return {
+    output: {
+      versionId: version.id,
+      warnings: built.warnings,
+      ...(match ? { match: { rounds: match.rounds, screens: match.screens } } : {}),
+    },
+    usage: built.usage,
+  };
 }
 
 export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
@@ -298,6 +347,8 @@ export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
   const input = ctx.run.input as {
     request: string;
     selection?: { path: string; snippet: string; kind?: "element" | "screen" } | null;
+    /** Reported errors the user asked to fix ("Fix with AI" in the Errors tab). */
+    errorIds?: string[];
   };
   const current = await getCurrentFiles(ctx.db, project.id);
   // Projects made with an older template get the current platform files before editing.
@@ -329,8 +380,37 @@ export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
     history,
     maxScreens: await maxScreens(ctx),
     connectorBrief: connectors.brief,
+    appErrors: (await errorsForAgent(ctx.db, project.id))?.brief,
     onEvent: forwardAgentEvent(ctx),
   });
+
+  // The regression lock: the rest of the app must still render, and screens built from approved
+  // mockups the request wasn't about must still match them.
+  const planRow = await latestPlan(ctx.db, project.id);
+  const plan = planRow ? (planRow.data as unknown as AppPlan) : null;
+  const locked =
+    result.changed.length > 0
+      ? await lockEdit(ctx, {
+          request: input.request,
+          before: files,
+          after: result.files,
+          changed: result.changed,
+          selected: input.selection?.path ?? null,
+          plan,
+          mockups: planRow ? await approvedMockups(ctx.db, project.id, planRow.id) : undefined,
+          themeId: project.activeThemeId ?? plan?.themes[0]?.id,
+          storage:
+            project.backend === "cloud"
+              ? { "app:auth:token": await previewSession(ctx.db, project.id) }
+              : {},
+          buildModel: ctx.editModel,
+          reviewModel: ctx.offline ? ctx.model : DESIGN_REVIEW_MODEL(),
+        })
+      : null;
+  if (locked) {
+    result.files = locked.files;
+    result.changed = locked.changed;
+  }
 
   let versionId: string | null = null;
   const cloud = await withAppCloudForAi(ctx, project, result.files);
@@ -346,19 +426,33 @@ export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
     });
     versionId = version.id;
     await ctx.emit("files", { files: cloud.files });
+    // The errors the user asked to fix are fixed now; a new report would reopen them.
+    if (input.errorIds?.length) await resolveAppErrors(ctx.db, project.id, input.errorIds);
   }
   await addMessage(ctx.db, {
     projectId: project.id,
     role: "assistant",
     runId: ctx.run.id,
     content: {
-      text: [result.summary, ...connectors.notes].join("\n\n"),
+      text: [result.summary, ...(locked?.notes ?? []), ...connectors.notes].join("\n\n"),
       changed: result.changed,
       versionId,
+      // Undo goes back to the version before this edit (and refunds it within a day).
+      undoVersionId: versionId ? current.versionId : null,
     },
   });
   return {
-    output: { versionId, changed: result.changed },
+    output: {
+      versionId,
+      changed: result.changed,
+      ...(locked?.report
+        ? {
+            checked: locked.report.checked,
+            alsoChanged: locked.report.alsoChanged,
+            drifted: locked.report.drifted,
+          }
+        : {}),
+    },
     usage: sumUsage(connectors.usage, result.usage),
   };
 }

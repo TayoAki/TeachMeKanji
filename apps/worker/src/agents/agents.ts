@@ -30,6 +30,7 @@ import {
   type UsageTotals,
 } from "../generation/client";
 import { generateFiles } from "../generation/generate-files";
+import { modelSeesImages } from "../generation/openrouter-chat";
 import { GenerationStopped } from "../generation/generate-file";
 import {
   codeSystem,
@@ -40,8 +41,11 @@ import {
   planSystem,
   dataLayerRequest,
   screenComponentDir,
+  screenFromBrief,
   screenFromMockup,
+  screenMotion,
   screenRequest,
+  themeFromBrief,
   themeFromMockup,
   themeRequest,
   withMockup,
@@ -164,6 +168,33 @@ export async function buildApp(input: {
   const mainPath =
     plan.screens.find((s) => s.path === "app/(tabs)/index.tsx")?.path ?? plan.screens[0]?.path;
   const keyMockup = design && mainPath ? design.mockups[mainPath] : undefined;
+  // A model that reads text only builds from the mockups' written briefs and the design's style.
+  const textOnly = Boolean(design) && !modelSeesImages(input.model ?? DEFAULT_MODEL);
+  const themeStep = (): string | ReturnType<typeof withMockup> => {
+    if (textOnly && design?.style)
+      return `${themeRequest(plan)}\n\n${themeFromBrief(plan, design.style)}`;
+    if (!textOnly && keyMockup)
+      return withMockup(`${themeRequest(plan)}\n\n${themeFromMockup(plan)}`, keyMockup);
+    return themeRequest(plan);
+  };
+  const screenStep = (
+    screen: AppPlan["screens"][number],
+  ): string | ReturnType<typeof withMockup> => {
+    const brief = design?.briefs?.[screen.path];
+    const motion = screenMotion(design?.motion, screen.path);
+    const withMotion = (text: string) => (motion ? `${text}\n\n${motion}` : text);
+    if (textOnly && brief)
+      return withMotion(
+        `${screenRequest(plan, screen)}\n\n${screenFromBrief(brief, design?.images)}`,
+      );
+    const mockup = design?.mockups[screen.path];
+    if (!textOnly && mockup)
+      return withMockup(
+        withMotion(`${screenRequest(plan, screen)}\n\n${screenFromMockup(design?.images)}`),
+        mockup,
+      );
+    return withMotion(screenRequest(plan, screen));
+  };
 
   // 1. Shared layer: the theme and the data layer are independent, so they run in parallel.
   await emit({ type: "step", label: "Designing the theme, data and shared components" });
@@ -174,9 +205,7 @@ export async function buildApp(input: {
   const tabsLayout = "app/(tabs)/_layout.tsx";
   const sharedParts = [
     {
-      request: keyMockup
-        ? withMockup(`${themeRequest(plan)}\n\n${themeFromMockup(plan)}`, keyMockup)
-        : themeRequest(plan),
+      request: themeStep(),
       expectPaths: ["theme/tokens.ts"],
       allowWrite: {
         test: (path: string) => path === "theme/tokens.ts",
@@ -245,12 +274,7 @@ export async function buildApp(input: {
         createMessage,
         model: input.model,
         system: screenSystem,
-        request: design?.mockups[screen.path]
-          ? withMockup(
-              `${screenRequest(plan, screen)}\n\n${screenFromMockup(design.images)}`,
-              design.mockups[screen.path],
-            )
-          : screenRequest(plan, screen),
+        request: screenStep(screen),
         baseFiles: sharedFiles,
         expectPaths: [screen.path],
         allowWrite: {
@@ -319,6 +343,7 @@ export async function editApp(input: {
   history?: string[];
   maxScreens: number;
   connectorBrief?: string;
+  appErrors?: string;
   onEvent?: (event: AgentEvent) => Promise<void> | void;
   model?: string;
 }): Promise<{

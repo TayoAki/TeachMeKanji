@@ -108,6 +108,29 @@ const KIND_LABEL: Record<VersionRow["kind"], string> = {
   theme: "Theme",
 };
 
+/**
+ * Restore a version and say what it did to credits: undoing a recent AI edit refunds it, and
+ * bringing a refunded edit back charges it again.
+ */
+export async function restoreVersionTo(
+  projectId: string,
+  versionId: string,
+  title: string,
+): Promise<void> {
+  const result = await api<{ refunded?: number; reclaimed?: number }>(
+    `/api/projects/${projectId}/versions/${versionId}/restore`,
+    { method: "POST" },
+  );
+  const refunded = result.refunded ?? 0;
+  toast.success(title, {
+    description: refunded
+      ? `The AI edit you undid was refunded: ${refunded} ${refunded === 1 ? "credit" : "credits"} back.`
+      : result.reclaimed
+        ? `This brings back an edit that was refunded, so its ${result.reclaimed} credits apply again.`
+        : undefined,
+  });
+}
+
 export function HistoryView({
   projectId,
   currentVersionId,
@@ -127,8 +150,7 @@ export function HistoryView({
   }, [projectId, currentVersionId]);
 
   const restore = async (v: VersionRow) => {
-    await api(`/api/projects/${projectId}/versions/${v.id}/restore`, { method: "POST" });
-    toast.success(`Restored version ${v.number}`);
+    await restoreVersionTo(projectId, v.id, `Restored version ${v.number}`);
     onRestored();
   };
 

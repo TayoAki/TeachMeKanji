@@ -4,14 +4,14 @@
  * collections of JSON records. Generated apps reach it through data/remote.ts and
  * data/auth.ts in the template.
  */
-import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
+import { randomBytes, randomInt, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { and, count, desc, eq, gt, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { schema, type Database } from "@appbuilder/db";
 import { sha256 } from "./crypto";
 import { newId } from "./ids";
 
-const { appPushToken, appRecord, appSession, appUser } = schema;
+const { appPasswordReset, appPushToken, appRecord, appSession, appUser } = schema;
 const scryptAsync = promisify(scrypt) as (
   password: string,
   salt: Buffer,
@@ -184,6 +184,87 @@ export async function signInApp(
   if (!user?.passwordHash || !(await verifyPassword(input.password, user.passwordHash))) {
     throw new AppCloudError(401, "Wrong email or password.");
   }
+  return { user, token: await createSession(db, user) };
+}
+
+/** Password reset codes for app users: how long one lasts and how many tries it allows. */
+export const APP_PASSWORD_RESET = { codeMinutes: 30, attempts: 5 };
+
+function resetCodeHash(userId: string, code: string): string {
+  return sha256(`${userId}:${code}`);
+}
+
+/**
+ * Start a password reset: a fresh six-digit code for the account with this email, or null when
+ * there is no such account (the caller answers the same either way, so nobody learns which
+ * emails have accounts). The caller emails the code.
+ */
+export async function requestAppPasswordReset(
+  db: Database,
+  projectId: string,
+  rawEmail: string,
+): Promise<{ email: string; code: string } | null> {
+  const email = rawEmail.trim().toLowerCase();
+  if (!EMAIL.test(email)) throw new AppCloudError(400, "Enter a valid email address.");
+  const [user] = await db
+    .select()
+    .from(appUser)
+    .where(and(eq(appUser.projectId, projectId), eq(appUser.email, email)));
+  if (!user?.passwordHash) return null;
+  const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
+  const row = {
+    projectId,
+    codeHash: resetCodeHash(user.id, code),
+    attempts: 0,
+    expiresAt: new Date(Date.now() + APP_PASSWORD_RESET.codeMinutes * 60_000),
+    createdAt: new Date(),
+  };
+  await db
+    .insert(appPasswordReset)
+    .values({ appUserId: user.id, ...row })
+    .onConflictDoUpdate({ target: appPasswordReset.appUserId, set: row });
+  return { email, code };
+}
+
+/**
+ * Finish a password reset with the emailed code: the new password replaces the old one, every
+ * session of the account is signed out, and the caller gets a new one.
+ */
+export async function resetAppPassword(
+  db: Database,
+  projectId: string,
+  input: { email: string; code: string; password: string },
+) {
+  const wrong = new AppCloudError(400, "That code isn't right or has expired. Ask for a new one.");
+  const email = input.email.trim().toLowerCase();
+  if (input.password.length < 8)
+    throw new AppCloudError(400, "Passwords need at least 8 characters.");
+  const [user] = await db
+    .select()
+    .from(appUser)
+    .where(and(eq(appUser.projectId, projectId), eq(appUser.email, email)));
+  if (!user) throw wrong;
+  const [reset] = await db
+    .select()
+    .from(appPasswordReset)
+    .where(eq(appPasswordReset.appUserId, user.id));
+  if (!reset || reset.expiresAt < new Date() || reset.attempts >= APP_PASSWORD_RESET.attempts)
+    throw wrong;
+  const given = Buffer.from(resetCodeHash(user.id, input.code.replace(/\D/g, "")));
+  const expected = Buffer.from(reset.codeHash);
+  if (given.length !== expected.length || !timingSafeEqual(given, expected)) {
+    await db
+      .update(appPasswordReset)
+      .set({ attempts: reset.attempts + 1 })
+      .where(eq(appPasswordReset.appUserId, user.id));
+    throw wrong;
+  }
+  await db
+    .update(appUser)
+    .set({ passwordHash: await hashPassword(input.password) })
+    .where(eq(appUser.id, user.id));
+  await db.delete(appPasswordReset).where(eq(appPasswordReset.appUserId, user.id));
+  await db.delete(appSession).where(eq(appSession.appUserId, user.id));
   return { user, token: await createSession(db, user) };
 }
 

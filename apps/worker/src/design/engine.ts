@@ -14,7 +14,7 @@ import {
 } from "@appbuilder/contract";
 import { AgentError } from "../agents/agents";
 import { addUsage, textOf, type CreateMessage, type UsageTotals } from "../generation/client";
-import { cutOutCharacter } from "../images/key";
+import { cutOutCharacter, normalizePoses } from "../images/key";
 import { mediaTypeOf, type DrawnImage, type ImageModel, type ImageRequest } from "../images/client";
 import { BudgetExceeded } from "../llm";
 import {
@@ -32,7 +32,10 @@ import {
 
 export interface DesignDeps {
   createMessage: CreateMessage;
+  /** Draws the mascot, the other screens and fixes. */
   images: ImageModel;
+  /** Draws the key screen's two options (the one the rest copies); `images` when not set. */
+  keyImages?: ImageModel;
   /** Model for the design direction (structured output). */
   directionModel: string;
   /** Model for rating and checking mockups (vision). */
@@ -50,12 +53,20 @@ const imageBlock = (data: Buffer): Anthropic.Beta.Messages.BetaImageBlockParam =
   source: { type: "base64", media_type: mediaTypeOf(data), data: data.toString("base64") },
 });
 
-export async function draw(deps: DesignDeps, request: ImageRequest): Promise<DrawnImage> {
+export async function draw(
+  deps: DesignDeps,
+  request: ImageRequest,
+  model: ImageModel = deps.images,
+): Promise<DrawnImage> {
   if (deps.overBudget()) throw new BudgetExceeded();
-  const image = await deps.images.draw(request);
+  const image = await model.draw(request);
   deps.charge(image.costUsd);
   return image;
 }
+
+/** An option for the key screen, on the key-screen model. */
+export const drawKey = (deps: DesignDeps, request: ImageRequest) =>
+  draw(deps, request, deps.keyImages ?? deps.images);
 
 async function structured<T>(
   deps: DesignDeps,
@@ -134,12 +145,10 @@ export async function drawMascot(
       }),
     ),
   );
-  return Promise.all(
-    [first, ...rest].map(async (image, i) => ({
-      name: poses[i]!.name,
-      png: await cutOutCharacter(image.data),
-    })),
-  );
+  const cut = await Promise.all([first, ...rest].map((image) => cutOutCharacter(image.data)));
+  // One canvas, one scale, the same footing: poses swap and animate without jumping or cropping.
+  const placed = await normalizePoses(cut);
+  return placed.map((png, i) => ({ name: poses[i]!.name, png }));
 }
 
 /** Claude picks the stronger of two options for the key screen (1 or 2). */

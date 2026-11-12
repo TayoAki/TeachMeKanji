@@ -23,6 +23,8 @@ export const TEMPLATE_FILES = [
   "components/AiImage.tsx",
   "components/share.ts",
   "components/camera.tsx",
+  "components/motion.tsx",
+  "components/lottie.tsx",
   "data/photos.ts",
   "data/location.ts",
   "data/push.ts",
@@ -30,6 +32,11 @@ export const TEMPLATE_FILES = [
   "data/payments.ts",
   "data/analytics.ts",
   "data/analytics-config.ts",
+  "data/errors.ts",
+  "data/errors-config.ts",
+  "data/support-chat.ts",
+  "data/support.ts",
+  "components/support.tsx",
 ] as const;
 
 /** Files every generated app must contain in addition to the template. */

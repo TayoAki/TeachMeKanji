@@ -50,7 +50,8 @@ import { Canvas } from "./canvas";
 import { DesignReview } from "./design-review";
 import { ChatPanel, type ChatSelection } from "./chat-panel";
 import { AppCloudPanel, DataView } from "./app-cloud";
-import { CodeView, HistoryView } from "./code-and-history";
+import { CodeView, HistoryView, restoreVersionTo } from "./code-and-history";
+import { ErrorsView } from "./errors-view";
 import { DeviceDialog, ExportDialog, PublishDialog, ShareDialog } from "./dialogs";
 import { Inspector, ThemeList } from "./inspector";
 import { AnalyticsView } from "./analytics-view";
@@ -72,7 +73,9 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
   const router = useRouter();
   const [state, setState] = useState(initial);
   const [runId, setRunId] = useState<string | null>(initial.activeRun?.id ?? null);
-  const [tab, setTab] = useState<"canvas" | "code" | "data" | "analytics" | "history">("canvas");
+  const [tab, setTab] = useState<"canvas" | "code" | "data" | "analytics" | "errors" | "history">(
+    "canvas",
+  );
   const [chosenThemeId, setThemeId] = useState<string | undefined>(undefined);
   const [themes, setThemes] = useState<PreviewTheme[]>([]);
   // Preview the app in light or night mode (null: the picked theme as it is).
@@ -195,10 +198,11 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
     setState((s) => ({ ...s, activeRun: { id, kind: "run", status: "queued" } }));
   };
 
-  const send = async (text: string): Promise<boolean> => {
-    const selection = chatSelection
-      ? { path: chatSelection.path, snippet: chatSelection.snippet, kind: chatSelection.kind }
-      : null;
+  const send = async (text: string, extra: { errorIds?: string[] } = {}): Promise<boolean> => {
+    const selection =
+      chatSelection && !extra.errorIds
+        ? { path: chatSelection.path, snippet: chatSelection.snippet, kind: chatSelection.kind }
+        : null;
     try {
       const optimistic = {
         id: `local-${Date.now()}`,
@@ -210,7 +214,7 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
       setState((s) => ({ ...s, messages: [...s.messages, optimistic] }));
       const result = await api<{ runId: string }>(`/api/projects/${project.id}/messages`, {
         method: "POST",
-        json: { text, selection },
+        json: { text, selection, ...extra },
       });
       setChatSelection(null);
       startRun(result.runId);
@@ -429,6 +433,11 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
                 exists: Boolean(state.design),
                 onDesign: () => void startDesign().catch(() => {}),
               }}
+              currentVersionId={state.versionId}
+              onUndo={async (toVersionId) => {
+                await restoreVersionTo(project.id, toVersionId, "Edit undone");
+                await refresh();
+              }}
               userInitial={(user?.name ?? "Y").slice(0, 1).toUpperCase()}
             />
           </>
@@ -445,6 +454,9 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
                 </TabsTrigger>
                 <TabsTrigger value="analytics" data-testid="tab-analytics">
                   Analytics
+                </TabsTrigger>
+                <TabsTrigger value="errors" data-testid="tab-errors">
+                  Errors
                 </TabsTrigger>
                 <TabsTrigger value="code" data-testid="tab-code">
                   Code
@@ -700,6 +712,16 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
           refreshKey={state.versionId}
           onChanged={refresh}
         />
+      ) : tab === "errors" ? (
+        <ErrorsView
+          projectId={project.id}
+          canEdit={canEdit}
+          busy={busy}
+          refreshKey={state.versionId}
+          onFix={async (text, errorIds) => {
+            if (await send(text, { errorIds })) setTab("canvas");
+          }}
+        />
       ) : tab === "code" ? (
         <CodeView key={codeFocus ?? "default"} files={files} focusPath={codeFocus} />
       ) : (
@@ -722,6 +744,11 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
         onOpenChange={(o) => setDialog(o ? "export" : null)}
         projectId={project.id}
         projectName={project.name}
+        onAskAI={(request) => {
+          setDialog(null);
+          setTab("canvas");
+          void send(request);
+        }}
       />
       <PublishDialog
         open={dialog === "publish"}

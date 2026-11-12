@@ -14,6 +14,8 @@ import {
   signInApp,
   signOutApp,
   signUpApp,
+  requestAppPasswordReset,
+  resetAppPassword,
   appDataSummary,
   previewSession,
   pruneAppCloud,
@@ -145,6 +147,40 @@ describe("App Cloud (Postgres)", () => {
     expect(await deleteAppUser(db, preview)).toEqual({ preview: true });
     expect((await sessionUser(db, p.id, previewToken))?.id).toBe(preview.id);
     expect(await listRecords(db, preview, "notes")).toEqual([]);
+  });
+
+  it("resets a forgotten password with an emailed code, signing out every old session", async () => {
+    const u = await makeUser(db);
+    const p = await createProject(db, { ownerId: u.id, prompt: "x", platforms: "both" });
+    const { token: old } = await signUpApp(
+      db,
+      p.id,
+      { email: "kai@example.com", password: "first-password" },
+      null,
+    );
+    // No account, no code (and the route answers the same either way).
+    expect(await requestAppPasswordReset(db, p.id, "nobody@example.com")).toBeNull();
+    const reset = await requestAppPasswordReset(db, p.id, " Kai@Example.com ");
+    expect(reset!.code).toMatch(/^\d{6}$/);
+
+    const attempt = (code: string) =>
+      resetAppPassword(db, p.id, { email: "kai@example.com", code, password: "second-password" });
+    const wrong = reset!.code === "000000" ? "111111" : "000000";
+    await expect(attempt(wrong)).rejects.toThrow("isn't right");
+    const { token } = await attempt(reset!.code);
+    expect(token).toBeTruthy();
+    expect(await sessionUser(db, p.id, old)).toBeNull();
+    await expect(
+      signInApp(db, p.id, { email: "kai@example.com", password: "first-password" }),
+    ).rejects.toThrow();
+    await signInApp(db, p.id, { email: "kai@example.com", password: "second-password" });
+    // A code works once.
+    await expect(attempt(reset!.code)).rejects.toThrow("isn't right");
+
+    // Five wrong tries use up a code, even the right one after them.
+    const again = await requestAppPasswordReset(db, p.id, "kai@example.com");
+    for (let i = 0; i < 5; i++) await expect(attempt(wrong)).rejects.toThrow();
+    await expect(attempt(again!.code)).rejects.toThrow("isn't right");
   });
 
   it("validates collections, ids and sizes", async () => {

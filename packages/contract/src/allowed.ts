@@ -45,6 +45,39 @@ export const IMPORTABLE_MODULES: Readonly<Record<string, readonly string[] | "*"
   ],
   "expo-constants": "*",
   "react-native-purchases": "*",
+  // Drawing: rings, ribbons, curves and charts (colors still come from the theme).
+  "react-native-svg": [
+    "default",
+    "Svg",
+    "Circle",
+    "Ellipse",
+    "G",
+    "Line",
+    "Path",
+    "Polygon",
+    "Polyline",
+    "Rect",
+    "Defs",
+    "LinearGradient",
+    "RadialGradient",
+    "Stop",
+    "ClipPath",
+    "Text",
+    "TSpan",
+  ],
+  // Used through haptic() from components/motion (see PLATFORM_ONLY_MODULES).
+  "expo-haptics": [
+    "impactAsync",
+    "notificationAsync",
+    "selectionAsync",
+    "ImpactFeedbackStyle",
+    "NotificationFeedbackType",
+  ],
+  // Used through <Lottie> and <Celebrate> from components/lottie (see PLATFORM_ONLY_MODULES).
+  "lottie-react-native": ["default"],
+  // Hire Shelby support chat, only in data/support-chat.ts (written by the platform) and used
+  // through useSupport() from components/support.
+  "@hireshelby/react-native": ["HireShelby", "useUnreadCount"],
 };
 
 /**
@@ -76,6 +109,12 @@ export const PLATFORM_ONLY_MODULES: Readonly<Record<string, string>> = {
   "expo-location": "Get the person's location with useLocation() from data/location.",
   "expo-constants": "The platform's helpers read the app's configuration.",
   "react-native-purchases": "Sell premium with usePurchases() from data/purchases.",
+  "expo-haptics":
+    'Give haptic feedback with haptic("selection" | "light" | "success" | "warning") from components/motion.',
+  "lottie-react-native":
+    'Play an animation with <Lottie name="success" | "confetti" | "loading" | "heart" | "sparkle" /> or <Celebrate trigger={…} /> from components/lottie.',
+  "@hireshelby/react-native":
+    "Offer help with useSupport() or <SupportButton /> from components/support.",
 };
 
 /** AsyncStorage may only be used by the data layer, never directly by screens. */

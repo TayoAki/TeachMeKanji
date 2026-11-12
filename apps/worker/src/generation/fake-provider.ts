@@ -83,6 +83,9 @@ function respond(params: Params): string {
       leakedText: [],
       problems: [],
     });
+  // The match check: the offline build already matches its (offline) mockups.
+  if (params.output_config?.format && systemText(params).startsWith("You compare an app screen"))
+    return JSON.stringify({ score: 96, gaps: [], missingPictures: [] });
   // Store listing (structured output): fixed copy that fits the stores' limits.
   if (params.output_config?.format && systemText(params).startsWith("You write App Store"))
     return JSON.stringify(fakeListing(request));
@@ -567,6 +570,7 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        animation: "shift",
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textMuted,
         tabBarStyle: { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border },
@@ -652,6 +656,7 @@ function listScreen(
   return `import { Ionicons } from "@expo/vector-icons";
 import { Link } from "expo-router";
 ${head(root, ", Pressable")}
+import { Appear, CountUp } from "${root}components/motion";
 import { formatDate, VALUE_LABEL, type ${noun} } from "${root}data/schema";
 
 export default function HomeScreen() {
@@ -676,13 +681,14 @@ export default function HomeScreen() {
         </Text>
         <View style={{ backgroundColor: theme.colors.primary, borderRadius: theme.radius.lg, padding: theme.spacing.lg, gap: theme.spacing.xs }}>
           <Text style={{ color: theme.colors.onPrimary, fontSize: theme.font.size.caption }}>Total {VALUE_LABEL.toLowerCase()}</Text>
-          <Text style={{ color: theme.colors.onPrimary, fontSize: theme.font.size.display, fontWeight: theme.font.weight.bold }}>{total}</Text>
+          <CountUp value={total} style={{ color: theme.colors.onPrimary, fontSize: theme.font.size.display, fontWeight: theme.font.weight.bold }} />
           <Text style={{ color: theme.colors.onPrimary, fontSize: theme.font.size.body }}>
             {done} of {items.length} done
           </Text>
         </View>
-        {items.map((item) => (
-          <Card key={item.id} style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.md }}>
+        {items.map((item, index) => (
+          <Appear key={item.id} delay={Math.min(index, 8) * 50}>
+          <Card style={{ flexDirection: "row", alignItems: "center", gap: theme.spacing.md }}>
             ${
               detail
                 ? `<Link href={{ pathname: "/${detail}/[id]", params: { id: item.id } }} asChild>
@@ -713,6 +719,7 @@ export default function HomeScreen() {
               {item.done ? <Ionicons name="checkmark" size={16} color={theme.colors.onPrimary} /> : null}
             </Pressable>
           </Card>
+          </Appear>
         ))}
       </ScrollView>
 ${
@@ -1065,6 +1072,7 @@ export default function PaywallScreen() {
 function structureSettingsScreen(root: string) {
   return `import { Linking, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { Stack } from "expo-router";
+import { SupportButton } from "${root}components/support";
 import { appInfo } from "${root}data/app-info";
 import { useAppState } from "${root}data/app-state";
 import { usePurchases } from "${root}data/purchases";
@@ -1115,11 +1123,7 @@ export default function SettingsScreen() {
         ))}
       </View>
       <Text style={header}>SUPPORT</Text>
-      {appInfo.supportEmail ? (
-        <Pressable accessibilityRole="button" onPress={() => Linking.openURL("mailto:" + appInfo.supportEmail)} style={row}>
-          <Text style={label}>Contact support</Text>
-        </Pressable>
-      ) : null}
+      <SupportButton style={row} />
       {appInfo.privacyUrl ? (
         <Pressable accessibilityRole="button" onPress={() => Linking.openURL(appInfo.privacyUrl)} style={row}>
           <Text style={label}>Privacy Policy</Text>
@@ -1191,6 +1195,14 @@ function fakeEdit(request: string, system: string): string {
         "app/(tabs)/ask.tsx": askAiScreen(),
         "app/(tabs)/_layout.tsx": layout.replace("    </Tabs>", entry),
       },
+    )}`;
+  }
+
+  // "Fix with AI" on errors the app reported from phones: a guard where the error happened.
+  if (/^Fix (?:this|these) errors?/i.test(ask) && request.includes("Errors the app reported")) {
+    const path = "app/(tabs)/index.tsx";
+    return `<summary>Fixed the reported error: the screen now handles the missing data that caused it.</summary>\n${formatFileBlocks(
+      { [path]: `${files[path] ?? ""}\n// Handles the missing data behind a reported error.\n` },
     )}`;
   }
 

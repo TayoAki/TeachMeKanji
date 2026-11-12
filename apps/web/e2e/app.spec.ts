@@ -13,7 +13,7 @@ async function signUp(page: Page, name: string, prompt?: string): Promise<string
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("correct-horse-battery");
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByTestId("credit-balance")).toHaveText("100");
+  await expect(page.getByTestId("credit-balance")).toHaveText("60");
   return email;
 }
 
@@ -57,7 +57,7 @@ test("from idea to published app", async ({ page, browser }) => {
   const app = page.frameLocator('iframe[data-frame-id="app"]');
   await expect(app.getByText("Expenses", { exact: true }).first()).toBeVisible();
   await expect(page.getByTestId("bottom-bar")).toContainText("Version 1");
-  await expect(page.getByTestId("workspace-credits")).toHaveText("90 credits"); // plan 1 + revise 1 + build 8
+  await expect(page.getByTestId("workspace-credits")).toHaveText("50 credits"); // plan 1 + revise 1 + build 8
 
   // Navigate inside the app preview.
   await app.getByRole("tab", { name: /Insights/ }).click();
@@ -498,6 +498,16 @@ test("store builds: keys are checked before saving, identifiers live in app.json
   };
   expect(files["app.json"]).toContain('"bundleIdentifier": "com.me.water"');
 
+  // The App Review check: the offline app simulates purchases, which App Review would reject.
+  const review = (await (
+    await page.request.get(`/api/projects/${projectId}/review-check?platform=ios`)
+  ).json()) as { ready: boolean; items: Array<{ id: string; status: string }> };
+  const reviewStatus = Object.fromEntries(review.items.map((i) => [i.id, i.status]));
+  expect(review.ready).toBe(false);
+  expect(reviewStatus["purchases-real"]).toBe("fail");
+  expect(reviewStatus["identifier"]).toBe("pass");
+  expect(reviewStatus["crashes"]).toBe("pass");
+
   // Settings: an incomplete App Store Connect key or Play key is refused before anything is sent.
   await page.goto("/settings#integrations");
   const asc = page.getByTestId("integration-app-store-connect");
@@ -716,4 +726,87 @@ test("analytics: preview taps are test events, phones count, and the funnel adds
   await expect(funnel).toContainText("Opened the app2 · 100%");
   await expect(funnel).toContainText("Started a trial or subscribed1 · 50%");
   await expect(view).toContainText("streak_kept");
+});
+
+test("errors: a phone's error reaches the Errors tab, and Fix with AI fixes it", async ({
+  page,
+  request,
+}) => {
+  await signUp(page, "Fixer");
+  await createAndBuild(page, "A habit tracker with streaks");
+  const projectId = page.url().split("/projects/")[1]!;
+  const report = (data: Record<string, unknown>) =>
+    request.post(`/api/app/${projectId}/errors`, { data });
+
+  // Every app reports its errors (no App Cloud or analytics needed); malformed reports bounce.
+  expect((await report({ install: "x", message: "boom" })).status()).toBe(400);
+  const sent = await report({
+    install: "e2e-phone-0101",
+    message: "Cannot read property 'streak' of undefined",
+    stack:
+      "TypeError: Cannot read property 'streak' of undefined\n    at StatsScreen (app/(tabs)/stats.tsx:20:12)",
+    screen: "/stats",
+    platform: "ios",
+    test: false,
+  });
+  expect(await sent.json()).toEqual({ accepted: true });
+
+  await page.getByTestId("tab-errors").click();
+  await expect(page.getByTestId("app-error")).toContainText("Cannot read property");
+  await expect(page.getByTestId("app-error")).toContainText("iPhone");
+  await page.getByTestId("fix-error").click();
+  await expect(page.getByTestId("chat-assistant").last()).toContainText(
+    "Fixed the reported error",
+    { timeout: 60_000 },
+  );
+  await page.getByTestId("tab-errors").click();
+  await expect(page.getByTestId("errors-view")).toContainText("No open errors");
+});
+
+test("support chat: connecting Hire Shelby installs its SDK for store builds and keeps the preview working", async ({
+  page,
+}) => {
+  await signUp(page, "Helper");
+  await createAndBuild(page, "A gratitude journal");
+  const projectId = page.url().split("/projects/")[1]!;
+  const files = async () =>
+    (
+      (await (await page.request.get(`/api/projects/${projectId}`)).json()) as {
+        files: Record<string, string>;
+      }
+    ).files;
+  // Every app has Help & support (email until a chat is connected).
+  expect((await files())["components/support.tsx"]).toContain("export function SupportButton");
+  expect((await files())["data/support-chat.ts"]).toContain("supportChat = null");
+
+  await page.getByTestId("open-export").click();
+  const section = page.getByTestId("support-chat");
+  await section.getByLabel("Hire Shelby App ID").fill("not-an-id");
+  await page.getByTestId("support-chat-save").click();
+  await expect(page.getByText("Paste the App ID from the Hire Shelby dashboard")).toBeVisible();
+  await section.getByLabel("Hire Shelby App ID").fill("app_K3e2eSupport01");
+  await page.getByTestId("support-chat-save").click();
+  await expect(section).toContainText("Your Hire Shelby app");
+
+  const connected = await files();
+  expect(connected["data/support-chat.ts"]).toContain('appId: "app_K3e2eSupport01"');
+  expect(JSON.parse(connected["package.json"]!).dependencies["@hireshelby/react-native"]).toBe(
+    "0.1.0",
+  );
+  // The preview has no native chat: the app's Settings still renders the connected version.
+  await page.keyboard.press("Escape");
+  const settings = page.getByTestId("canvas-screen").filter({ hasText: "settings.tsx" });
+  await expect(settings.frameLocator("iframe").getByText("APPEARANCE")).toBeVisible({
+    timeout: 15_000,
+  });
+
+  // Disconnecting removes the SDK again.
+  await page.getByTestId("open-export").click();
+  await section.getByRole("button", { name: "Disconnect" }).click();
+  await expect(section).not.toContainText("Your Hire Shelby app");
+  const after = await files();
+  expect(after["data/support-chat.ts"]).toContain("supportChat = null");
+  expect(
+    JSON.parse(after["package.json"]!).dependencies["@hireshelby/react-native"],
+  ).toBeUndefined();
 });

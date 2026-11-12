@@ -13,7 +13,12 @@ export const POST = route(
     const body = await readJson<{
       text?: string;
       selection?: { path: string; snippet?: string; kind?: "element" | "screen" } | null;
+      /** "Fix with AI" on reported errors: marked fixed when the edit is saved. */
+      errorIds?: unknown;
     }>(request);
+    const errorIds = Array.isArray(body.errorIds)
+      ? body.errorIds.filter((x): x is string => typeof x === "string").slice(0, 10)
+      : [];
     const text = String(body.text ?? "").trim();
     if (!text || text.length > 4000)
       throw new HttpError(400, "Write a message of up to 4000 characters.");
@@ -42,7 +47,7 @@ export const POST = route(
         projectId: id,
         userId: viewer!.id,
         kind: "edit",
-        input: { request: text, selection },
+        input: { request: text, selection, ...(errorIds.length ? { errorIds } : {}) },
       });
     } else {
       const plan = await latestPlan(db(), id);

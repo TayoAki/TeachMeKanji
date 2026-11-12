@@ -1,4 +1,9 @@
-import { legalLinksFor, withLegalLinks, type ProjectFiles } from "@appbuilder/contract";
+import {
+  legalLinksFor,
+  withErrorReporting,
+  withLegalLinks,
+  type ProjectFiles,
+} from "@appbuilder/contract";
 
 /** The platform's public origin: App Cloud, analytics and the apps' hosted privacy policies. */
 export function platformUrl(): string {
@@ -9,7 +14,13 @@ export function platformUrl(): string {
   ).replace(/\/$/, "");
 }
 
-/** Fill the app's empty Privacy and Terms links with the hosted policy and Apple's EULA. */
+/**
+ * The platform services every app gets: its empty Privacy and Terms links filled with the hosted
+ * policy and Apple's EULA, and its errors on phones reported to the builder.
+ */
 export function withHostedLegalLinks(files: ProjectFiles, projectId: string): ProjectFiles {
-  return withLegalLinks(files, legalLinksFor(platformUrl(), projectId));
+  return withErrorReporting(withLegalLinks(files, legalLinksFor(platformUrl(), projectId)), {
+    url: platformUrl(),
+    projectId,
+  });
 }

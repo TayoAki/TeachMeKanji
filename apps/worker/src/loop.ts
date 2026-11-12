@@ -13,11 +13,15 @@ import {
   heartbeat,
   latestPlan,
   emailProviderSet,
+  hireShelbyEnabled,
   pruneAnalytics,
+  pruneAppErrors,
   sendDueFunnelEmails,
   sendEmail,
   pruneAppCloud,
   reapAbandonedRuns,
+  syncSupportUsage,
+  syncSupportWorkspaces,
   recordWorkerHeartbeat,
   reportError,
   runBudgetUsd,
@@ -115,7 +119,8 @@ export async function processRun(db: Database, run: Run, provider: Provider): Pr
       output: result.output,
       model: provider.model,
       usage: meter.usage(),
-      costUsd: meter.cost() ?? undefined,
+      costUsd: meter.billable() ?? undefined,
+      freeCostUsd: meter.freeCost(),
     });
   } catch (error) {
     if (!(
@@ -126,7 +131,8 @@ export async function processRun(db: Database, run: Run, provider: Provider): Pr
       reportError(error, { where: "worker", runId: run.id, kind: run.kind });
     }
     const message = userMessage(error);
-    // Failed and cancelled runs pay for the model usage they consumed (never above the reserve).
+    // Failed runs are free; cancelled ones pay for the usage they consumed (never above the
+    // reserve).
     await failRun(
       db,
       run,
@@ -135,7 +141,7 @@ export async function processRun(db: Database, run: Run, provider: Provider): Pr
       {
         model: provider.model,
         usage: meter.usage(),
-        costUsd: meter.cost() ?? undefined,
+        costUsd: meter.billable() ?? undefined,
       },
     );
     if (AGENT_KINDS.has(run.kind)) {
@@ -145,7 +151,13 @@ export async function processRun(db: Database, run: Run, provider: Provider): Pr
         role: "assistant",
         kind: "error",
         runId: run.id,
-        content: { text: message },
+        // A failed step is the platform's mistake: say plainly that it cost nothing.
+        content: {
+          text:
+            !cancelled && run.creditsReserved > 0
+              ? `${message} This step was free: failed steps never use your credits.`
+              : message,
+        },
       });
     }
   } finally {
@@ -221,6 +233,17 @@ export async function runWorker(
         await pruneAppCloud(db);
         // Analytics events past their retention window.
         await pruneAnalytics(db);
+        await pruneAppErrors(db);
+        // Hire Shelby (support chat on paid plans): AI replies into credits, and each owner's
+        // workspace in step with their plan and credits.
+        if (hireShelbyEnabled()) {
+          await syncSupportUsage(db).catch((error) =>
+            reportError(error, { where: "hire-shelby usage" }),
+          );
+          await syncSupportWorkspaces(db).catch((error) =>
+            reportError(error, { where: "hire-shelby workspaces" }),
+          );
+        }
         // Today's database backup into the bucket, if it isn't there yet (in the background:
         // a dump takes seconds and never blocks the run queue; it reports its own errors).
         if (!backingUp) {

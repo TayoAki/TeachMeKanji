@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import QRCode from "qrcode";
 import {
+  AlertTriangle,
   Check,
+  CircleCheck,
+  CircleX,
   Copy,
   Download,
   ExternalLink,
@@ -13,6 +16,7 @@ import {
   KeyRound,
   Loader2,
   Smartphone,
+  Sparkles,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -205,7 +209,12 @@ export function ExportDialog({
   onOpenChange,
   projectId,
   projectName,
-}: DialogProps & { projectName: string }) {
+  onAskAI,
+}: DialogProps & {
+  projectName: string;
+  /** Send a change request to the chat agent (the App Review check's "Fix with AI"). */
+  onAskAI?: (request: string) => void;
+}) {
   const [me, setMe] = useState<Me | null>(null);
   const [mode, setMode] = useState<"create" | "existing">("create");
   const [repo, setRepo] = useState("");
@@ -424,7 +433,11 @@ export function ExportDialog({
           ) : null}
         </section>
 
-        {me?.limits.nativeBuilds && expo ? <StoreSubmit projectId={projectId} /> : null}
+        {me?.limits.nativeBuilds && expo ? (
+          <StoreSubmit projectId={projectId} onAskAI={onAskAI} />
+        ) : null}
+
+        <SupportChat projectId={projectId} />
       </DialogContent>
     </Dialog>
   );
@@ -765,7 +778,268 @@ interface StoreState {
 }
 
 /** One click from the latest version to TestFlight or Google Play's internal testing. */
-function StoreSubmit({ projectId }: { projectId: string }) {
+interface SupportChatState {
+  appId: string;
+  connected: boolean;
+  /** Paid plans include the chat on this server (Hire Shelby's partner API is set up). */
+  partner: boolean;
+  included: boolean;
+  enabled: boolean;
+  /** The App ID is the one App Builder created (not the owner's own account). */
+  managed: boolean;
+  ai: { replies: number; credits: number };
+}
+
+/**
+ * Hire Shelby (our in-app support chat). Included on paid plans: on for every app by default,
+ * with a switch, and the owner answers in Hire Shelby's inbox; its AI replies cost credits.
+ * Anyone can instead paste the App ID of a Hire Shelby account they pay for themselves.
+ */
+function SupportChat({ projectId }: { projectId: string }) {
+  const [state, setState] = useState<SupportChatState | null>(null);
+  const [appId, setAppId] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [own, setOwn] = useState(false);
+  const load = useCallback(
+    () =>
+      api<SupportChatState>(`/api/projects/${projectId}/support-chat`, { quiet: true })
+        .then((s) => {
+          setState(s);
+          setAppId(s.managed ? "" : s.appId);
+          setOwn(Boolean(s.appId) && !s.managed);
+        })
+        .catch(() => {}),
+    [projectId],
+  );
+  useEffect(() => {
+    void load();
+  }, [load]);
+  if (!state) return null;
+  const put = async (json: { appId: string } | { enabled: boolean }, done: string) => {
+    setSaving(true);
+    try {
+      await api(`/api/projects/${projectId}/support-chat`, { method: "PUT", json });
+      toast.success(done);
+      await load();
+    } catch {
+      // api() showed why.
+    } finally {
+      setSaving(false);
+    }
+  };
+  const openInbox = async () => {
+    const tab = window.open("", "_blank");
+    try {
+      const { url } = await api<{ url: string }>("/api/support-chat/inbox", { method: "POST" });
+      if (tab) tab.location.href = url;
+      else window.location.href = url;
+    } catch {
+      tab?.close();
+    }
+  };
+  const includedOn = state.included && state.enabled && state.managed;
+  return (
+    <section className="space-y-2 border-t pt-4" data-testid="support-chat">
+      <h3 className="flex items-center gap-2 text-sm font-medium">
+        In-app support chat{" "}
+        {state.connected ? (
+          <Badge variant="outline">{state.managed ? "On" : "Your Hire Shelby app"}</Badge>
+        ) : null}
+      </h3>
+      <p className="text-xs text-muted-foreground">
+        Help &amp; support in the app opens a native chat with you, powered by{" "}
+        <a className="underline" href="https://hireshelby.com" target="_blank" rel="noreferrer">
+          Hire Shelby
+        </a>
+        : your users write from inside the app, you answer from the inbox, Telegram or its AI. It
+        runs in iOS builds (TestFlight and the App Store); the preview, Expo Go and Android email
+        your support address instead.
+      </p>
+
+      {state.partner ? (
+        state.included ? (
+          <div className="space-y-2 rounded-lg border p-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm">
+                {includedOn ? "On for this app" : "Off for this app"}
+                <span className="block text-xs text-muted-foreground">
+                  Included in your plan. AI replies use credits
+                  {state.ai.replies
+                    ? ` (this month: ${state.ai.replies} replies, ${state.ai.credits} credits)`
+                    : ", usually a fifth of a credit or less each"}
+                  .
+                </span>
+              </span>
+              <Switch
+                checked={includedOn}
+                disabled={saving || own}
+                onCheckedChange={(on) =>
+                  put({ enabled: on }, on ? "Support chat on" : "Help & support switched to email")
+                }
+                aria-label="Support chat for this app"
+                data-testid="support-chat-switch"
+              />
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void openInbox()}
+              data-testid="support-chat-inbox"
+            >
+              <ExternalLink /> Open support inbox
+            </Button>
+          </div>
+        ) : (
+          <p className="rounded-lg border p-3 text-xs" data-testid="support-chat-upgrade">
+            Included on{" "}
+            <Link href="/pricing" className="underline">
+              Builder and Pro
+            </Link>
+            : every app gets the chat, and you answer from one inbox.
+          </p>
+        )
+      ) : null}
+
+      {state.partner && !own ? (
+        <button
+          type="button"
+          className="text-xs text-muted-foreground underline underline-offset-2"
+          onClick={() => setOwn(true)}
+        >
+          Use your own Hire Shelby account instead
+        </button>
+      ) : (
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground">
+            {state.partner
+              ? "Your own Hire Shelby account: add the app there and paste its App ID."
+              : "Add the app in Hire Shelby's dashboard, then paste its App ID."}
+          </p>
+          <div className="flex gap-2">
+            <Input
+              value={appId}
+              onChange={(e) => setAppId(e.target.value)}
+              aria-label="Hire Shelby App ID"
+              placeholder="app_…"
+              className="font-mono text-xs"
+            />
+            <Button
+              size="sm"
+              onClick={() => put({ appId: appId.trim() }, "Support chat connected")}
+              disabled={saving || !appId.trim() || appId.trim() === state.appId}
+              data-testid="support-chat-save"
+            >
+              {saving ? <Loader2 className="animate-spin" /> : null} Connect
+            </Button>
+            {state.connected && !state.managed ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => put({ appId: "" }, "Support chat disconnected")}
+                disabled={saving}
+              >
+                Disconnect
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+interface ReviewItemView {
+  id: string;
+  title: string;
+  status: "pass" | "warn" | "fail";
+  detail: string;
+  guideline: string;
+  fix?: string;
+}
+
+/**
+ * The App Review check: what the stores reject apps for, checked on the current version before
+ * it's sent. Failures block nothing (TestFlight and internal testing aren't reviewed), but they
+ * are what to fix before submitting for review.
+ */
+function ReviewCheck({
+  projectId,
+  platform,
+  onAskAI,
+}: {
+  projectId: string;
+  platform: "ios" | "android";
+  onAskAI?: (request: string) => void;
+}) {
+  const [report, setReport] = useState<{ ready: boolean; items: ReviewItemView[] } | null>(null);
+  useEffect(() => {
+    api<{ ready: boolean; items: ReviewItemView[] }>(
+      `/api/projects/${projectId}/review-check?platform=${platform}`,
+      { quiet: true },
+    )
+      .then(setReport)
+      .catch(() => setReport(null));
+  }, [projectId, platform]);
+  if (!report) return null;
+  const failing = report.items.filter((i) => i.status === "fail");
+  const warning = report.items.filter((i) => i.status === "warn");
+  const fixes = [...failing, ...warning].filter((i) => i.fix).map((i) => i.fix!);
+  return (
+    <div className="space-y-2 rounded-lg border p-3" data-testid="review-check">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-medium">
+          {report.ready
+            ? warning.length
+              ? `Ready for App Review, with ${warning.length} thing${warning.length === 1 ? "" : "s"} to consider`
+              : "Ready for App Review"
+            : `${failing.length} thing${failing.length === 1 ? "" : "s"} App Review would reject`}
+        </p>
+        {onAskAI && fixes.length ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              onAskAI(`Get the app ready for App Review:\n${fixes.map((f) => `- ${f}`).join("\n")}`)
+            }
+            data-testid="review-fix-all"
+          >
+            <Sparkles /> Fix with AI
+          </Button>
+        ) : null}
+      </div>
+      <ul className="space-y-1.5">
+        {[...failing, ...warning, ...report.items.filter((i) => i.status === "pass")].map((i) => (
+          <li key={i.id} className="flex gap-2 text-xs" data-testid={`review-${i.id}`}>
+            {i.status === "pass" ? (
+              <CircleCheck className="mt-0.5 size-3.5 shrink-0 text-emerald-600" />
+            ) : i.status === "warn" ? (
+              <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-600" />
+            ) : (
+              <CircleX className="mt-0.5 size-3.5 shrink-0 text-destructive" />
+            )}
+            <span className="min-w-0">
+              <span className="font-medium">{i.title}</span>
+              {i.status !== "pass" ? (
+                <span className="block text-muted-foreground">
+                  {i.detail} <span className="opacity-70">({i.guideline})</span>
+                </span>
+              ) : null}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function StoreSubmit({
+  projectId,
+  onAskAI,
+}: {
+  projectId: string;
+  onAskAI?: (request: string) => void;
+}) {
+  const [checkPlatform, setCheckPlatform] = useState<"ios" | "android">("ios");
   const [state, setState] = useState<StoreState | null>(null);
   const [settings, setSettings] = useState({ ios: "", android: "", ascAppId: "" });
   const [saving, setSaving] = useState(false);
@@ -869,6 +1143,18 @@ function StoreSubmit({ projectId }: { projectId: string }) {
         />
       ) : (
         <div className="flex flex-wrap gap-2">
+          <Select
+            value={checkPlatform}
+            onValueChange={(v) => setCheckPlatform(v as typeof checkPlatform)}
+          >
+            <SelectTrigger className="h-8 w-40" aria-label="Check for">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ios">Check for iOS</SelectItem>
+              <SelectItem value="android">Check for Android</SelectItem>
+            </SelectContent>
+          </Select>
           <Button
             size="sm"
             onClick={() => send("ios")}
@@ -887,6 +1173,7 @@ function StoreSubmit({ projectId }: { projectId: string }) {
           </Button>
         </div>
       )}
+      <ReviewCheck projectId={projectId} platform={checkPlatform} onAskAI={onAskAI} />
       {!state.keys.appStore || !state.keys.play ? (
         <p className="text-xs text-muted-foreground">
           {!state.keys.appStore ? "TestFlight needs your App Store Connect API key" : ""}

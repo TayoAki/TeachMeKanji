@@ -42,6 +42,10 @@ export const project = pgTable(
     backend: text("backend").$type<"local" | "cloud">().notNull().default("local"),
     /** Whether the generated app sends usage events (the Analytics tab's switch). */
     analytics: boolean("analytics").notNull().default(false),
+    /** The owner's switch for the Hire Shelby support chat included on paid plans. */
+    supportChat: boolean("support_chat").notNull().default(true),
+    /** The Hire Shelby app App Builder created for this project (its public app_ ID). */
+    supportChatAppId: text("support_chat_app_id"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
@@ -269,7 +273,13 @@ export type LedgerReason =
   | "purchase"
   | "monthly"
   /** AI features inside the owner's generated apps (App Cloud /ai), metered per day. */
-  | "app_ai";
+  | "app_ai"
+  /** An AI edit undone soon after it was made gets its credits back. */
+  | "refund"
+  /** A refunded edit restored again pays for itself after all. */
+  | "reclaim"
+  /** Hire Shelby's AI replies in the owner's apps' support chats, metered per day. */
+  | "support_ai";
 
 export const creditLedger = pgTable(
   "credit_ledger",

@@ -90,3 +90,56 @@ describe("platform files", () => {
     expect(readPaymentsConfig({})).toEqual(DEFAULT_PAYMENTS);
   });
 });
+
+describe("error reporting config", () => {
+  it("is written by the platform and kept when the template is refreshed", async () => {
+    const { ERRORS_CONFIG_FILE, refreshTemplate, withErrorReporting } =
+      await import("./platform-config");
+    const files = withErrorReporting(
+      { "app/(tabs)/index.tsx": "x" },
+      { url: "https://builder.example", projectId: "p_1" },
+    );
+    expect(files[ERRORS_CONFIG_FILE]).toContain('"url": "https://builder.example"');
+    const refreshed = refreshTemplate(files, {
+      [ERRORS_CONFIG_FILE]: 'export const errorsConfig = { url: "", projectId: "" };\n',
+      "data/errors.ts": "// reporter\n",
+    });
+    expect(refreshed[ERRORS_CONFIG_FILE]).toBe(files[ERRORS_CONFIG_FILE]);
+    expect(refreshed["data/errors.ts"]).toBe("// reporter\n");
+  });
+});
+
+describe("Hire Shelby support chat", () => {
+  it("connects with the SDK in package.json, survives template refreshes, and stays out of previews", async () => {
+    const {
+      HIRESHELBY_PACKAGE,
+      readSupportChat,
+      refreshTemplate,
+      SUPPORT_CHAT_FILE,
+      supportChatFile,
+      withoutNativeSupportChat,
+      withSupportChat,
+    } = await import("./platform-config");
+    const base = {
+      [SUPPORT_CHAT_FILE]: supportChatFile({ appId: "" }),
+      "package.json": JSON.stringify({ dependencies: { expo: "~58.0.23" } }),
+    };
+    expect(readSupportChat(base).appId).toBe("");
+
+    const connected = withSupportChat(base, "app_K3abcdefghijkl");
+    expect(readSupportChat(connected).appId).toBe("app_K3abcdefghijkl");
+    expect(connected[SUPPORT_CHAT_FILE]).toContain(`from "${HIRESHELBY_PACKAGE}"`);
+    expect(JSON.parse(connected["package.json"]!).dependencies[HIRESHELBY_PACKAGE]).toBe("0.1.0");
+
+    const refreshed = refreshTemplate(connected, { [SUPPORT_CHAT_FILE]: base[SUPPORT_CHAT_FILE]! });
+    expect(readSupportChat(refreshed).appId).toBe("app_K3abcdefghijkl");
+
+    // Expo Go previews never load the native module.
+    expect(readSupportChat(withoutNativeSupportChat(connected)).appId).toBe("");
+    expect(withoutNativeSupportChat(base)).toBe(base);
+
+    const disconnected = withSupportChat(connected, "");
+    expect(readSupportChat(disconnected).appId).toBe("");
+    expect(JSON.parse(disconnected["package.json"]!).dependencies).toEqual({ expo: "~58.0.23" });
+  });
+});

@@ -35,7 +35,7 @@ async function signUp(page: Page, plan: "free" | "pro") {
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("correct-horse-battery");
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByTestId("credit-balance")).toHaveText("100");
+  await expect(page.getByTestId("credit-balance")).toHaveText("60");
   if (plan !== "free") {
     await sql(
       `insert into subscription (user_id, plan, status)

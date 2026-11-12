@@ -12,6 +12,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { project } from "./app";
+import { user } from "./auth";
 
 /**
  * App Cloud: the built-in backend generated apps use once it's enabled for a project.
@@ -170,3 +171,93 @@ export const appAnalyticsDay = pgTable(
   },
   (t) => [primaryKey({ columns: [t.projectId, t.day] })],
 );
+
+/**
+ * Errors reported by a generated app from phones (template data/errors.ts), grouped by what
+ * went wrong: one row per distinct error, counted. The owner sees them, and the edit agent reads
+ * the open ones before changing the app.
+ */
+export const appError = pgTable(
+  "app_error",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => project.id, { onDelete: "cascade" }),
+    /** A hash of the message and the first frames of the stack: the same error, the same row. */
+    fingerprint: text("fingerprint").notNull(),
+    message: text("message").notNull(),
+    stack: text("stack"),
+    /** The screen showing when it happened (expo-router path). */
+    screen: text("screen"),
+    platform: text("platform").notNull(),
+    /** Crashed the app (an unhandled error) rather than one screen. */
+    fatal: boolean("fatal").notNull().default(false),
+    /** Only seen in Expo Go or development builds. */
+    test: boolean("test").notNull().default(true),
+    count: integer("count").notNull().default(1),
+    firstSeen: timestamp("first_seen", { withTimezone: true }).notNull().defaultNow(),
+    lastSeen: timestamp("last_seen", { withTimezone: true }).notNull().defaultNow(),
+    /** Fixed or dismissed; a report after this reopens it. */
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("app_error_fingerprint_idx").on(t.projectId, t.fingerprint),
+    index("app_error_project_seen_idx").on(t.projectId, t.lastSeen),
+  ],
+);
+
+/**
+ * A password reset in progress for an app user: a six-digit code emailed to them, stored hashed,
+ * valid for a short time and a few tries. One per user; a new request replaces it.
+ */
+export const appPasswordReset = pgTable("app_password_reset", {
+  appUserId: text("app_user_id")
+    .primaryKey()
+    .references(() => appUser.id, { onDelete: "cascade" }),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => project.id, { onDelete: "cascade" }),
+  codeHash: text("code_hash").notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * An owner's Hire Shelby workspace (support chat included on paid plans, see
+ * docs/11-hire-shelby-partner.md): created on first use, and the state App Builder last set on it.
+ */
+export const supportWorkspace = pgTable("support_workspace", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  /** Paid plan: Hire Shelby counts the workspace as subscribed. */
+  active: boolean("active").notNull().default(true),
+  /** At least a credit left: AI replies may run (they're charged in credits). */
+  aiAllowed: boolean("ai_allowed").notNull().default(true),
+  syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Hire Shelby's AI replies per app per day, charged in whole credits as they add up. */
+export const supportAiUsage = pgTable(
+  "support_ai_usage",
+  {
+    projectId: text("project_id")
+      .notNull()
+      .references(() => project.id, { onDelete: "cascade" }),
+    /** UTC date, YYYY-MM-DD. */
+    day: text("day").notNull(),
+    replies: integer("replies").notNull().default(0),
+    costMicroUsd: bigint("cost_micro_usd", { mode: "number" }).notNull().default(0),
+    creditsCharged: integer("credits_charged").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.projectId, t.day] })],
+);
+
+/** Where a feed from another service was last read up to (e.g. Hire Shelby's AI usage). */
+export const syncCursor = pgTable("sync_cursor", {
+  name: text("name").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

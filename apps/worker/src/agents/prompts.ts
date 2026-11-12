@@ -98,6 +98,33 @@ export interface BuildDesign {
   mockups: Record<string, MockupImage>;
   /** Images added to the app for the build (mascot poses, illustrations): name → URL. */
   images?: Record<string, string>;
+  /** Each screen's written brief, by path: what a model that can't see images builds from. */
+  briefs?: Record<string, string>;
+  /** The design's palette, type and shapes in words, for the same models' theme step. */
+  style?: string;
+  /** The direction's motion plan: each screen's build gets its own moments. */
+  motion?: BuildMotion;
+}
+
+export interface BuildMotion {
+  personality: string;
+  signature?: { name: string; screen: string; description: string; howItMoves: string };
+  /** Moments by screen path. */
+  perScreen: Record<string, string[]>;
+}
+
+/** The approved design's motion for one screen, for that screen's build request. */
+export function screenMotion(motion: BuildMotion | undefined, path: string): string {
+  if (!motion) return "";
+  const moments = motion.perScreen[path] ?? [];
+  const signature =
+    motion.signature && motion.signature.screen === path
+      ? `Signature interaction on this screen, "${motion.signature.name}": ${motion.signature.description} How it moves: ${motion.signature.howItMoves}`
+      : "";
+  return `Motion from the approved design (personality: ${motion.personality})${
+    signature ? `\n${signature}` : ""
+  }${moments.length ? `\nMoments on this screen:\n${moments.map((m) => `- ${m}`).join("\n")}` : ""}
+Build these with components/motion (Stagger, Appear, PressScale, CountUp, GrowBar, Float, Mascot, Skeleton, StepTransition, PageDots, Pulse, haptic), components/lottie (Lottie: success, confetti, loading, heart, sparkle; Celebrate), react-native-svg for drawn shapes and animated rings, PanResponder for drags, and React Native's Animated for anything else (no other Lottie files). Colors come from the theme, never the hex values above. Where the motion can't be built exactly, build the closest calm version.`;
 }
 
 /** A request with the approved mockup attached in front of it, when there is one. */
@@ -125,10 +152,25 @@ export function themeFromMockup(plan: AppPlan): string {
 }
 
 export function screenFromMockup(images: Record<string, string> | undefined): string {
-  const names = Object.keys(images ?? {});
   return `The user approved a mockup of this screen (the image above). Build it to match: the same sections in the same order, the same hierarchy (what is big, bold or colored), card shapes, spacing and icons (the nearest @expo/vector-icons), and its copy where it fits the plan. Colors come from the theme, which already matches the mockup. Leave out the iOS status bar and the home indicator: the system draws them.
-${names.length ? `Pictures: these images are added to the app; show them with <AiImage name="..." /> where the mockup shows them, choosing the pose or picture that fits the moment: ${names.map((n) => `"${n}"`).join(", ")}. Size them like the mockup and use resizeMode "contain" for characters. For any other picture in the mockup use <AiImage prompt="..." />.` : `For pictures in the mockup use <AiImage prompt="..." />.`}
+${mockupPictures(images)}`;
+}
+
+function mockupPictures(images: Record<string, string> | undefined): string {
+  const names = Object.keys(images ?? {});
+  return `${names.length ? `The mascot: its poses are added to the app as ${names.map((n) => `"${n}"`).join(", ")}. Show it with <Mascot pose="..." size={...} /> from components/motion where the mockup shows it, sized like the mockup, choosing the pose that fits the moment. For any other picture in the mockup use <AiImage prompt="..." />.` : `For pictures in the mockup use <AiImage prompt="..." />.`}
 Where the mockup shows something the allowed imports can't do, build the closest thing that works.`;
+}
+
+/** The theme step for a model that can't see the mockup: the design's style in words. */
+export function themeFromBrief(plan: AppPlan, style: string): string {
+  return `The user approved mockups in this visual direction:\n${style}\nThe first pack ("${plan.themes[0]?.name}") must match it: take background, surface, text, muted text, primary and accent from that palette, and the corner radius from its shapes. The other packs keep their own moods but use the same radius.`;
+}
+
+/** A screen's step for a model that can't see the mockup: the approved mockup, described. */
+export function screenFromBrief(brief: string, images: Record<string, string> | undefined): string {
+  return `The user approved a mockup of this screen. It shows, top to bottom:\n${brief}\nBuild it to match: the same sections in the same order, the same hierarchy, and its copy where it fits the plan. Colors come from the theme, which already matches the design. Leave out the iOS status bar and the home indicator: the system draws them.
+${mockupPictures(images)}`;
 }
 
 export function themeRequest(plan: AppPlan): string {
@@ -261,12 +303,18 @@ export function editRequest(input: {
   history?: string[];
   maxScreens: number;
   connectorBrief?: string;
+  /** Errors the app reported from phones (see errorsForAgent). */
+  appErrors?: string;
 }): string {
   const parts: string[] = [];
   if (input.history?.length)
     parts.push(`Recent conversation:\n${input.history.map((h) => `- ${h}`).join("\n")}`);
   parts.push(`Change request: ${input.request}`);
   if (input.connectorBrief) parts.push(connectorContext(input.connectorBrief));
+  if (input.appErrors)
+    parts.push(
+      `Errors the app reported from people's phones recently:\n${input.appErrors}\nIf the user asks to fix errors, fix these at their cause (not by hiding them). Otherwise fix one only when your change touches the code that causes it.`,
+    );
   if (input.selection?.kind === "screen") {
     const role = structureRoleOf(input.selection.path);
     const part = role ? `the app's ${role} screen` : "a screen of the main app";

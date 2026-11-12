@@ -3,7 +3,7 @@ import type { Database } from "@appbuilder/db";
 import { canEdit, projectAccess } from "./authz";
 import { acceptInvite, createInvite, InviteInvalid, peekInvite } from "./invites";
 import { revokeAssistantAccess } from "./assistants";
-import { creditBalance, ensureSignupGrant, InsufficientCredits } from "./credits";
+import { creditBalance, ensureSignupGrant, InsufficientCredits, settleUndo } from "./credits";
 import { decryptSecret, encryptSecret } from "./crypto";
 import {
   addMessage,
@@ -54,18 +54,18 @@ describe("core (Postgres)", () => {
     const u = await makeUser(db);
     await ensureSignupGrant(db, u.id);
     await ensureSignupGrant(db, u.id);
-    expect(await creditBalance(db, u.id)).toBe(100);
+    expect(await creditBalance(db, u.id)).toBe(60);
 
     const a = await createProject(db, { ownerId: u.id, prompt: "a", platforms: "both" });
     const b = await createProject(db, { ownerId: u.id, prompt: "b", platforms: "both" });
-    // A build reserves 90: the first fits, the second (on another project) doesn't.
+    // A design reserves 40: the first fits, the second (on another project) doesn't.
     const runs = await Promise.allSettled(
-      [a, b].map((p) => enqueueRun(db, { projectId: p.id, userId: u.id, kind: "build" })),
+      [a, b].map((p) => enqueueRun(db, { projectId: p.id, userId: u.id, kind: "design" })),
     );
     expect(runs.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     const rejected = runs.find((r) => r.status === "rejected") as PromiseRejectedResult;
     expect(rejected.reason).toBeInstanceOf(InsufficientCredits);
-    expect(await creditBalance(db, u.id)).toBe(10);
+    expect(await creditBalance(db, u.id)).toBe(20);
   });
 
   it("allows one agent run per project, even under concurrent requests", async () => {
@@ -79,10 +79,10 @@ describe("core (Postgres)", () => {
     for (const r of runs.filter((r) => r.status === "rejected")) {
       expect((r as PromiseRejectedResult).reason).toBeInstanceOf(RunInProgress);
     }
-    expect(await creditBalance(db, u.id)).toBe(76);
+    expect(await creditBalance(db, u.id)).toBe(48);
   });
 
-  it("charges measured usage, capped at the reserve, including for failed runs", async () => {
+  it("charges measured usage, capped at the reserve; failed runs are free", async () => {
     const u = await makeUser(db);
     await ensureSignupGrant(db, u.id);
     const p = await createProject(db, { ownerId: u.id, prompt: "x", platforms: "both" });
@@ -94,13 +94,21 @@ describe("core (Postgres)", () => {
       model: opus,
       usage: { input: 50_000, output: 10_000, cacheRead: 0, cacheWrite: 0 },
     });
-    expect(await creditBalance(db, u.id)).toBe(92);
+    expect(await creditBalance(db, u.id)).toBe(52);
 
     // A failure before any model call is free.
     const early = await enqueueRun(db, { projectId: p.id, userId: u.id, kind: "edit" });
     await failRun(db, early, "boom");
-    expect(await creditBalance(db, u.id)).toBe(92);
+    expect(await creditBalance(db, u.id)).toBe(52);
     expect((await listEvents(db, early.id)).map((e) => e.type)).toEqual(["queued", "error"]);
+
+    // So is a failure after the model did work: a failed step is the platform's mistake.
+    const late = await enqueueRun(db, { projectId: p.id, userId: u.id, kind: "edit" });
+    await failRun(db, late, "boom", "failed", {
+      model: opus,
+      usage: { input: 50_000, output: 10_000, cacheRead: 0, cacheWrite: 0 },
+    });
+    expect(await creditBalance(db, u.id)).toBe(52);
 
     // A cancelled run pays for what it used: 10k output = $0.20 = 4 credits.
     const cancelled = await enqueueRun(db, { projectId: p.id, userId: u.id, kind: "edit" });
@@ -108,15 +116,15 @@ describe("core (Postgres)", () => {
       model: opus,
       usage: { input: 0, output: 10_000, cacheRead: 0, cacheWrite: 0 },
     });
-    expect(await creditBalance(db, u.id)).toBe(88);
+    expect(await creditBalance(db, u.id)).toBe(48);
 
-    // Never more than the reserve (24 for an edit), however expensive the run was.
+    // Never more than the reserve (12 for an edit), however expensive the run was.
     const huge = await enqueueRun(db, { projectId: p.id, userId: u.id, kind: "edit" });
     await completeRun(db, huge, {
       model: opus,
       usage: { input: 0, output: 5_000_000, cacheRead: 0, cacheWrite: 0 },
     });
-    expect(await creditBalance(db, u.id)).toBe(64);
+    expect(await creditBalance(db, u.id)).toBe(36);
   });
 
   it("reaps runs abandoned after the last attempt and unblocks the project", async () => {
@@ -132,7 +140,7 @@ describe("core (Postgres)", () => {
     const reaped = await reapAbandonedRuns(db);
     expect(reaped.map((r) => r.id)).toContain(run.id);
     expect(await activeRun(db, p.id)).toBeNull();
-    expect(await creditBalance(db, u.id)).toBe(100);
+    expect(await creditBalance(db, u.id)).toBe(60);
   });
 
   it("claims each queued run exactly once across concurrent workers", async () => {
@@ -158,6 +166,50 @@ describe("core (Postgres)", () => {
     await expect(
       createProject(db, { ownerId: u.id, prompt: "c", platforms: "both" }),
     ).rejects.toBeInstanceOf(LimitReached);
+  });
+
+  it("refunds an AI edit undone within a day, and charges it again if it comes back", async () => {
+    const u = await makeUser(db);
+    await ensureSignupGrant(db, u.id);
+    const p = await createProject(db, { ownerId: u.id, prompt: "x", platforms: "both" });
+    const v1 = await commitVersion(db, {
+      projectId: p.id,
+      files: { "a.ts": "1" },
+      kind: "generate",
+      summary: "v1",
+    });
+    const edit = await enqueueRun(db, { projectId: p.id, userId: u.id, kind: "edit" });
+    const v2 = await commitVersion(db, {
+      projectId: p.id,
+      files: { "a.ts": "2" },
+      kind: "ai_edit",
+      summary: "v2",
+      runId: edit.id,
+    });
+    // 10k output on Opus = 4 credits.
+    await completeRun(db, edit, {
+      model: "claude-opus-5-5",
+      usage: { input: 0, output: 10_000, cacheRead: 0, cacheWrite: 0 },
+    });
+    expect(await creditBalance(db, u.id)).toBe(56);
+
+    await restoreVersion(db, p.id, v1.id, u.id);
+    expect(
+      await settleUndo(db, { projectId: p.id, fromVersionId: v2.id, toVersionId: v1.id }),
+    ).toEqual({ refunded: 4, reclaimed: 0 });
+    expect(await creditBalance(db, u.id)).toBe(60);
+    // Once only.
+    expect(
+      await settleUndo(db, { projectId: p.id, fromVersionId: v2.id, toVersionId: v1.id }),
+    ).toEqual({ refunded: 0, reclaimed: 0 });
+
+    // Restoring the refunded edit brings it back, so it pays again.
+    const current = (await getCurrentFiles(db, p.id)).versionId;
+    await restoreVersion(db, p.id, v2.id, u.id);
+    expect(
+      await settleUndo(db, { projectId: p.id, fromVersionId: current, toVersionId: v2.id }),
+    ).toEqual({ refunded: 0, reclaimed: 4 });
+    expect(await creditBalance(db, u.id)).toBe(56);
   });
 
   it("commits immutable versions, restores, and duplicates", async () => {

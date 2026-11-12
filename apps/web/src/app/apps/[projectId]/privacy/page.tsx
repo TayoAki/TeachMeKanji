@@ -27,7 +27,6 @@ export default async function AppPrivacyPage({ params }: PageProps<"/apps/[proje
   ) : (
     "the support link on the app's App Store or Google Play page"
   );
-  const usesServers = p.cloud || p.analytics || p.ai;
 
   const collected: ReactNode[] = [];
   if (p.accounts)
@@ -56,6 +55,22 @@ export default async function AppPrivacyPage({ params }: PageProps<"/apps/[proje
         <strong>Usage:</strong> when the app opens, which screens are viewed and actions such as
         finishing onboarding or a purchase, with a random install id. Never your name, email or an
         advertising id.
+      </>,
+    );
+  collected.push(
+    <>
+      <strong>Error reports:</strong> when the app runs into a problem, the error message, the
+      screen it happened on and the kind of phone (iPhone or Android), with a random install id, so
+      it can be fixed. Never your name, email or what you saved.
+    </>,
+  );
+  if (p.supportChat)
+    collected.push(
+      <>
+        <strong>Support conversations:</strong> what you write in the app&rsquo;s support chat, any
+        photo you attach, and your name and email if you&rsquo;re signed in, so the team can answer.
+        They&rsquo;re kept by Hire Shelby, the support chat provider. If the team turns on AI
+        replies, the chat asks you first and names who would receive your messages.
       </>,
     );
   if (p.ai)
@@ -105,15 +120,15 @@ export default async function AppPrivacyPage({ params }: PageProps<"/apps/[proje
       </>,
     );
 
-  const providers: ReactNode[] = [];
-  if (usesServers)
-    providers.push(
-      <>
-        App Builder, the platform the app is built and hosted on, which stores and processes this
-        data on our behalf (its servers run on Railway in the United States).
-      </>,
-    );
+  // Error reports always reach the platform, so it is always a processor.
+  const providers: ReactNode[] = [
+    <>
+      App Builder, the platform the app is built and hosted on, which stores and processes this data
+      on our behalf (its servers run on Railway in the United States).
+    </>,
+  ];
   if (p.ai) providers.push(<>Anthropic, which answers the questions you ask the app&rsquo;s AI.</>);
+  if (p.supportChat) providers.push(<>Hire Shelby, which runs the in-app support chat.</>);
   if (p.push) providers.push(<>Expo, Apple and Google, which deliver notifications.</>);
   if (p.purchases)
     providers.push(<>Apple, Google and RevenueCat, which handle purchases and subscriptions.</>);
@@ -134,25 +149,19 @@ export default async function AppPrivacyPage({ params }: PageProps<"/apps/[proje
 
       <h2>2. How it&rsquo;s used</h2>
       <p>
-        Only to run the app&rsquo;s features
-        {p.analytics ? " and to understand how it's used, so we can improve it" : ""}. We
+        Only to run the app&rsquo;s features and fix its errors
+        {p.analytics ? ", and to understand how it's used, so we can improve it" : ""}. We
         don&rsquo;t sell your information, show third-party ads, or track you across other
         companies&rsquo; apps and websites.
       </p>
 
       <h2>3. Who it&rsquo;s shared with</h2>
-      {providers.length ? (
-        <>
-          <p>Only the service providers the app needs to work:</p>
-          <ul>
-            {providers.map((item, i) => (
-              <li key={i}>{item}</li>
-            ))}
-          </ul>
-        </>
-      ) : (
-        <p>No one. The app keeps your information on your phone.</p>
-      )}
+      <p>Only the service providers the app needs to work:</p>
+      <ul>
+        {providers.map((item, i) => (
+          <li key={i}>{item}</li>
+        ))}
+      </ul>
       <p>We may also disclose information when the law requires it.</p>
 
       <h2>4. How long it&rsquo;s kept</h2>
@@ -167,6 +176,7 @@ export default async function AppPrivacyPage({ params }: PageProps<"/apps/[proje
           <li>What you save in the app: on your phone until you delete it or the app.</li>
         )}
         {p.analytics ? <li>Usage events: 90 days.</li> : null}
+        <li>Error reports: 90 days after the error was last seen.</li>
       </ul>
 
       <h2>5. Your choices</h2>

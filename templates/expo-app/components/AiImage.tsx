@@ -1,7 +1,8 @@
 // TEMPLATE FILE — owned by the platform, never written by the model.
 // Images: <AiImage name="hero" /> shows an image added to the project (data/images.ts);
-// <AiImage prompt="..." /> generates one through ImageKit (https://imagekit.io), which caches it
-// by URL. Without either, a themed placeholder.
+// <AiImage prompt="..." /> shows the picture the platform drew for that description when the app
+// was built, or generates one through ImageKit (https://imagekit.io), which caches it by URL.
+// Without either, a themed placeholder.
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { View, type ImageStyle } from "react-native";
@@ -32,16 +33,22 @@ export function aiImageUrl(prompt: string, width = 800, height = 600): string | 
 export function AiImage({
   name,
   prompt,
+  fit = "cover",
   style,
 }: {
   /** An image added to the project (see data/images.ts). */
   name?: string;
   /** Or a short visual description to generate one from. */
   prompt?: string;
+  /** "contain" for a character or cut-out picture: shown whole, with nothing behind it. */
+  fit?: "cover" | "contain";
   style?: ImageStyle;
 }) {
   const theme = useTheme();
-  const url = (name ? appImages[name] : undefined) ?? (prompt ? aiImageUrl(prompt) : null);
+  // A described picture the platform drew at build time is stored under its description.
+  const url =
+    (name ? appImages[name] : undefined) ??
+    (prompt ? (appImages[prompt] ?? aiImageUrl(prompt)) : null);
   const label = prompt ?? name ?? "image";
   if (!url) {
     return (
@@ -65,8 +72,14 @@ export function AiImage({
     <Image
       source={{ uri: url }}
       accessibilityLabel={label}
-      contentFit="cover"
-      style={[{ height: 160, backgroundColor: theme.colors.surfaceAlt }, style]}
+      contentFit={fit}
+      style={[
+        {
+          height: 160,
+          backgroundColor: fit === "contain" ? "transparent" : theme.colors.surfaceAlt,
+        },
+        style,
+      ]}
     />
   );
 }

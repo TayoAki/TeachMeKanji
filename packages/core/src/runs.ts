@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gt, inArray, lt, sql } from "drizzle-orm";
 import { schema, type Database } from "@appbuilder/db";
-import { chargeForRun, costUsd, RUN_CREDITS, type TokenUsage } from "./billing";
+import { chargeForRun, costUsd, creditsForCost, RUN_CREDITS, type TokenUsage } from "./billing";
 import { emailProviderSet } from "./email";
 import { reserveCredits, settleCredits } from "./credits";
 import { newId } from "./ids";
@@ -226,8 +226,10 @@ export async function activeRun(db: Database, projectId: string): Promise<Run | 
 export interface RunUsage {
   model?: string;
   usage?: TokenUsage;
-  /** Measured cost when the run used several models (each call priced by its own model). */
+  /** Measured billable cost when the run used several models (each call priced by its own model). */
   costUsd?: number;
+  /** What the run's free calls cost (repairs, the mockup check), reported to the user. */
+  freeCostUsd?: number;
 }
 
 const NO_USAGE: TokenUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
@@ -261,13 +263,17 @@ export async function completeRun(
     })
     .where(eq(agentRun.id, run.id))
     .returning();
-  await addEvent(db, run.id, "done", { credits: charge, output: result.output ?? {} });
+  await addEvent(db, run.id, "done", {
+    credits: charge,
+    freeCredits: creditsForCost(result.freeCostUsd ?? 0),
+    output: result.output ?? {},
+  });
   return updated!;
 }
 
 /**
- * Mark a run failed or cancelled. It pays only for the model usage it actually consumed (no
- * minimum, never above the reserve); a run that never reached the model is free.
+ * Mark a run failed or cancelled. A failed run is free (whatever it consumed, the platform pays);
+ * a cancelled one pays only for the model usage it consumed (no minimum, never above the reserve).
  */
 export async function failRun(
   db: Database,
@@ -281,7 +287,7 @@ export async function failRun(
     run.kind,
     run.creditsReserved,
     result.costUsd ?? (result.model ? costUsd(result.model, usage) : null),
-    "failed",
+    status,
   );
   await settleCredits(db, run.userId, run.id, run.creditsReserved, charge);
   await db

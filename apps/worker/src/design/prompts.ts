@@ -34,7 +34,7 @@ export function designSystem(plan: AppPlan): string {
   const theme = plan.themes[0];
   return `You are the lead product designer for an iPhone app. From the plan and the market research, set a distinctive, premium visual direction (not a generic template look) and brief every screen for a high-fidelity mockup.
 
-What the app's code can do: React Native and Expo; solid colors, linear gradients, rounded cards, shadows, SVG shapes, images (generated illustrations, and a mascot as transparent PNGs), system fonts with strong weights, simple animations and haptics. Don't design blur-heavy glass walls, 3D renders as UI, or device frames. Use native iOS patterns: a tab bar at the bottom for tab screens, large titles where they fit, 44pt touch targets, and real, readable copy (no lorem ipsum).
+What the app's code can do: React Native and Expo; solid colors, linear gradients, rounded cards, shadows, shapes made of views, images (generated illustrations, and a mascot as transparent PNGs), system fonts with strong weights. Drawing with SVG (rings, gauges, ribbons, curves, charts, custom shapes). Motion: content that rises in, staggered lists, cards that spring on press, numbers that count up, bars that grow, one gently floating hero picture, custom React Native Animated motion (fades, slides, scales, loops, animated SVG), drag gestures (handles, sliders, swipes), haptic taps, shimmering loading skeletons, onboarding steps that slide with page dots, a pulsing paywall button, tab switches that glide, and built-in themed Lottie animations (a success check, a confetti celebration, loading dots, a heart pop, a premium sparkle). No custom Lottie files, 3D or physics engines. Plan motion within that. Don't design blur-heavy glass walls, 3D renders as UI, or device frames. Use native iOS patterns: a tab bar at the bottom for tab screens, large titles where they fit, 44pt touch targets, and real, readable copy (no lorem ipsum).
 
 Use the plan's first theme for the mockups: "${theme?.name ?? "the first theme"}", primary ${theme?.primary ?? "(choose one)"}, ${theme?.dark ? "dark" : "light"}. Keep palette.primary equal to that primary.
 
@@ -49,12 +49,17 @@ export function designRequest(plan: AppPlan, research: ResearchBrief | null): st
 
 // --- Image prompts -------------------------------------------------------------------------
 
-function styleBlock(plan: AppPlan, d: DesignDirection): string {
-  return `App: ${plan.appName}. Visual direction "${d.styleName}": ${d.summary}
+/** The direction's look in words: for the image model, and for a build model without vision. */
+export function directionStyle(d: DesignDirection): string {
+  return `Visual direction "${d.styleName}": ${d.summary}
 Palette: background ${d.palette.background}, surface ${d.palette.surface}, text ${d.palette.text}, muted text ${d.palette.mutedText}, primary ${d.palette.primary}, accent ${d.palette.accent}, success ${d.palette.success}.
 Typography: display ${d.typography.display}, body ${d.typography.body}. ${d.typography.notes}
 Shape: corner radius ${d.shape.cornerRadius}px; cards: ${d.shape.cards}; shadows: ${d.shape.shadows}.
 Illustration style: ${d.illustrationStyle}`;
+}
+
+function styleBlock(plan: AppPlan, d: DesignDirection): string {
+  return `App: ${plan.appName}. ${directionStyle(d)}`;
 }
 
 export function mascotPosePrompt(

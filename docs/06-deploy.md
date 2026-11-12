@@ -151,7 +151,7 @@ Required in production:
 | `RESEND_API_KEY` + `EMAIL_FROM` (web **and worker**) | Email. The web app sends auth emails and the App Store check's results; the worker sends the funnel's launch emails (hourly, only when both are set) |
 | `ADMIN_EMAILS` (web; comma-separated), `FEEDBACK_WEBHOOK_URL` and `FEEDBACK_EMAIL` (web; optional) | Bug reports and feature requests. People listed in `ADMIN_EMAILS` see **/admin/feedback** (everyone else gets a 404): every report with its screenshots and technical details, a status (New, Planned, In progress, Done, Won't do) and a reply the sender sees in Settings → Your reports (and is emailed, with email set up). Each new report is posted to `FEEDBACK_WEBHOOK_URL` (a Slack or Discord incoming webhook) and emailed to `FEEDBACK_EMAIL` (with Resend). `ADMIN_API_TOKEN` also works for `GET /api/admin/feedback` and `PATCH /api/admin/feedback/<id>` |
 | `FUNNEL_PROMO_CODE`, `FUNNEL_PROMO_OFFER`, `FUNNEL_PROMO_ENDS` (worker; optional) | The funnel's two offer emails: a real Stripe promotion code, the offer in words ("$10 off your first month of Builder") and its real end (ISO date). Without all three, or within a day of the end, the offer emails are skipped. Checkout accepts promotion codes |
-| `OPENROUTER_API_KEY` (worker only) | Design first: after a plan, users can have every screen (and a mascot) drawn as a mockup, approve or redraw them, and build from them. The images are drawn by `IMAGE_MODEL` (default `google/gemini-3-pro-image`) through OpenRouter; Claude still goes straight to Anthropic. Without the key the step isn't offered (the worker reports it in its heartbeat; `DESIGN_STEP=0` turns it off). See "Design first" under Operating it |
+| `OPENROUTER_API_KEY` (worker only) | Design first: after a plan, users can have every screen (and a mascot) drawn as a mockup, approve or redraw them, and build from them. The images are drawn by `IMAGE_MODEL` (default `google/gemini-nano-banana-2.1`) through OpenRouter; Claude still goes straight to Anthropic. Without the key the step isn't offered (the worker reports it in its heartbeat; `DESIGN_STEP=0` turns it off). See "Design first" under Operating it |
 | `CLIENT_IP_HEADER` (and `TRUSTED_PROXIES` for a multi-hop chain) | The header your proxy sets with the client's address, for per-IP rate limits. Caddy overwrites `X-Forwarded-For` (the default works); with nginx, set `proxy_set_header X-Real-IP $remote_addr` and `CLIENT_IP_HEADER=x-real-ip` |
 
 Optional: `S3_*` (object storage), `GOOGLE_*`/`GITHUB_*` (social sign-in), `STRIPE_*`
@@ -184,22 +184,39 @@ set up.
   themselves. Users find the URL in Settings → Build from your AI assistant.
 - **Email:** verify the sending domain in Resend and use it in `EMAIL_FROM`.
 
+**Hire Shelby support chat (optional).** Set `HIRESHELBY_API_URL` (e.g.
+`https://api.hireshelby.com`) and `HIRESHELBY_PARTNER_KEY` (the same value as Hire Shelby's
+`PARTNER_API_KEY`) on web and worker once Hire Shelby has its partner API
+([11-hire-shelby-partner.md](11-hire-shelby-partner.md)), and publish `@hireshelby/react-native` to
+npm first: switching the chat on refuses while the pinned version isn't there.
+
 ## Operating it
 
 **Design first (mockups before the build).** A first plan now starts with web research
-(Claude with Anthropic's web search tool, `RESEARCH_MODEL`, default Sonnet; `RESEARCH=0` turns
-it off). After the plan, **Design my screens** runs a `design` job: the visual direction
-(`DESIGN_MODEL`, default Opus), a mascot in three poses when the app suits one (cut out of a
-green background on the worker), two options for the main screen with the better one kept
-(`DESIGN_REVIEW_MODEL`, default Sonnet, also checks every mockup for a drawn phone frame or
-leaked design notes and fixes them), then every other screen drawn to match. Users approve
-each mockup or ask for a change (a `mockup` job redraws just that one). The build then sees
-each screen's mockup, uses the mascot's poses as app images, and runs on
-`DESIGN_BUILD_MODEL` (default Sonnet). Measured costs: research and plan about $0.30, the
-design $2.05–3.20 (images about $0.14 each), a redraw about $0.20, the build from mockups
-$1.25–2.10; one whole app about $3.60 (72 credits). Credits: the design reserves 80, a
-redraw 10, a build from mockups 50, so a free account can design and build one app. Images are
-stored under `projects/<id>/design/` and served to the project's editors only.
+(Claude with Anthropic's web search tool, `RESEARCH_MODEL`, default Haiku; `RESEARCH=0` turns
+it off), then the plan (`PLAN_MODEL`, default Sonnet). After the plan, **Design my screens** runs
+a `design` job: the visual direction (`DESIGN_MODEL`, default Gemini 3.8 Flash through OpenRouter,
+which won a blind bake-off of twelve models; Haiku without an OpenRouter key), a mascot in three
+poses when the app suits one (cut out of a green background on the worker), two options for the
+main screen with the better one kept (`DESIGN_REVIEW_MODEL`, default Haiku, also checks every
+mockup for a drawn phone frame or leaked design notes and fixes them), then every other screen
+drawn to match. Users approve each mockup or ask for a change (a `mockup` job redraws just that
+one). The build then sees each screen's mockup, uses the mascot's poses as app images, and runs
+on `DESIGN_BUILD_MODEL` (default Haiku). Chat edits use `EDIT_MODEL` and other steps
+`GENERATION_MODEL` (both default Haiku). In the model test the all-Haiku setup scored 80.1
+against 82.8 for Opus and Sonnet, for $1.01 an app instead of $4.07 (26 credits: plan 1, design
+17, build 8); images (Nano Banana 2.1, about $0.045 each) are most of the cost. Credits: the
+design reserves 40, a redraw 10, a build from mockups 30 (it includes the match check), so a
+free account (60 credits) can design and build one app, with room for edits. Images are
+stored under `projects/<id>/design/` and served to the project's editors only. Cheaper setups: any model
+setting can be an OpenRouter id (Gemini, DeepSeek; text-only build models build from the
+mockups' written briefs), and `DETAIL_IMAGE_MODEL` can draw everything but the key screen's
+options with a different image model. After a build from mockups the worker checks every
+screen against its mockup and rebuilds the ones under 90% (up to two rounds); it renders the
+screens with headless Chrome, so the worker needs `INSTALL_VIDEO_RENDERER=1` (the same Chrome the
+promo videos use). Without it the check is skipped. `MATCH_STEP=0` turns it off; `MATCH_TARGET`,
+`MATCH_ROUNDS` and `MATCH_FIXES_PER_ROUND` tune it. One live round on two NightRhythm screens
+took them from 60% to 72% and 55% to 62% for $0.77.
 
 - **Errors:** every server error (web requests and worker jobs) is one JSON line on stderr.
   Set `ERROR_WEBHOOK_URL` to also POST them to a Slack/Discord incoming webhook or a

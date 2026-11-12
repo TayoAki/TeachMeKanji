@@ -26,6 +26,7 @@ import { createServer } from "node:net";
 import { networkInterfaces } from "node:os";
 import { join } from "node:path";
 import { and, eq, lt, or } from "drizzle-orm";
+import { withoutNativeSupportChat } from "@appbuilder/contract";
 import {
   dataDir,
   decryptSecret,
@@ -316,7 +317,7 @@ export class DeviceManager {
       const nodeModules = await ensureRuntime(files["package.json"] ?? "{}");
       const dir = dataDir("device", projectId);
       await mkdir(dir, { recursive: true });
-      await materialize(exportBundle("Preview", files), dir);
+      await materialize(exportBundle("Preview", withoutNativeSupportChat(files)), dir);
       await linkNodeModules(join(dir, "node_modules"), nodeModules);
       const expo = await this.expoLogin(userId);
 
@@ -396,7 +397,10 @@ export class DeviceManager {
     }
     const { versionId, files } = await getCurrentFiles(this.db, projectId);
     if (!versionId || versionId === session.versionId) return;
-    await materialize(exportBundle("Preview", files), dataDir("device", projectId));
+    await materialize(
+      exportBundle("Preview", withoutNativeSupportChat(files)),
+      dataDir("device", projectId),
+    );
     session.versionId = versionId;
     await this.update(projectId, { versionId });
   }

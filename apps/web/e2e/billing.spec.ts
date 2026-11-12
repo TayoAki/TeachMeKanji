@@ -51,7 +51,7 @@ test("Stripe webhook: verified, ordered either way, and idempotent", async ({ pa
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("correct-horse-battery");
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByTestId("credit-balance")).toHaveText("100");
+  await expect(page.getByTestId("credit-balance")).toHaveText("60");
   const { userId } = await account(page);
   const customer = `cus_e2e_${Date.now()}`;
   const subscription = `sub_e2e_${Date.now()}`;
@@ -80,14 +80,14 @@ test("Stripe webhook: verified, ordered either way, and idempotent", async ({ pa
   expect((await send(request, "invoice.paid", firstInvoice, { id: eventIdFirst })).status()).toBe(
     200,
   );
-  expect(await account(page)).toMatchObject({ plan: "pro", credits: 710 });
+  expect(await account(page)).toMatchObject({ plan: "pro", credits: 670 });
 
   // Stripe retries deliveries: the same invoice never grants twice.
   expect((await send(request, "invoice.paid", firstInvoice, { id: eventIdFirst })).status()).toBe(
     200,
   );
   expect((await send(request, "invoice.paid", firstInvoice)).status()).toBe(200);
-  expect((await account(page)).credits).toBe(710);
+  expect((await account(page)).credits).toBe(670);
 
   // Checkout completion links the Stripe customer to the user (App Builder tags its sessions).
   const checkout = await send(request, "checkout.session.completed", {
@@ -119,13 +119,13 @@ test("Stripe webhook: verified, ordered either way, and idempotent", async ({ pa
     ...line("price_of_another_product"),
   });
   expect(foreignInvoice.status()).toBe(200);
-  expect(await account(page)).toMatchObject({ plan: "pro", credits: 710 });
+  expect(await account(page)).toMatchObject({ plan: "pro", credits: 670 });
 
   // A proration invoice keeps the plan but grants nothing.
   const proration = { ...firstInvoice, id: `in_e2e_upd_${Date.now()}`, parent: null };
   proration.billing_reason = "subscription_update";
   expect((await send(request, "invoice.paid", proration)).status()).toBe(200);
-  expect((await account(page)).credits).toBe(710);
+  expect((await account(page)).credits).toBe(670);
 
   // A renewal is matched by customer and grants the next month's credits.
   const renewal = {
@@ -135,7 +135,7 @@ test("Stripe webhook: verified, ordered either way, and idempotent", async ({ pa
     parent: null,
   };
   expect((await send(request, "invoice.paid", renewal)).status()).toBe(200);
-  expect(await account(page)).toMatchObject({ plan: "pro", credits: 1320 });
+  expect(await account(page)).toMatchObject({ plan: "pro", credits: 1280 });
 
   // An invoice for a customer we don't know yet asks Stripe to retry later.
   const unknown = await send(request, "invoice.paid", {
@@ -163,7 +163,7 @@ test("Stripe webhook: verified, ordered either way, and idempotent", async ({ pa
     ...line(E2E_STRIPE_PRICES.builder),
   };
   expect((await send(request, "invoice.paid", builderRenewal)).status()).toBe(200);
-  expect(await account(page)).toMatchObject({ plan: "builder", credits: 1419 });
+  expect(await account(page)).toMatchObject({ plan: "builder", credits: 1379 });
 
   // A price this server doesn't sell can't keep or raise a plan, whatever the old checkout's
   // metadata says: the plan stays, and nothing is granted.
@@ -183,7 +183,7 @@ test("Stripe webhook: verified, ordered either way, and idempotent", async ({ pa
     ...line("price_not_sold_here"),
   };
   expect((await send(request, "invoice.paid", strayInvoice)).status()).toBe(200);
-  expect(await account(page)).toMatchObject({ plan: "builder", credits: 1419 });
+  expect(await account(page)).toMatchObject({ plan: "builder", credits: 1379 });
 
   // Cancelling the subscription returns the user to Free; credits already granted stay.
   const cancelled = await send(request, "customer.subscription.deleted", {
@@ -193,5 +193,5 @@ test("Stripe webhook: verified, ordered either way, and idempotent", async ({ pa
     status: "canceled",
   });
   expect(cancelled.status()).toBe(200);
-  expect(await account(page)).toMatchObject({ plan: "free", credits: 1419 });
+  expect(await account(page)).toMatchObject({ plan: "free", credits: 1379 });
 });

@@ -67,7 +67,7 @@ test("forgot password: a reset link sets a new password and signs out every sess
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("first-password-1");
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByTestId("credit-balance")).toHaveText("100");
+  await expect(page.getByTestId("credit-balance")).toHaveText("60");
 
   const other = await (await browser.newContext()).newPage();
   await other.goto("/sign-in");
@@ -101,7 +101,7 @@ test("forgot password: a reset link sets a new password and signs out every sess
   await expect(other.getByRole("alert")).toBeVisible();
   await other.getByLabel("Password").fill("second-password-2");
   await other.getByRole("button", { name: "Sign in" }).click();
-  await expect(other.getByTestId("credit-balance")).toHaveText("100");
+  await expect(other.getByTestId("credit-balance")).toHaveText("60");
 
   // A used link doesn't work twice.
   await other.goto(`/api/auth/reset-password/${token}?callbackURL=%2Freset-password`);
@@ -127,7 +127,7 @@ test("invite links: a new person signs up through one and joins; it works only o
   await page.getByLabel("Email").fill(ownerEmail);
   await page.getByLabel("Password").fill("correct-horse-battery");
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByTestId("credit-balance")).toHaveText("100");
+  await expect(page.getByTestId("credit-balance")).toHaveText("60");
   const projectId = await page.evaluate(async () => {
     const form = new FormData();
     form.set("prompt", "A shared shopping list");
@@ -162,7 +162,7 @@ test("invite links: a new person signs up through one and joins; it works only o
   await third.getByLabel("Email").fill(`third-${Date.now()}@example.com`);
   await third.getByLabel("Password").fill("correct-horse-battery");
   await third.getByRole("button", { name: "Create account" }).click();
-  await expect(third.getByTestId("credit-balance")).toHaveText("100");
+  await expect(third.getByTestId("credit-balance")).toHaveText("60");
   await third.goto(inviteUrl);
   await expect(third.getByText("This invite has expired")).toBeVisible();
   const status = await third.evaluate(

@@ -27,16 +27,24 @@ import {
   checkAndFix,
   chooseDirection,
   draw,
+  drawKey,
   drawMascot,
   pickKeyScreen,
   type DesignDeps,
 } from "../design/engine";
+import { DESIGN_REVIEW_MODEL } from "../design/build-design";
 import { screenMockupPrompt } from "../design/prompts";
-import { getImageModel, ImageError, type DrawnImage } from "../images/client";
+import { getDetailImageModel, getImageModel, ImageError, type DrawnImage } from "../images/client";
 import type { HandlerContext, HandlerResult } from "./context";
 
-const DESIGN_MODEL = () => process.env.DESIGN_MODEL || "claude-opus-5-5";
-const REVIEW_MODEL = () => process.env.DESIGN_REVIEW_MODEL || "claude-sonnet-5-5";
+/**
+ * The design direction: Gemini 3.8 Flash won the blind bake-off of twelve models (8.0 against
+ * 7.33 for Opus) at $0.02, so it's the default when OpenRouter is set up; Haiku otherwise.
+ */
+const DESIGN_MODEL = () =>
+  process.env.DESIGN_MODEL ||
+  (process.env.OPENROUTER_API_KEY ? "google/gemini-3.8-flash" : "claude-haiku-5-5");
+const REVIEW_MODEL = DESIGN_REVIEW_MODEL;
 const PARALLEL_SCREENS = 4;
 
 const fileSlug = (path: string) =>
@@ -49,14 +57,16 @@ const fileSlug = (path: string) =>
 
 /** Image spend is added to the run (its credits) and to the design (what it cost so far). */
 function deps(ctx: HandlerContext, onSpend: (usd: number) => void): DesignDeps {
-  const images = getImageModel();
-  if (!images)
+  const keyImages = getImageModel();
+  const images = getDetailImageModel();
+  if (!keyImages || !images)
     throw new AgentError(
       "Mockups aren't available right now (no image model is set up). Build the app straight from the plan instead.",
     );
   return {
     createMessage: ctx.createMessage,
     images,
+    keyImages,
     directionModel: ctx.offline ? ctx.model : DESIGN_MODEL(),
     reviewModel: ctx.offline ? ctx.model : REVIEW_MODEL(),
     charge: (usd) => {
@@ -204,8 +214,8 @@ export async function handleDesign(ctx: HandlerContext): Promise<HandlerResult> 
     });
     const keyRefs = mascotRef ? [mascotRef] : [];
     const [a, b] = await Promise.all([
-      draw(d, { prompt: keyPrompt, refs: keyRefs, aspect: "9:16" }),
-      draw(d, { prompt: keyPrompt, refs: keyRefs, aspect: "9:16" }),
+      drawKey(d, { prompt: keyPrompt, refs: keyRefs, aspect: "9:16" }),
+      drawKey(d, { prompt: keyPrompt, refs: keyRefs, aspect: "9:16" }),
     ]);
     const { winner } = await pickKeyScreen(d, keyBrief.mockupBrief, direction, a.data, b.data);
     const key = winner === 2 ? b : a;

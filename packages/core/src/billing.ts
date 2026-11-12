@@ -39,18 +39,22 @@ export interface PlanLimits {
   nativeBuilds: boolean;
   /** Use the builder from your own AI assistant (Claude, ChatGPT, Cursor…) through MCP. */
   mcp: boolean;
+  /** Hire Shelby's in-app support chat is included (its AI replies are paid in credits). */
+  supportChat: boolean;
 }
 
 export const PLANS: Record<PlanId, PlanLimits> = {
   free: {
     name: "Free",
     priceUsdPerMonth: 0,
-    signupCredits: 100,
+    // One designed and built app (about 26 credits on the default models) plus edits and redraws.
+    signupCredits: 60,
     monthlyCredits: 0,
     maxProjects: 2,
     maxScreensPerProject: 5,
     nativeBuilds: false,
     mcp: false,
+    supportChat: false,
   },
   builder: {
     name: "Builder",
@@ -61,6 +65,7 @@ export const PLANS: Record<PlanId, PlanLimits> = {
     maxScreensPerProject: 12,
     nativeBuilds: true,
     mcp: false,
+    supportChat: true,
   },
   pro: {
     name: "Pro",
@@ -71,6 +76,7 @@ export const PLANS: Record<PlanId, PlanLimits> = {
     maxScreensPerProject: 20,
     nativeBuilds: true,
     mcp: true,
+    supportChat: true,
   },
 };
 
@@ -123,15 +129,16 @@ export function compPlanFor(email: string): PlanId | null {
  * cost reaches it, and a run is never charged more than it reserved.
  */
 export const RUN_CREDITS: Record<string, { reserve: number; minimum: number }> = {
-  // A first plan also researches the idea on the web (about $0.20–0.35 with Sonnet + search).
+  // Research on the web (Haiku with search) and the plan (Sonnet): about 5 credits.
   plan: { reserve: 12, minimum: 1 },
-  // An app with onboarding, a paywall, settings and its main screens measured about $3.
-  build: { reserve: 90, minimum: 8 },
-  // The same build from approved mockups runs on Sonnet: measured $1.25–2.09 (6–7 screens).
-  // Kept low enough that a free account can design and then build one app.
-  build_from_mockups: { reserve: 50, minimum: 8 },
-  // Apps with all four parts give an edit more to read and write; two live edits used ~$0.60.
-  edit: { reserve: 24, minimum: 2 },
+  // A build without mockups, on the default model (Haiku): a few credits.
+  build: { reserve: 30, minimum: 8 },
+  // A build from approved mockups on Haiku: measured $0.13 (3 credits), then the mockup check,
+  // which is free but runs inside this reserve. Low enough that a free account can design and
+  // then build one app.
+  build_from_mockups: { reserve: 30, minimum: 8 },
+  // A chat edit on Haiku, with the regression lock's checks inside it: a credit or two.
+  edit: { reserve: 12, minimum: 2 },
   // Two judges scoring screenshots and code against the quality rubric.
   review: { reserve: 20, minimum: 1 },
   device_preview: { reserve: 0, minimum: 0 },
@@ -142,27 +149,44 @@ export const RUN_CREDITS: Record<string, { reserve: number; minimum: number }> =
   promo_storyboard: { reserve: 6, minimum: 1 },
   // No model: a few minutes of the worker's CPU, well under a credit.
   promo_render: { reserve: 1, minimum: 1 },
-  // Design direction, mascot poses and a mockup of every screen, checked: measured $2.40–3.20.
-  design: { reserve: 80, minimum: 10 },
+  // Design direction, mascot poses and a mockup of every screen, checked: mostly the images
+  // (Nano Banana 2.1), measured 17 credits for seven screens.
+  design: { reserve: 40, minimum: 10 },
   // Redraw one mockup or the mascot from a note: one or two images and a check.
   mockup: { reserve: 10, minimum: 1 },
 };
 
 /** Credits for a measured cost, before minimums and caps. */
+/** A build from mockups costs a few credits on Haiku; this much it always reserves. */
+export const BUILD_FROM_MOCKUPS_FLOOR = 20;
+
+/**
+ * What a build from mockups reserves: its full reserve (room for the match check) when the
+ * account has it, otherwise what the account has, down to the floor a build needs. So a free
+ * account that designed an app can always build it; only the match check gets less room.
+ */
+export function buildFromMockupsReserve(balance: number): number {
+  const full = RUN_CREDITS.build_from_mockups!.reserve;
+  return Math.max(BUILD_FROM_MOCKUPS_FLOOR, Math.min(full, balance));
+}
+
 export function creditsForCost(costUsd: number | null): number {
   return costUsd === null ? 0 : Math.ceil(costUsd / CREDIT_USD);
 }
 
 /**
- * What a finished run pays: its measured cost in credits, at least the kind's minimum when it
- * succeeded (failures pay only what they used), and never more than it reserved.
+ * What a finished run pays: its measured cost in credits (the free calls, repairs and the mockup
+ * check, already left out), at least the kind's minimum when it succeeded, and never more than
+ * it reserved. A failed run is the platform's mistake and costs nothing; a run the user
+ * cancelled pays for the usage it consumed, with no minimum.
  */
 export function chargeForRun(
   kind: string,
   reserved: number,
   costUsd: number | null,
-  outcome: "succeeded" | "failed",
+  outcome: "succeeded" | "failed" | "cancelled",
 ): number {
+  if (outcome === "failed") return 0;
   const minimum = outcome === "succeeded" ? (RUN_CREDITS[kind]?.minimum ?? 0) : 0;
   const cap = Math.max(reserved, minimum);
   return Math.min(cap, Math.max(minimum, creditsForCost(costUsd)));
@@ -181,6 +205,9 @@ export const MODEL_PRICES: Record<
   "claude-opus-5-5": { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 },
   "claude-sonnet-5-5": { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 2.5 },
   "claude-haiku-5-5": { input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite: 0.125 },
+  // Through OpenRouter (whose own reported cost is used when it gives one).
+  "google/gemini-3.8-flash": { input: 0.75, output: 3.75, cacheRead: 0.075, cacheWrite: 0.042 },
+  "deepseek/deepseek-v4-flash": { input: 0.09, output: 0.18, cacheRead: 0.018, cacheWrite: 0 },
 };
 
 export interface TokenUsage {

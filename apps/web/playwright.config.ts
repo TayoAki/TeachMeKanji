@@ -103,6 +103,8 @@ export default defineConfig({
             ADMIN_EMAILS: E2E_FEEDBACK_ADMIN,
             // App Cloud's AI endpoint answers with the offline generator too.
             LLM_PROVIDER: "fake",
+            // Connecting Hire Shelby doesn't ask npm whether its SDK is published.
+            HIRESHELBY_SDK_CHECK: "0",
           },
         },
       ],

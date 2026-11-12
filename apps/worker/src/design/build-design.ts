@@ -3,15 +3,19 @@
  * screen's model call sees) and the mascot's poses, added to the app as images it can show.
  */
 import { and, eq } from "drizzle-orm";
-import { poseImageName } from "@appbuilder/contract";
+import { poseImageName, type DesignDirection } from "@appbuilder/contract";
 import { designApproved, designForPlan, getStorage, newId } from "@appbuilder/core";
 import { schema, type Database } from "@appbuilder/db";
 import type { BuildDesign, MockupImage } from "../agents/prompts";
 import { mediaTypeOf } from "../images/client";
 import { platformUrl } from "../platform-url";
+import { directionStyle } from "./prompts";
 
-/** The build model when mockups carry the design: Sonnet matched them as well as Opus at half the cost. */
-export const DESIGN_BUILD_MODEL = () => process.env.DESIGN_BUILD_MODEL || "claude-sonnet-5-5";
+/** The build model when mockups carry the design: Haiku matched them nearly as well as Opus. */
+export const DESIGN_BUILD_MODEL = () => process.env.DESIGN_BUILD_MODEL || "claude-haiku-5-5";
+
+/** The vision model that rates, checks and matches mockups. */
+export const DESIGN_REVIEW_MODEL = () => process.env.DESIGN_REVIEW_MODEL || "claude-haiku-5-5";
 
 export async function approvedDesignFor(
   db: Database,
@@ -22,7 +26,9 @@ export async function approvedDesignFor(
   if (!row || row.projectId !== projectId || !designApproved(row)) return undefined;
   const storage = getStorage();
   const mockups: Record<string, MockupImage> = {};
+  const briefs: Record<string, string> = {};
   for (const screen of row.screens) {
+    if (screen.brief) briefs[screen.path] = screen.brief;
     const object = screen.image ? await storage.get(screen.image) : null;
     if (!object) continue;
     const data = Buffer.from(object.data);
@@ -59,5 +65,43 @@ export async function approvedDesignFor(
     }
     images[name] = `${platformUrl()}/api/app-images/${id}`;
   }
-  return { design: { mockups, images }, designId: row.id };
+  const direction = row.direction as unknown as DesignDirection | null;
+  const motion = direction?.motion
+    ? {
+        personality: direction.motion.personality,
+        signature: direction.motion.signatureInteraction?.name
+          ? direction.motion.signatureInteraction
+          : undefined,
+        perScreen: Object.fromEntries(
+          (direction.motion.perScreen ?? []).map((s) => [s.path, s.moments]),
+        ),
+      }
+    : undefined;
+  return {
+    design: {
+      mockups,
+      images,
+      briefs,
+      style: direction ? directionStyle(direction) : undefined,
+      motion,
+    },
+    designId: row.id,
+  };
+}
+
+/** The approved mockup of each screen (by screen path), for checks after the build. */
+export async function approvedMockups(
+  db: Database,
+  projectId: string,
+  planId: string,
+): Promise<Map<string, Buffer>> {
+  const out = new Map<string, Buffer>();
+  const row = await designForPlan(db, planId);
+  if (!row || row.projectId !== projectId || !designApproved(row)) return out;
+  const storage = getStorage();
+  for (const screen of row.screens) {
+    const object = screen.image ? await storage.get(screen.image) : null;
+    if (object) out.set(screen.path, Buffer.from(object.data));
+  }
+  return out;
 }

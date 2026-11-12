@@ -25,7 +25,13 @@ import { configureNavigation, getNavigation, RouterRoot } from "./shims/expo-rou
 import { PREVIEW_INSETS, SafeAreaProvider } from "./shims/safe-area";
 import { subscribeStatusBar } from "./shims/status-bar";
 import { Ionicons } from "./shims/vector-icons";
+import { installStillMotion } from "./still-motion";
 import { vendorModules } from "./vendor";
+
+installStillMotion();
+// Apps report errors on phones to their builder (template data/errors.ts); the preview shows
+// its own errors instead, so apps running here never report.
+(globalThis as { __appbuilderPreview?: boolean }).__appbuilderPreview = true;
 
 const frameId = new URLSearchParams(location.hash.slice(1)).get("frame") ?? "default";
 
@@ -160,6 +166,9 @@ function load(message: Extract<ParentToFrame, { type: "load" }>) {
   );
 
   currentFiles = message.files;
+  // Canvas frames and screenshots are still renders: the app's motion pieces (components/motion)
+  // show their final state at once instead of being captured mid-animation.
+  (globalThis as { __appbuilderStill?: boolean }).__appbuilderStill = message.mode === "screen";
   const tree = buildRouteTree(Object.keys(message.files));
   const modules = createModuleSystem(message.files, vendorModules, { instrument: true });
   let initialHref = message.href;

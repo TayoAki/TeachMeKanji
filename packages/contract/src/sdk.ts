@@ -22,5 +22,8 @@ export const EXPO_SDK = {
     "react-native-safe-area-context": "~5.11.1",
     "react-native-screens": "~4.30.1",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "react-native-svg": "15.16.0",
+    "expo-haptics": "~58.0.7",
+    "lottie-react-native": "~7.5.0",
   },
 } as const;

@@ -179,7 +179,7 @@ function CheckResults({ results }: { results: Results }) {
           Changing text yourself and restoring a version are free, and there are no overage charges.
         </p>
         <Button asChild className="mt-4">
-          <Link href="/sign-up">Start free — 100 credits</Link>
+          <Link href="/sign-up">Start free — 60 credits</Link>
         </Button>
       </div>
       <LeadSurvey token={results.token} />
