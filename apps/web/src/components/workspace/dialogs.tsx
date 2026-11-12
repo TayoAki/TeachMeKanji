@@ -715,7 +715,9 @@ export function DeviceDialog({ open, onOpenChange, projectId }: DialogProps) {
                 alt="QR code to open the app in Expo Go"
                 className="size-60 rounded-lg border"
               />
-              <code className="max-w-full truncate text-xs">{session.url}</code>
+              <code className="max-w-full text-center text-xs break-all select-all">
+                {session.url}
+              </code>
               {session.error ? (
                 <p className="text-center text-xs text-destructive">{session.error}</p>
               ) : null}

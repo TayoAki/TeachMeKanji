@@ -124,6 +124,34 @@ test("from idea to published app", async ({ page, browser }) => {
   await expect(page.getByTestId("device-dialog")).toContainText("aren't turned on");
   await page.keyboard.press("Escape");
 
+  // A running phone preview: its long exps:// address wraps, and nothing spills out of the dialog.
+  const deviceApi = "**/api/projects/*/device";
+  await page.route(deviceApi, (route) =>
+    route.fulfill({
+      json: {
+        available: true,
+        expoAccount: null,
+        session: {
+          status: "running",
+          url: "exps://8da5f9740fa60908f48460fb.dev.compressjpegnow.com",
+          error: null,
+        },
+      },
+    }),
+  );
+  await page.getByTestId("open-device").click();
+  await expect(page.getByTestId("connect-expo")).toBeVisible();
+  const dialogBox = (await page.getByRole("dialog").boundingBox())!;
+  for (const part of [
+    page.getByTestId("connect-expo"),
+    page.locator("code", { hasText: "exps://" }),
+  ]) {
+    const box = (await part.boundingBox())!;
+    expect(box.x + box.width).toBeLessThanOrEqual(dialogBox.x + dialogBox.width);
+  }
+  await page.keyboard.press("Escape");
+  await page.unroute(deviceApi);
+
   // Publish to the web and show in the community gallery.
   await page.getByTestId("open-publish").click();
   await page.getByTestId("publish-button").click();
