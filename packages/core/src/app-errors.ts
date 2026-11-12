@@ -201,3 +201,25 @@ export async function pruneAppErrors(db: Database): Promise<number> {
     .returning({ id: appError.id });
   return deleted.length;
 }
+
+/** Open errors seen in the last two weeks: crashes and other errors (the App Review check). */
+export async function openErrorCounts(
+  db: Database,
+  projectId: string,
+): Promise<{ crashes: number; errors: number }> {
+  const rows = await db
+    .select({ fatal: appError.fatal, n: sql<number>`count(*)::int` })
+    .from(appError)
+    .where(
+      and(
+        eq(appError.projectId, projectId),
+        isNull(appError.resolvedAt),
+        gt(appError.lastSeen, new Date(Date.now() - 14 * 86_400_000)),
+      ),
+    )
+    .groupBy(appError.fatal);
+  return {
+    crashes: rows.find((r) => r.fatal)?.n ?? 0,
+    errors: rows.find((r) => !r.fatal)?.n ?? 0,
+  };
+}

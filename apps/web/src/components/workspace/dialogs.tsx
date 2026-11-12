@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import {
+  AlertTriangle,
   Check,
+  CircleCheck,
+  CircleX,
   Copy,
   Download,
   ExternalLink,
@@ -13,6 +16,7 @@ import {
   KeyRound,
   Loader2,
   Smartphone,
+  Sparkles,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -205,7 +209,12 @@ export function ExportDialog({
   onOpenChange,
   projectId,
   projectName,
-}: DialogProps & { projectName: string }) {
+  onAskAI,
+}: DialogProps & {
+  projectName: string;
+  /** Send a change request to the chat agent (the App Review check's "Fix with AI"). */
+  onAskAI?: (request: string) => void;
+}) {
   const [me, setMe] = useState<Me | null>(null);
   const [mode, setMode] = useState<"create" | "existing">("create");
   const [repo, setRepo] = useState("");
@@ -424,7 +433,9 @@ export function ExportDialog({
           ) : null}
         </section>
 
-        {me?.limits.nativeBuilds && expo ? <StoreSubmit projectId={projectId} /> : null}
+        {me?.limits.nativeBuilds && expo ? (
+          <StoreSubmit projectId={projectId} onAskAI={onAskAI} />
+        ) : null}
       </DialogContent>
     </Dialog>
   );
@@ -765,7 +776,98 @@ interface StoreState {
 }
 
 /** One click from the latest version to TestFlight or Google Play's internal testing. */
-function StoreSubmit({ projectId }: { projectId: string }) {
+interface ReviewItemView {
+  id: string;
+  title: string;
+  status: "pass" | "warn" | "fail";
+  detail: string;
+  guideline: string;
+  fix?: string;
+}
+
+/**
+ * The App Review check: what the stores reject apps for, checked on the current version before
+ * it's sent. Failures block nothing (TestFlight and internal testing aren't reviewed), but they
+ * are what to fix before submitting for review.
+ */
+function ReviewCheck({
+  projectId,
+  platform,
+  onAskAI,
+}: {
+  projectId: string;
+  platform: "ios" | "android";
+  onAskAI?: (request: string) => void;
+}) {
+  const [report, setReport] = useState<{ ready: boolean; items: ReviewItemView[] } | null>(null);
+  useEffect(() => {
+    api<{ ready: boolean; items: ReviewItemView[] }>(
+      `/api/projects/${projectId}/review-check?platform=${platform}`,
+      { quiet: true },
+    )
+      .then(setReport)
+      .catch(() => setReport(null));
+  }, [projectId, platform]);
+  if (!report) return null;
+  const failing = report.items.filter((i) => i.status === "fail");
+  const warning = report.items.filter((i) => i.status === "warn");
+  const fixes = [...failing, ...warning].filter((i) => i.fix).map((i) => i.fix!);
+  return (
+    <div className="space-y-2 rounded-lg border p-3" data-testid="review-check">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-medium">
+          {report.ready
+            ? warning.length
+              ? `Ready for App Review, with ${warning.length} thing${warning.length === 1 ? "" : "s"} to consider`
+              : "Ready for App Review"
+            : `${failing.length} thing${failing.length === 1 ? "" : "s"} App Review would reject`}
+        </p>
+        {onAskAI && fixes.length ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              onAskAI(`Get the app ready for App Review:\n${fixes.map((f) => `- ${f}`).join("\n")}`)
+            }
+            data-testid="review-fix-all"
+          >
+            <Sparkles /> Fix with AI
+          </Button>
+        ) : null}
+      </div>
+      <ul className="space-y-1.5">
+        {[...failing, ...warning, ...report.items.filter((i) => i.status === "pass")].map((i) => (
+          <li key={i.id} className="flex gap-2 text-xs" data-testid={`review-${i.id}`}>
+            {i.status === "pass" ? (
+              <CircleCheck className="mt-0.5 size-3.5 shrink-0 text-emerald-600" />
+            ) : i.status === "warn" ? (
+              <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-600" />
+            ) : (
+              <CircleX className="mt-0.5 size-3.5 shrink-0 text-destructive" />
+            )}
+            <span className="min-w-0">
+              <span className="font-medium">{i.title}</span>
+              {i.status !== "pass" ? (
+                <span className="block text-muted-foreground">
+                  {i.detail} <span className="opacity-70">({i.guideline})</span>
+                </span>
+              ) : null}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function StoreSubmit({
+  projectId,
+  onAskAI,
+}: {
+  projectId: string;
+  onAskAI?: (request: string) => void;
+}) {
+  const [checkPlatform, setCheckPlatform] = useState<"ios" | "android">("ios");
   const [state, setState] = useState<StoreState | null>(null);
   const [settings, setSettings] = useState({ ios: "", android: "", ascAppId: "" });
   const [saving, setSaving] = useState(false);
@@ -869,6 +971,18 @@ function StoreSubmit({ projectId }: { projectId: string }) {
         />
       ) : (
         <div className="flex flex-wrap gap-2">
+          <Select
+            value={checkPlatform}
+            onValueChange={(v) => setCheckPlatform(v as typeof checkPlatform)}
+          >
+            <SelectTrigger className="h-8 w-40" aria-label="Check for">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ios">Check for iOS</SelectItem>
+              <SelectItem value="android">Check for Android</SelectItem>
+            </SelectContent>
+          </Select>
           <Button
             size="sm"
             onClick={() => send("ios")}
@@ -887,6 +1001,7 @@ function StoreSubmit({ projectId }: { projectId: string }) {
           </Button>
         </div>
       )}
+      <ReviewCheck projectId={projectId} platform={checkPlatform} onAskAI={onAskAI} />
       {!state.keys.appStore || !state.keys.play ? (
         <p className="text-xs text-muted-foreground">
           {!state.keys.appStore ? "TestFlight needs your App Store Connect API key" : ""}

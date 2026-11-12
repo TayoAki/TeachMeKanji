@@ -744,6 +744,11 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
         onOpenChange={(o) => setDialog(o ? "export" : null)}
         projectId={project.id}
         projectName={project.name}
+        onAskAI={(request) => {
+          setDialog(null);
+          setTab("canvas");
+          void send(request);
+        }}
       />
       <PublishDialog
         open={dialog === "publish"}

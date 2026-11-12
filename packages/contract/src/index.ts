@@ -22,6 +22,7 @@ export * from "./app-privacy";
 export * from "./app-structure";
 export * from "./rubric";
 export * from "./quality";
+export * from "./review-check";
 export * from "./inline-edit";
 export * from "./platform-config";
 export * from "./rules";

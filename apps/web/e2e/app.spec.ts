@@ -498,6 +498,16 @@ test("store builds: keys are checked before saving, identifiers live in app.json
   };
   expect(files["app.json"]).toContain('"bundleIdentifier": "com.me.water"');
 
+  // The App Review check: the offline app simulates purchases, which App Review would reject.
+  const review = (await (
+    await page.request.get(`/api/projects/${projectId}/review-check?platform=ios`)
+  ).json()) as { ready: boolean; items: Array<{ id: string; status: string }> };
+  const reviewStatus = Object.fromEntries(review.items.map((i) => [i.id, i.status]));
+  expect(review.ready).toBe(false);
+  expect(reviewStatus["purchases-real"]).toBe("fail");
+  expect(reviewStatus["identifier"]).toBe("pass");
+  expect(reviewStatus["crashes"]).toBe("pass");
+
   // Settings: an incomplete App Store Connect key or Play key is refused before anything is sent.
   await page.goto("/settings#integrations");
   const asc = page.getByTestId("integration-app-store-connect");
