@@ -93,9 +93,8 @@ describe("platform files", () => {
 
 describe("error reporting config", () => {
   it("is written by the platform and kept when the template is refreshed", async () => {
-    const { ERRORS_CONFIG_FILE, refreshTemplate, withErrorReporting } = await import(
-      "./platform-config"
-    );
+    const { ERRORS_CONFIG_FILE, refreshTemplate, withErrorReporting } =
+      await import("./platform-config");
     const files = withErrorReporting(
       { "app/(tabs)/index.tsx": "x" },
       { url: "https://builder.example", projectId: "p_1" },
