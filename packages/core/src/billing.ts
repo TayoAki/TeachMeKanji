@@ -58,9 +58,9 @@ export const PLANS: Record<PlanId, PlanLimits> = {
   },
   builder: {
     name: "Builder",
-    priceUsdPerMonth: 49,
+    priceUsdPerMonth: 20,
     signupCredits: 0,
-    monthlyCredits: creditsForMargin(49, PLAN_TARGET_MARGIN.builder), // 310
+    monthlyCredits: creditsForMargin(20, PLAN_TARGET_MARGIN.builder), // 99
     maxProjects: null,
     maxScreensPerProject: 12,
     nativeBuilds: true,

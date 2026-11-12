@@ -163,7 +163,7 @@ test("Stripe webhook: verified, ordered either way, and idempotent", async ({ pa
     ...line(E2E_STRIPE_PRICES.builder),
   };
   expect((await send(request, "invoice.paid", builderRenewal)).status()).toBe(200);
-  expect(await account(page)).toMatchObject({ plan: "builder", credits: 1590 });
+  expect(await account(page)).toMatchObject({ plan: "builder", credits: 1379 });
 
   // A price this server doesn't sell can't keep or raise a plan, whatever the old checkout's
   // metadata says: the plan stays, and nothing is granted.
@@ -183,7 +183,7 @@ test("Stripe webhook: verified, ordered either way, and idempotent", async ({ pa
     ...line("price_not_sold_here"),
   };
   expect((await send(request, "invoice.paid", strayInvoice)).status()).toBe(200);
-  expect(await account(page)).toMatchObject({ plan: "builder", credits: 1590 });
+  expect(await account(page)).toMatchObject({ plan: "builder", credits: 1379 });
 
   // Cancelling the subscription returns the user to Free; credits already granted stay.
   const cancelled = await send(request, "customer.subscription.deleted", {
@@ -193,5 +193,5 @@ test("Stripe webhook: verified, ordered either way, and idempotent", async ({ pa
     status: "canceled",
   });
   expect(cancelled.status()).toBe(200);
-  expect(await account(page)).toMatchObject({ plan: "free", credits: 1590 });
+  expect(await account(page)).toMatchObject({ plan: "free", credits: 1379 });
 });

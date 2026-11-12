@@ -41,11 +41,11 @@ describe("plan pricing", () => {
       await import("./billing");
     for (const plan of PAID_PLANS)
       expect(planMargin(plan)).toBeGreaterThanOrEqual(PLAN_TARGET_MARGIN[plan]);
-    // $49 at 60%: 310 credits (about a dozen new apps on Haiku); $200 at 80%: 610 credits.
-    expect([PLANS.builder.priceUsdPerMonth, PLANS.builder.monthlyCredits]).toEqual([49, 310]);
+    // $20 at 60%: 99 credits (about three new apps on Haiku); $200 at 80%: 610 credits.
+    expect([PLANS.builder.priceUsdPerMonth, PLANS.builder.monthlyCredits]).toEqual([20, 99]);
     expect([PLANS.pro.priceUsdPerMonth, PLANS.pro.monthlyCredits]).toEqual([200, 610]);
     // One credit more would break the margin.
-    expect(creditsForMargin(49, 0.6) + 1).toBeGreaterThan(310);
+    expect(creditsForMargin(20, 0.6) + 1).toBeGreaterThan(99);
     expect(PLANS.pro.mcp && !PLANS.builder.mcp && !PLANS.free.mcp).toBe(true);
     expect(PLANS.free.signupCredits).toBe(60);
   });
