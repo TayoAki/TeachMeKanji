@@ -148,7 +148,10 @@ export async function matchMockups(
     await Promise.all(
       rendered.map(async (r) => {
         const screen = screens.find((s) => s.path === r.file)!;
-        if (!r.png) {
+        // A screen that throws shows the preview's error, not the app: it scores 0, and its
+        // fix starts from the error (the screenshot shows it).
+        if (r.png && r.error) shots.set(r.file, r.png);
+        if (!r.png || r.error) {
           latest.set(r.file, {
             score: 0,
             gaps: [

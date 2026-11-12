@@ -88,3 +88,20 @@ export async function approvedDesignFor(
     designId: row.id,
   };
 }
+
+/** The approved mockup of each screen (by screen path), for checks after the build. */
+export async function approvedMockups(
+  db: Database,
+  projectId: string,
+  planId: string,
+): Promise<Map<string, Buffer>> {
+  const out = new Map<string, Buffer>();
+  const row = await designForPlan(db, planId);
+  if (!row || row.projectId !== projectId || !designApproved(row)) return out;
+  const storage = getStorage();
+  for (const screen of row.screens) {
+    const object = screen.image ? await storage.get(screen.image) : null;
+    if (object) out.set(screen.path, Buffer.from(object.data));
+  }
+  return out;
+}

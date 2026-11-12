@@ -28,7 +28,13 @@ import {
   userPlan,
 } from "@appbuilder/core";
 import { schema } from "@appbuilder/db";
-import { approvedDesignFor, DESIGN_BUILD_MODEL, DESIGN_REVIEW_MODEL } from "../design/build-design";
+import {
+  approvedDesignFor,
+  approvedMockups,
+  DESIGN_BUILD_MODEL,
+  DESIGN_REVIEW_MODEL,
+} from "../design/build-design";
+import { lockEdit } from "../design/edit-lock";
 import { addPromptPictures, matchMockups, matchSummary } from "../design/match-loop";
 import { researchIdea } from "../design/research";
 import { researchForPlanner } from "../design/prompts";
@@ -364,6 +370,34 @@ export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
     onEvent: forwardAgentEvent(ctx),
   });
 
+  // The regression lock: the rest of the app must still render, and screens built from approved
+  // mockups the request wasn't about must still match them.
+  const planRow = await latestPlan(ctx.db, project.id);
+  const plan = planRow ? (planRow.data as unknown as AppPlan) : null;
+  const locked =
+    result.changed.length > 0
+      ? await lockEdit(ctx, {
+          request: input.request,
+          before: files,
+          after: result.files,
+          changed: result.changed,
+          selected: input.selection?.path ?? null,
+          plan,
+          mockups: planRow ? await approvedMockups(ctx.db, project.id, planRow.id) : undefined,
+          themeId: project.activeThemeId ?? plan?.themes[0]?.id,
+          storage:
+            project.backend === "cloud"
+              ? { "app:auth:token": await previewSession(ctx.db, project.id) }
+              : {},
+          buildModel: ctx.editModel,
+          reviewModel: ctx.offline ? ctx.model : DESIGN_REVIEW_MODEL(),
+        })
+      : null;
+  if (locked) {
+    result.files = locked.files;
+    result.changed = locked.changed;
+  }
+
   let versionId: string | null = null;
   const cloud = await withAppCloudForAi(ctx, project, result.files);
   if (cloud.enabled) connectors.notes.push(APP_CLOUD_FOR_AI_NOTE);
@@ -384,7 +418,7 @@ export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
     role: "assistant",
     runId: ctx.run.id,
     content: {
-      text: [result.summary, ...connectors.notes].join("\n\n"),
+      text: [result.summary, ...(locked?.notes ?? []), ...connectors.notes].join("\n\n"),
       changed: result.changed,
       versionId,
       // Undo goes back to the version before this edit (and refunds it within a day).
@@ -392,7 +426,17 @@ export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
     },
   });
   return {
-    output: { versionId, changed: result.changed },
+    output: {
+      versionId,
+      changed: result.changed,
+      ...(locked?.report
+        ? {
+            checked: locked.report.checked,
+            alsoChanged: locked.report.alsoChanged,
+            drifted: locked.report.drifted,
+          }
+        : {}),
+    },
     usage: sumUsage(connectors.usage, result.usage),
   };
 }
