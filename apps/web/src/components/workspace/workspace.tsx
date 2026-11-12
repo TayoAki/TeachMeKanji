@@ -50,7 +50,7 @@ import { Canvas } from "./canvas";
 import { DesignReview } from "./design-review";
 import { ChatPanel, type ChatSelection } from "./chat-panel";
 import { AppCloudPanel, DataView } from "./app-cloud";
-import { CodeView, HistoryView } from "./code-and-history";
+import { CodeView, HistoryView, restoreVersionTo } from "./code-and-history";
 import { DeviceDialog, ExportDialog, PublishDialog, ShareDialog } from "./dialogs";
 import { Inspector, ThemeList } from "./inspector";
 import { AnalyticsView } from "./analytics-view";
@@ -428,6 +428,11 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
                 available: state.designAvailable,
                 exists: Boolean(state.design),
                 onDesign: () => void startDesign().catch(() => {}),
+              }}
+              currentVersionId={state.versionId}
+              onUndo={async (toVersionId) => {
+                await restoreVersionTo(project.id, toVersionId, "Edit undone");
+                await refresh();
               }}
               userInitial={(user?.name ?? "Y").slice(0, 1).toUpperCase()}
             />

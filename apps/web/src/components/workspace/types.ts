@@ -13,6 +13,8 @@ export interface ChatMessage {
     selection?: { path: string; snippet: string } | null;
     changed?: string[];
     versionId?: string | null;
+    /** For an AI edit: the version before it, which "Undo this edit" restores. */
+    undoVersionId?: string | null;
   };
   createdAt: string;
 }

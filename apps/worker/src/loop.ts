@@ -115,7 +115,8 @@ export async function processRun(db: Database, run: Run, provider: Provider): Pr
       output: result.output,
       model: provider.model,
       usage: meter.usage(),
-      costUsd: meter.cost() ?? undefined,
+      costUsd: meter.billable() ?? undefined,
+      freeCostUsd: meter.freeCost(),
     });
   } catch (error) {
     if (!(
@@ -126,7 +127,8 @@ export async function processRun(db: Database, run: Run, provider: Provider): Pr
       reportError(error, { where: "worker", runId: run.id, kind: run.kind });
     }
     const message = userMessage(error);
-    // Failed and cancelled runs pay for the model usage they consumed (never above the reserve).
+    // Failed runs are free; cancelled ones pay for the usage they consumed (never above the
+    // reserve).
     await failRun(
       db,
       run,
@@ -135,7 +137,7 @@ export async function processRun(db: Database, run: Run, provider: Provider): Pr
       {
         model: provider.model,
         usage: meter.usage(),
-        costUsd: meter.cost() ?? undefined,
+        costUsd: meter.billable() ?? undefined,
       },
     );
     if (AGENT_KINDS.has(run.kind)) {
@@ -145,7 +147,13 @@ export async function processRun(db: Database, run: Run, provider: Provider): Pr
         role: "assistant",
         kind: "error",
         runId: run.id,
-        content: { text: message },
+        // A failed step is the platform's mistake: say plainly that it cost nothing.
+        content: {
+          text:
+            !cancelled && run.creditsReserved > 0
+              ? `${message} This step was free: failed steps never use your credits.`
+              : message,
+        },
       });
     }
   } finally {

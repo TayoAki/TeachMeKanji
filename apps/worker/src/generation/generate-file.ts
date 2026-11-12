@@ -77,13 +77,17 @@ export async function generateFile(options: {
   let issues: Issue[] = [];
 
   for (let attempt = 1; attempt <= maxRepairs + 1; attempt++) {
-    const response = await createMessage({
-      model,
-      max_tokens: 64_000,
-      output_config: { effort: DEFAULT_EFFORT },
-      system,
-      messages,
-    });
+    // A repair fixes code that failed the platform's checks: the user doesn't pay for it.
+    const response = await createMessage(
+      {
+        model,
+        max_tokens: 64_000,
+        output_config: { effort: DEFAULT_EFFORT },
+        system,
+        messages,
+      },
+      attempt > 1 ? { free: true } : undefined,
+    );
     usage = addUsage(usage, response);
 
     if (response.stop_reason !== "end_turn") {

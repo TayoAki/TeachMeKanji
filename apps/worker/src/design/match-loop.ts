@@ -2,7 +2,8 @@
  * After a build from approved mockups: draw the pictures the app asks for by description, render
  * every screen, score each against its mockup, and rebuild the screens under the target (up to
  * MATCH_ROUNDS rounds), committing a version after each round. It stays inside the build run's
- * credit reserve: once that is spent, the last good version stands.
+ * credit reserve: once that is spent, the last good version stands. The check and its fixes make
+ * the build match what the user approved, so the user doesn't pay for them.
  */
 import {
   formatIssues,
@@ -24,7 +25,7 @@ import {
 import { generateFiles } from "../generation/generate-files";
 import type { HandlerContext } from "../handlers/context";
 import { getDetailImageModel } from "../images/client";
-import { BudgetExceeded } from "../llm";
+import { BudgetExceeded, freeCalls } from "../llm";
 import { platformUrl } from "../platform-url";
 import { canRenderScreens, renderScreens } from "../render/screens";
 import { compareScreen, fixRequest, MATCH_ROUNDS, MATCH_TARGET, type ScreenMatch } from "./match";
@@ -78,6 +79,7 @@ export async function addPromptPictures(
   projectId: string,
   files: ProjectFiles,
   style?: string,
+  options: { free?: boolean } = {},
 ): Promise<ProjectFiles> {
   const model = getDetailImageModel();
   const prompts = picturePrompts(files);
@@ -91,7 +93,7 @@ export async function addPromptPictures(
       if (ctx.overBudget()) return;
       try {
         const image = await model.draw({ prompt: picturePrompt(prompt, style), aspect: "4:3" });
-        ctx.charge(image.costUsd);
+        ctx.charge(image.costUsd, options);
         urls[prompt] = await storeAppImage(ctx, projectId, prompt, image.data, image.mediaType);
       } catch {
         // A picture that can't be drawn keeps its placeholder.
@@ -123,6 +125,7 @@ export async function matchMockups(
 ): Promise<MatchResult | null> {
   if (!(await canRenderScreens())) return null;
   const { plan, design } = input;
+  const createMessage = freeCalls(ctx.createMessage);
   const screens = plan.screens.filter((s) => design.mockups[s.path]);
   if (!screens.length) return null;
   const mockups = new Map(
@@ -157,7 +160,7 @@ export async function matchMockups(
         }
         shots.set(r.file, r.png);
         const match = await compareScreen({
-          createMessage: ctx.createMessage,
+          createMessage,
           model: input.reviewModel,
           title: screen.title,
           mockup: mockups.get(r.file)!,
@@ -197,7 +200,7 @@ export async function matchMockups(
           const dir = screenComponentDir(screen);
           const mockup = design.mockups[screen.path]!;
           const result = await generateFiles({
-            createMessage: ctx.createMessage,
+            createMessage,
             model: input.buildModel,
             system,
             request: [
@@ -258,7 +261,7 @@ export async function matchMockups(
       }
       if (!fixed.length) break;
       rounds = round;
-      files = await addPromptPictures(ctx, input.projectId, next, design.style);
+      files = await addPromptPictures(ctx, input.projectId, next, design.style, { free: true });
       const version = await commitVersion(ctx.db, {
         projectId: input.projectId,
         files,

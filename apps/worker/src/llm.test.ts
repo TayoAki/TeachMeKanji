@@ -1,7 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it } from "vitest";
 import type { CreateMessage } from "./generation/client";
-import { BudgetExceeded, limitConcurrency, metered } from "./llm";
+import { BudgetExceeded, freeCalls, limitConcurrency, metered } from "./llm";
 
 const reply = (input: number, output: number) =>
   ({
@@ -24,6 +24,29 @@ describe("metering", () => {
     await expect(
       meter.createMessage({ model: "claude-opus-5-5", max_tokens: 1, messages: [] }),
     ).rejects.toBeInstanceOf(BudgetExceeded);
+  });
+});
+
+describe("free calls", () => {
+  it("count toward the budget but not toward what the user pays", async () => {
+    const create: CreateMessage = async () => reply(1_000_000, 100_000);
+    const meter = metered(create, "claude-sonnet-5-5", 10);
+    await meter.createMessage({ model: "claude-sonnet-5-5", max_tokens: 1, messages: [] });
+    // A repair and the mockup check: $3 each on Sonnet, both free.
+    await meter.createMessage(
+      { model: "claude-sonnet-5-5", max_tokens: 1, messages: [] },
+      { free: true },
+    );
+    await freeCalls(meter.createMessage)({
+      model: "claude-sonnet-5-5",
+      max_tokens: 1,
+      messages: [],
+    });
+    meter.charge(0.5, { free: true });
+    meter.charge(0.25);
+    expect(meter.cost()).toBeCloseTo(9.75);
+    expect(meter.freeCost()).toBeCloseTo(6.5);
+    expect(meter.billable()).toBeCloseTo(3.25);
   });
 });
 

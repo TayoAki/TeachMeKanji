@@ -91,7 +91,8 @@ export async function generateFiles(options: GenerateFilesOptions): Promise<Gene
         system,
         messages,
       },
-      attempt === 1 ? { onStreamStart: options.onStreamStart } : undefined,
+      // Repairs fix files that failed the platform's checks: the user doesn't pay for them.
+      attempt === 1 ? { onStreamStart: options.onStreamStart } : { free: true },
     );
     usage = addUsage(usage, response);
     if (response.stop_reason !== "end_turn") {

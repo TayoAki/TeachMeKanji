@@ -3,7 +3,7 @@ import type { Database } from "@appbuilder/db";
 import { canEdit, projectAccess } from "./authz";
 import { acceptInvite, createInvite, InviteInvalid, peekInvite } from "./invites";
 import { revokeAssistantAccess } from "./assistants";
-import { creditBalance, ensureSignupGrant, InsufficientCredits } from "./credits";
+import { creditBalance, ensureSignupGrant, InsufficientCredits, settleUndo } from "./credits";
 import { decryptSecret, encryptSecret } from "./crypto";
 import {
   addMessage,
@@ -82,7 +82,7 @@ describe("core (Postgres)", () => {
     expect(await creditBalance(db, u.id)).toBe(76);
   });
 
-  it("charges measured usage, capped at the reserve, including for failed runs", async () => {
+  it("charges measured usage, capped at the reserve; failed runs are free", async () => {
     const u = await makeUser(db);
     await ensureSignupGrant(db, u.id);
     const p = await createProject(db, { ownerId: u.id, prompt: "x", platforms: "both" });
@@ -101,6 +101,14 @@ describe("core (Postgres)", () => {
     await failRun(db, early, "boom");
     expect(await creditBalance(db, u.id)).toBe(92);
     expect((await listEvents(db, early.id)).map((e) => e.type)).toEqual(["queued", "error"]);
+
+    // So is a failure after the model did work: a failed step is the platform's mistake.
+    const late = await enqueueRun(db, { projectId: p.id, userId: u.id, kind: "edit" });
+    await failRun(db, late, "boom", "failed", {
+      model: opus,
+      usage: { input: 50_000, output: 10_000, cacheRead: 0, cacheWrite: 0 },
+    });
+    expect(await creditBalance(db, u.id)).toBe(92);
 
     // A cancelled run pays for what it used: 10k output = $0.20 = 4 credits.
     const cancelled = await enqueueRun(db, { projectId: p.id, userId: u.id, kind: "edit" });
@@ -158,6 +166,50 @@ describe("core (Postgres)", () => {
     await expect(
       createProject(db, { ownerId: u.id, prompt: "c", platforms: "both" }),
     ).rejects.toBeInstanceOf(LimitReached);
+  });
+
+  it("refunds an AI edit undone within a day, and charges it again if it comes back", async () => {
+    const u = await makeUser(db);
+    await ensureSignupGrant(db, u.id);
+    const p = await createProject(db, { ownerId: u.id, prompt: "x", platforms: "both" });
+    const v1 = await commitVersion(db, {
+      projectId: p.id,
+      files: { "a.ts": "1" },
+      kind: "generate",
+      summary: "v1",
+    });
+    const edit = await enqueueRun(db, { projectId: p.id, userId: u.id, kind: "edit" });
+    const v2 = await commitVersion(db, {
+      projectId: p.id,
+      files: { "a.ts": "2" },
+      kind: "ai_edit",
+      summary: "v2",
+      runId: edit.id,
+    });
+    // 10k output on Opus = 4 credits.
+    await completeRun(db, edit, {
+      model: "claude-opus-5-5",
+      usage: { input: 0, output: 10_000, cacheRead: 0, cacheWrite: 0 },
+    });
+    expect(await creditBalance(db, u.id)).toBe(96);
+
+    await restoreVersion(db, p.id, v1.id, u.id);
+    expect(
+      await settleUndo(db, { projectId: p.id, fromVersionId: v2.id, toVersionId: v1.id }),
+    ).toEqual({ refunded: 4, reclaimed: 0 });
+    expect(await creditBalance(db, u.id)).toBe(100);
+    // Once only.
+    expect(
+      await settleUndo(db, { projectId: p.id, fromVersionId: v2.id, toVersionId: v1.id }),
+    ).toEqual({ refunded: 0, reclaimed: 0 });
+
+    // Restoring the refunded edit brings it back, so it pays again.
+    const current = (await getCurrentFiles(db, p.id)).versionId;
+    await restoreVersion(db, p.id, v2.id, u.id);
+    expect(
+      await settleUndo(db, { projectId: p.id, fromVersionId: current, toVersionId: v2.id }),
+    ).toEqual({ refunded: 0, reclaimed: 4 });
+    expect(await creditBalance(db, u.id)).toBe(96);
   });
 
   it("commits immutable versions, restores, and duplicates", async () => {

@@ -16,8 +16,8 @@ const NO_SURPRISES = [
   },
   {
     icon: History,
-    title: "Undo for free",
-    body: "Every change is a version. If the AI breaks something, restore the last good one at no cost.",
+    title: "Never pay for our mistakes",
+    body: "A step that fails is free, so are the AI's repairs of its own code, and undoing an AI edit within a day gives its credits back.",
   },
   {
     icon: ShieldCheck,

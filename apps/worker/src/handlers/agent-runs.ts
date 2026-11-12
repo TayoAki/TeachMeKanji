@@ -387,6 +387,8 @@ export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
       text: [result.summary, ...connectors.notes].join("\n\n"),
       changed: result.changed,
       versionId,
+      // Undo goes back to the version before this edit (and refunds it within a day).
+      undoVersionId: versionId ? current.versionId : null,
     },
   });
   return {

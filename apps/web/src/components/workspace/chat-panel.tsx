@@ -226,9 +226,15 @@ export function ChatPanel({
   onBuild,
   onCancel,
   design,
+  currentVersionId = null,
+  onUndo,
   userInitial = "Y",
 }: {
   userInitial?: string;
+  /** The app's current version: only the latest AI edit offers "Undo this edit". */
+  currentVersionId?: string | null;
+  /** Restore the version before an AI edit. */
+  onUndo?: (toVersionId: string) => Promise<void>;
   messages: ChatMessage[];
   latestPlanId: string | null;
   canBuild: boolean;
@@ -318,6 +324,23 @@ export function ChatPanel({
                       data-testid="report-error"
                     >
                       Report this
+                    </button>
+                  ) : null}
+                  {onUndo &&
+                  !readOnly &&
+                  !busy &&
+                  m.role === "assistant" &&
+                  m.content.undoVersionId &&
+                  m.content.versionId &&
+                  m.content.versionId === currentVersionId ? (
+                    <button
+                      type="button"
+                      className="mt-1 block text-xs underline underline-offset-2 opacity-80 hover:opacity-100"
+                      onClick={() => void onUndo(m.content.undoVersionId!).catch(() => {})}
+                      title="Go back to the version before this edit. Within 24 hours its credits come back."
+                      data-testid="undo-edit"
+                    >
+                      Undo this edit (credits back)
                     </button>
                   ) : null}
                   {m.content.selection ? (

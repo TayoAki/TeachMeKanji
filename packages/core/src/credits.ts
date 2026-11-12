@@ -1,8 +1,8 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import { schema, type Database } from "@appbuilder/db";
 import { compPlanFor, isPlanId, PLANS, type PlanId } from "./billing";
 
-const { creditLedger, subscription } = schema;
+const { agentRun, creditLedger, projectVersion, subscription } = schema;
 
 export class InsufficientCredits extends Error {
   constructor(
@@ -113,4 +113,111 @@ export async function settleCredits(
       await tx.insert(creditLedger).values({ userId, delta: reserved, reason: "release", runId });
     await tx.insert(creditLedger).values({ userId, delta: -charge, reason: "settle", runId });
   });
+}
+
+/** Undoing an AI edit within this many hours of it gives its credits back. */
+export const UNDO_REFUND_HOURS = 24;
+/** At most this many undo refunds per user per day: undo is for edits that made things worse. */
+export const UNDO_REFUNDS_PER_DAY = 5;
+
+/**
+ * After a restore from `fromVersionId` back to `toVersionId`: the chat edits it undid that were
+ * made in the last UNDO_REFUND_HOURS get their credits back (each once, the newest first, at most
+ * UNDO_REFUNDS_PER_DAY a day per payer). Restoring a refunded edit's own version brings the edit
+ * back, so its refund is taken back. Returns the credits refunded and reclaimed.
+ */
+export async function settleUndo(
+  db: Database,
+  input: { projectId: string; fromVersionId: string | null; toVersionId: string },
+): Promise<{ refunded: number; reclaimed: number }> {
+  let refunded = 0;
+  let reclaimed = 0;
+
+  // Bringing back a refunded edit: it pays again.
+  const [target] = await db
+    .select()
+    .from(projectVersion)
+    .where(eq(projectVersion.id, input.toVersionId));
+  if (target?.kind === "ai_edit" && target.runId) {
+    const [refund] = await db
+      .select()
+      .from(creditLedger)
+      .where(eq(creditLedger.externalId, `refund:${target.runId}`));
+    if (refund) {
+      const added = await db
+        .insert(creditLedger)
+        .values({
+          userId: refund.userId,
+          delta: -refund.delta,
+          reason: "reclaim",
+          runId: target.runId,
+          note: "A refunded edit was restored",
+          externalId: `reclaim:${target.runId}`,
+        })
+        .onConflictDoNothing()
+        .returning({ id: creditLedger.id });
+      if (added.length) reclaimed += refund.delta;
+    }
+  }
+
+  // The versions the restore undid: from the old current version back to the target.
+  const undone: Array<typeof projectVersion.$inferSelect> = [];
+  let cursor = input.fromVersionId;
+  for (let step = 0; cursor && cursor !== input.toVersionId && step < 50; step++) {
+    const [version] = await db.select().from(projectVersion).where(eq(projectVersion.id, cursor));
+    if (!version || version.projectId !== input.projectId) break;
+    undone.push(version);
+    cursor = version.parentId;
+  }
+  if (cursor !== input.toVersionId) return { refunded, reclaimed };
+  const since = new Date(Date.now() - UNDO_REFUND_HOURS * 3_600_000);
+  const runIds = undone
+    .filter((v) => v.kind === "ai_edit" && v.runId && v.createdAt > since)
+    .map((v) => v.runId!);
+  if (!runIds.length) return { refunded, reclaimed };
+  const runs = await db
+    .select()
+    .from(agentRun)
+    .where(
+      and(
+        inArray(agentRun.id, runIds),
+        eq(agentRun.projectId, input.projectId),
+        eq(agentRun.kind, "edit"),
+        eq(agentRun.status, "succeeded"),
+        gt(agentRun.creditsCharged, 0),
+      ),
+    );
+  for (const runId of runIds) {
+    const run = runs.find((r) => r.id === runId);
+    if (!run) continue;
+    const granted = await db.transaction(async (tx) => {
+      await lockUser(tx, run.userId);
+      const [today] = await tx
+        .select({ n: sql<number>`count(*)::int` })
+        .from(creditLedger)
+        .where(
+          and(
+            eq(creditLedger.userId, run.userId),
+            eq(creditLedger.reason, "refund"),
+            gt(creditLedger.createdAt, new Date(Date.now() - 86_400_000)),
+          ),
+        );
+      if ((today?.n ?? 0) >= UNDO_REFUNDS_PER_DAY) return false;
+      const added = await tx
+        .insert(creditLedger)
+        .values({
+          userId: run.userId,
+          delta: run.creditsCharged,
+          reason: "refund",
+          runId: run.id,
+          note: "AI edit undone",
+          externalId: `refund:${run.id}`,
+        })
+        .onConflictDoNothing()
+        .returning({ id: creditLedger.id });
+      return added.length > 0;
+    });
+    if (granted) refunded += run.creditsCharged;
+  }
+  return { refunded, reclaimed };
 }

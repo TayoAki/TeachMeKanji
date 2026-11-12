@@ -95,13 +95,16 @@ export class BudgetExceeded extends AgentError {
 
 /**
  * Meter every model call of a run (the source of truth for what the run is charged, whether
- * it succeeds, fails or is cancelled) and stop the run once its cost reaches its budget.
+ * it succeeds, fails or is cancelled) and stop the run once its cost reaches its budget. Calls
+ * marked free (repairs, the mockup match check) count toward the budget, which bounds what a
+ * run can cost the platform, but not toward what the user pays.
  */
 export function metered(createMessage: CreateMessage, model: string, budgetUsd: number) {
   let usage: TokenUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
   // Each call is priced by the model it used (a run can mix models, e.g. an edit on Sonnet
   // after reading connectors on Opus); null while any call's model has no known price.
   let spent: number | null = 0;
+  let freeSpent = 0;
   // Parallel calls each check the budget when they start, so a run can end slightly over it;
   // the charge itself is still capped at the reserve.
   const wrapped: CreateMessage = async (params, hooks) => {
@@ -122,14 +125,32 @@ export function metered(createMessage: CreateMessage, model: string, budgetUsd: 
             return tokens === null ? null : tokens + searches * WEB_SEARCH_USD;
           })();
     spent = spent === null || callCost === null ? null : spent + callCost;
+    if (hooks?.free && callCost !== null) freeSpent += callCost;
     return response;
   };
   /** Add a cost that isn't model tokens (images drawn for the run), and enforce the budget. */
-  const charge = (usd: number) => {
+  const charge = (usd: number, options: { free?: boolean } = {}) => {
     if (spent !== null) spent += usd;
+    if (options.free) freeSpent += usd;
   };
   const overBudget = () => spent !== null && spent >= budgetUsd;
-  return { createMessage: wrapped, usage: () => usage, cost: () => spent, charge, overBudget };
+  return {
+    createMessage: wrapped,
+    usage: () => usage,
+    /** Everything the run cost the platform. */
+    cost: () => spent,
+    /** What the user pays: the cost without the free calls. */
+    billable: () => (spent === null ? null : Math.max(0, spent - freeSpent)),
+    /** What the free calls cost (shown to the user as fixes they didn't pay for). */
+    freeCost: () => freeSpent,
+    charge,
+    overBudget,
+  };
+}
+
+/** Calls that fix or check the platform's own work: within the run's budget, never charged. */
+export function freeCalls(createMessage: CreateMessage): CreateMessage {
+  return (params, hooks) => createMessage(params, { ...hooks, free: true });
 }
 
 /** Anthropic's web search tool: $10 per 1,000 searches. */

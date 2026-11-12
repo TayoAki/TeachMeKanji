@@ -168,15 +168,18 @@ export function creditsForCost(costUsd: number | null): number {
 }
 
 /**
- * What a finished run pays: its measured cost in credits, at least the kind's minimum when it
- * succeeded (failures pay only what they used), and never more than it reserved.
+ * What a finished run pays: its measured cost in credits (the free calls, repairs and the mockup
+ * check, already left out), at least the kind's minimum when it succeeded, and never more than
+ * it reserved. A failed run is the platform's mistake and costs nothing; a run the user
+ * cancelled pays for the usage it consumed, with no minimum.
  */
 export function chargeForRun(
   kind: string,
   reserved: number,
   costUsd: number | null,
-  outcome: "succeeded" | "failed",
+  outcome: "succeeded" | "failed" | "cancelled",
 ): number {
+  if (outcome === "failed") return 0;
   const minimum = outcome === "succeeded" ? (RUN_CREDITS[kind]?.minimum ?? 0) : 0;
   const cap = Math.max(reserved, minimum);
   return Math.min(cap, Math.max(minimum, creditsForCost(costUsd)));

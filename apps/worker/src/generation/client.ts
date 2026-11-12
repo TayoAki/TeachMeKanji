@@ -3,6 +3,11 @@ import Anthropic from "@anthropic-ai/sdk";
 export interface CallHooks {
   /** Called once, when the response starts streaming: its prompt prefix is now cached. */
   onStreamStart?: () => void;
+  /**
+   * The call fixes or checks the platform's own work (a repair after a failed check, the
+   * mockup match check): it counts toward the run's budget but is never charged to the user.
+   */
+  free?: boolean;
 }
 
 export type CreateMessage = (

@@ -269,7 +269,11 @@ export type LedgerReason =
   | "purchase"
   | "monthly"
   /** AI features inside the owner's generated apps (App Cloud /ai), metered per day. */
-  | "app_ai";
+  | "app_ai"
+  /** An AI edit undone soon after it was made gets its credits back. */
+  | "refund"
+  /** A refunded edit restored again pays for itself after all. */
+  | "reclaim";
 
 export const creditLedger = pgTable(
   "credit_ledger",
