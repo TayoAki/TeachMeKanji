@@ -27,8 +27,60 @@ describe("motion kit (template components/motion.tsx)", () => {
       "useReducedMotion",
       "Mascot",
       "haptic",
+      "Skeleton",
+      "SkeletonList",
+      "PageDots",
+      "StepTransition",
+      "Pulse",
     ])
       expect(typeof kit[name], name).toBe("function");
+    expect(isTemplateFile("components/lottie.tsx")).toBe(true);
+    const lottie = modules.require("components/lottie.tsx") as Record<string, unknown>;
+    for (const name of ["Lottie", "Celebrate"]) expect(typeof lottie[name], name).toBe("function");
+  });
+
+  it("lets a screen load with skeletons, step through onboarding and celebrate", () => {
+    const screen = `import { useState } from "react";
+import { Text, View } from "react-native";
+import { Celebrate, Lottie } from "../../components/lottie";
+import { PageDots, PressScale, Pulse, SkeletonList, StepTransition } from "../../components/motion";
+import { useCollection } from "../../data/repo";
+import { useTheme } from "../../theme/ThemeProvider";
+
+export default function Steps() {
+  const theme = useTheme();
+  const { items, loading } = useCollection("habits");
+  const [step, setStep] = useState(0);
+  if (loading) return <SkeletonList rows={3} />;
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <StepTransition step={step}>
+        <Text style={{ color: theme.colors.text }}>{items.length} habits</Text>
+        {step === 2 ? <Lottie name="success" size={96} /> : <Lottie name="sparkle" size={64} />}
+      </StepTransition>
+      <PageDots count={3} index={step} />
+      <Pulse>
+        <PressScale onPress={() => setStep((s) => Math.min(2, s + 1))} accessibilityRole="button" style={{ padding: theme.spacing.md }}>
+          <Text style={{ color: theme.colors.text }}>Next</Text>
+        </PressScale>
+      </Pulse>
+      <Celebrate trigger={step === 2} />
+    </View>
+  );
+}
+`;
+    const files = { ...project, "app/(tabs)/steps.tsx": screen };
+    const issues = validateProject(files).filter((i) => i.path === "app/(tabs)/steps.tsx");
+    expect(hasErrors(issues), JSON.stringify(issues)).toBe(false);
+
+    const direct = {
+      ...project,
+      "app/(tabs)/anim.tsx": `import LottieView from "lottie-react-native";\nexport default function A() { return <LottieView source={{}} />; }\n`,
+    };
+    const rules = validateProject(direct)
+      .filter((i) => i.path === "app/(tabs)/anim.tsx")
+      .map((i) => i.rule);
+    expect(rules).toContain("imports/platform-only");
   });
 
   it("can be used by a generated screen without breaking the platform's rules", () => {

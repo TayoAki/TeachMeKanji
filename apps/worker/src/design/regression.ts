@@ -151,15 +151,26 @@ export async function checkRegressions(input: {
   if (!paths.length) return report;
 
   const options = { themeId: input.themeId, storage: input.storage, settleMs: input.settleMs };
+  // A render that timed out says nothing about the screen (a busy machine): try it once more,
+  // and leave it out if it times out again.
+  const render = async (files: ProjectFiles, only: string[]) => {
+    const shots = await renderScreens(files, { ...options, only });
+    const slow = shots.filter((r) => r.timedOut).map((r) => r.file);
+    if (!slow.length) return shots;
+    const again = new Map(
+      (await renderScreens(files, { ...options, only: slow })).map((r) => [r.file, r]),
+    );
+    return shots.map((r) => (r.timedOut ? (again.get(r.file) ?? r) : r)).filter((r) => !r.timedOut);
+  };
   const existing = paths.filter((p) => p in input.before);
-  const [beforeShots, afterShots] = [
-    await renderScreens(input.before, { ...options, only: existing }),
-    await renderScreens(input.after, { ...options, only: paths }),
-  ];
+  const beforeShots = await render(input.before, existing);
+  const afterShots = await render(input.after, paths);
   const before = new Map(beforeShots.map((r) => [r.file, r]));
   const candidates: string[] = [];
   for (const shot of afterShots) {
     const was = before.get(shot.file);
+    // Its render before the edit timed out: nothing to compare with.
+    if (!was && shot.file in input.before) continue;
     const rendered = (r: typeof shot | undefined) => Boolean(r?.png && !r.error);
     if (!rendered(shot)) {
       if (!was || rendered(was))

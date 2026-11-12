@@ -1,7 +1,7 @@
 import sharp from "sharp";
 import { afterAll, describe, expect, it } from "vitest";
 import { fixtureProject } from "../project";
-import { canRenderScreens, closeRenderer } from "../render/screens";
+import { canRenderScreens, closeRenderer, renderScreens } from "../render/screens";
 import { checkRegressions, dependencyClosure, pixelDiff, reachableScreens } from "./regression";
 
 const STATS = "app/(tabs)/stats.tsx";
@@ -98,5 +98,41 @@ describe("the regression lock on a real render", () => {
       settleMs: 400,
     });
     expect(global!.alsoChanged).toEqual([]);
+  }, 120_000);
+});
+
+describe("the platform's Lottie animations", () => {
+  afterAll(() => closeRenderer());
+
+  it("draw in a real render, in the app's colors", async ({ skip }) => {
+    if (!(await canRenderScreens())) skip();
+    const files = await fixtureProject("habit-tracker");
+    const plain = `import { View } from "react-native";
+import { useTheme } from "../../theme/ThemeProvider";
+export default function Stats() {
+  const theme = useTheme();
+  return <View style={{ flex: 1, backgroundColor: theme.colors.background }} />;
+}
+`;
+    const animated = plain
+      .replace(
+        'import { useTheme } from "../../theme/ThemeProvider";',
+        'import { Lottie } from "../../components/lottie";\nimport { useTheme } from "../../theme/ThemeProvider";',
+      )
+      .replace(
+        "backgroundColor: theme.colors.background }} />",
+        'backgroundColor: theme.colors.background }}>\n    <Lottie name="success" size={160} />\n    <Lottie name="heart" size={120} />\n  </View>',
+      );
+    const [without] = await renderScreens(
+      { ...files, [STATS]: plain },
+      { only: [STATS], settleMs: 400 },
+    );
+    const [withAnimations] = await renderScreens(
+      { ...files, [STATS]: animated },
+      { only: [STATS], settleMs: 400 },
+    );
+    expect(withAnimations!.error ?? null).toBeNull();
+    // Both animations are drawn (finished, as still renders show them): a good part of the screen.
+    expect(await pixelDiff(without!.png!, withAnimations!.png!)).toBeGreaterThan(0.03);
   }, 120_000);
 });

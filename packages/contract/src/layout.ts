@@ -24,6 +24,7 @@ export const TEMPLATE_FILES = [
   "components/share.ts",
   "components/camera.tsx",
   "components/motion.tsx",
+  "components/lottie.tsx",
   "data/photos.ts",
   "data/location.ts",
   "data/push.ts",

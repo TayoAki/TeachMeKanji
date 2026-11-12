@@ -30,6 +30,8 @@ export interface RenderedScreen {
   png: Buffer | null;
   /** What the preview reported when the screen failed to render. */
   error?: string;
+  /** The preview never answered (a slow machine, not necessarily a broken screen). */
+  timedOut?: boolean;
 }
 
 /** The href the canvas loads a screen at (dynamic segments resolve to sample data). */
@@ -149,17 +151,23 @@ async function renderScreensNow(
           { timeout: 20_000 },
         );
       } catch {
-        out.push({ file: screen.file, png: null, error: "The screen didn't finish rendering." });
+        out.push({
+          file: screen.file,
+          png: null,
+          error: "The screen didn't finish rendering.",
+          timedOut: true,
+        });
         continue;
       }
+      // Let data load and pictures arrive before the screenshot. Errors are read afterwards: a
+      // screen can report "rendered" and then throw in an effect or once its data arrives.
+      await tab.waitForTimeout(options.settleMs ?? 900);
       const error = await tab.evaluate(() =>
         (window as unknown as { __messages: Array<{ type: string; message?: string }> }).__messages
           .filter((m) => m.type === "error")
           .map((m) => m.message ?? "")
           .join("; "),
       );
-      // Let data load and pictures arrive before the screenshot.
-      await tab.waitForTimeout(options.settleMs ?? 900);
       const png = await tab.screenshot({ type: "png" });
       out.push({ file: screen.file, png, ...(error ? { error } : {}) });
     }

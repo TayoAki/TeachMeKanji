@@ -1,9 +1,12 @@
 // TEMPLATE FILE — owned by the platform, never written by the model.
 // Motion: small, tuned pieces so every screen moves the same way. Content rises in (<Appear>,
 // <Stagger>), presses give feedback (<PressScale>), numbers count up (<CountUp>), bars grow
-// (<GrowBar>), one hero picture may float (<Float>) and the mascot lives (<Mascot>). They respect the phone's Reduce Motion
-// setting, and show their final state at once in still renders (the builder's canvas and
-// screenshots), so a captured screen is never caught half-faded.
+// (<GrowBar>), one hero picture may float (<Float>) and the mascot lives (<Mascot>). Loading
+// shimmers (<Skeleton>, <SkeletonList>), onboarding steps slide (<StepTransition>, <PageDots>)
+// and one call to action may pulse (<Pulse>). They respect the phone's Reduce Motion setting,
+// and show their final state at once in still renders (the builder's canvas and screenshots),
+// so a captured screen is never caught half-faded. Lottie animations and <Celebrate> are in
+// components/lottie.
 import { Children, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   AccessibilityInfo,
@@ -11,6 +14,7 @@ import {
   Easing,
   Pressable,
   View,
+  type DimensionValue,
   type PressableProps,
   type StyleProp,
   type TextStyle,
@@ -469,5 +473,239 @@ export function Mascot({
         {layer(current, previous ? fade : 1)}
       </Animated.View>
     </Pressable>
+  );
+}
+
+/** A shimmering placeholder block shown while content loads (never a bare spinner). */
+export function Skeleton({
+  width = "100%",
+  height = 14,
+  radius,
+  style,
+}: {
+  width?: DimensionValue;
+  height?: number;
+  /** Corner radius; defaults to the theme's small radius. */
+  radius?: number;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const theme = useTheme();
+  const reduced = useReducedMotion();
+  const pulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (reduced) {
+      pulse.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 750,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 0,
+          duration: 750,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [reduced, pulse]);
+  const opacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 0.45] });
+  return (
+    <Animated.View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={[
+        {
+          width,
+          height,
+          borderRadius: radius ?? theme.radius.sm,
+          backgroundColor: theme.colors.surfaceAlt,
+          opacity,
+        },
+        style,
+      ]}
+    />
+  );
+}
+
+/** Loading rows shaped like list rows (a square, a title and a shorter line) for list screens. */
+export function SkeletonList({ rows = 4, style }: { rows?: number; style?: StyleProp<ViewStyle> }) {
+  const theme = useTheme();
+  return (
+    <View
+      accessibilityRole="progressbar"
+      accessibilityLabel="Loading"
+      style={[{ gap: theme.spacing.md }, style]}
+    >
+      {Array.from({ length: rows }, (_, index) => (
+        <View
+          key={index}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: theme.spacing.md,
+            padding: theme.spacing.md,
+            borderRadius: theme.radius.md,
+            backgroundColor: theme.colors.surface,
+          }}
+        >
+          <Skeleton width={44} height={44} radius={theme.radius.md} />
+          <View style={{ flex: 1, gap: theme.spacing.sm }}>
+            <Skeleton width="70%" height={14} />
+            <Skeleton width="45%" height={12} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function Dot({ active }: { active: boolean }) {
+  const theme = useTheme();
+  const reduced = useReducedMotion();
+  const grow = useRef(new Animated.Value(active ? 1 : 0)).current;
+  useEffect(() => {
+    if (reduced) {
+      grow.setValue(active ? 1 : 0);
+      return;
+    }
+    Animated.spring(grow, {
+      toValue: active ? 1 : 0,
+      useNativeDriver: false,
+      speed: 18,
+      bounciness: 6,
+    }).start();
+  }, [active, reduced, grow]);
+  return (
+    <Animated.View
+      style={{
+        height: 8,
+        borderRadius: 4,
+        width: grow.interpolate({ inputRange: [0, 1], outputRange: [8, 24] }),
+        backgroundColor: active ? theme.colors.primary : theme.colors.border,
+      }}
+    />
+  );
+}
+
+/** Onboarding's step dots: the current one stretches into a pill. */
+export function PageDots({
+  count,
+  index,
+  style,
+}: {
+  count: number;
+  index: number;
+  style?: StyleProp<ViewStyle>;
+}) {
+  return (
+    <View
+      accessibilityRole="progressbar"
+      accessibilityLabel={`Step ${index + 1} of ${count}`}
+      style={[
+        { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+        style,
+      ]}
+    >
+      {Array.from({ length: count }, (_, i) => (
+        <Dot key={i} active={i === index} />
+      ))}
+    </View>
+  );
+}
+
+/**
+ * Content that slides in when `step` changes: onboarding steps, a quiz's next question, a
+ * wizard's pages on one screen. direction -1 slides back (for a Back button).
+ */
+export function StepTransition({
+  step,
+  direction = 1,
+  children,
+  style,
+}: {
+  step: string | number;
+  direction?: 1 | -1;
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const reduced = useReducedMotion();
+  const progress = useRef(new Animated.Value(1)).current;
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    if (reduced) {
+      progress.setValue(1);
+      return;
+    }
+    progress.setValue(0);
+    const animation = Animated.spring(progress, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 16,
+      bounciness: 4,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [step, reduced, progress]);
+  const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [direction * 48, 0] });
+  const opacity = progress.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 1, 1] });
+  return (
+    <Animated.View key={String(step)} style={[style, { opacity, transform: [{ translateX }] }]}>
+      {children}
+    </Animated.View>
+  );
+}
+
+/**
+ * A gentle pulse every few seconds that draws the eye to one call to action (the paywall's
+ * main button). One per screen at most.
+ */
+export function Pulse({
+  children,
+  every = 2800,
+  scale = 1.04,
+  style,
+}: {
+  children: ReactNode;
+  /** Time between pulses (ms). */
+  every?: number;
+  scale?: number;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const reduced = useReducedMotion();
+  const size = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (reduced) {
+      size.setValue(1);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.delay(every),
+        Animated.timing(size, {
+          toValue: scale,
+          duration: 200,
+          easing: EASE_OUT,
+          useNativeDriver: true,
+        }),
+        Animated.spring(size, { toValue: 1, useNativeDriver: true, speed: 12, bounciness: 10 }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [reduced, every, scale, size]);
+  return (
+    <Animated.View style={[style, { transform: [{ scale: size }] }]}>{children}</Animated.View>
   );
 }
