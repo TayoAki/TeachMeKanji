@@ -27,7 +27,7 @@ const NO_SURPRISES = [
   {
     icon: Gauge,
     title: "Know the cost first",
-    body: "A new app uses about 60–90 credits and a chat edit 5–15. One credit is $0.05 of AI.",
+    body: "A new app, designed and built, uses about 25–30 credits and a chat edit 1–3. One credit is $0.05 of AI.",
   },
 ];
 
@@ -46,7 +46,7 @@ const STORE_CHECKS = [
 const FAQ = [
   {
     q: "What's a credit?",
-    a: "One credit is $0.05 of AI usage, charged at what each step actually used. Planning and building a new app usually takes 60–90 credits; a chat edit 5–15. Editing text and styles yourself and restoring a version are free.",
+    a: "One credit is $0.05 of AI usage, charged at what each step actually used. Researching, designing and building a new app usually takes 25–30 credits; a chat edit 1–3. Editing text and styles yourself is free, failed steps are free, and undoing an AI edit within a day gives its credits back.",
   },
   {
     q: "Can I be charged more than my plan?",
@@ -88,7 +88,7 @@ export function Landing({ community }: { community: ProjectCardData[] }) {
           />
         </div>
         <p className="text-sm text-muted-foreground">
-          Start free with 100 credits — about one app. No card needed.
+          Start free with 60 credits — enough to design and build an app. No card needed.
         </p>
       </section>
 
@@ -162,7 +162,7 @@ export function Landing({ community }: { community: ProjectCardData[] }) {
         </dl>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Button asChild size="lg">
-            <Link href="/sign-up">Start free — 100 credits</Link>
+            <Link href="/sign-up">Start free — 60 credits</Link>
           </Button>
           <Button asChild size="lg" variant="outline">
             <Link href="/pricing">See plans</Link>

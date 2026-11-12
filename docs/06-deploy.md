@@ -187,20 +187,21 @@ set up.
 ## Operating it
 
 **Design first (mockups before the build).** A first plan now starts with web research
-(Claude with Anthropic's web search tool, `RESEARCH_MODEL`, default Sonnet; `RESEARCH=0` turns
-it off). After the plan, **Design my screens** runs a `design` job: the visual direction
-(`DESIGN_MODEL`, default Opus), a mascot in three poses when the app suits one (cut out of a
-green background on the worker), two options for the main screen with the better one kept
-(`DESIGN_REVIEW_MODEL`, default Sonnet, also checks every mockup for a drawn phone frame or
-leaked design notes and fixes them), then every other screen drawn to match. Users approve
-each mockup or ask for a change (a `mockup` job redraws just that one). The build then sees
-each screen's mockup, uses the mascot's poses as app images, and runs on
-`DESIGN_BUILD_MODEL` (default Sonnet). Measured costs: research and plan about $0.30, the
-design $2.05–3.20 (images about $0.14 each), a redraw about $0.20, the build from mockups
-$1.25–2.10; one whole app about $3.60 (72 credits). Those figures are with Nano Banana Pro
-($0.14 an image); the default is now Nano Banana 2.1 ($0.045 an image), which scored best in a
-blind test of the image models on OpenRouter, so a design's images cost about a third as much. Credits: the design reserves 80, a
-redraw 10, a build from mockups 60 (it includes the match check), so a free account can design and build one app. Images are
+(Claude with Anthropic's web search tool, `RESEARCH_MODEL`, default Haiku; `RESEARCH=0` turns
+it off), then the plan (`PLAN_MODEL`, default Sonnet). After the plan, **Design my screens** runs
+a `design` job: the visual direction (`DESIGN_MODEL`, default Gemini 3.8 Flash through OpenRouter,
+which won a blind bake-off of twelve models; Haiku without an OpenRouter key), a mascot in three
+poses when the app suits one (cut out of a green background on the worker), two options for the
+main screen with the better one kept (`DESIGN_REVIEW_MODEL`, default Haiku, also checks every
+mockup for a drawn phone frame or leaked design notes and fixes them), then every other screen
+drawn to match. Users approve each mockup or ask for a change (a `mockup` job redraws just that
+one). The build then sees each screen's mockup, uses the mascot's poses as app images, and runs
+on `DESIGN_BUILD_MODEL` (default Haiku). Chat edits use `EDIT_MODEL` and other steps
+`GENERATION_MODEL` (both default Haiku). In the model test the all-Haiku setup scored 80.1
+against 82.8 for Opus and Sonnet, for $1.01 an app instead of $4.07 (26 credits: plan 1, design
+17, build 8); images (Nano Banana 2.1, about $0.045 each) are most of the cost. Credits: the
+design reserves 40, a redraw 10, a build from mockups 30 (it includes the match check), so a
+free account (60 credits) can design and build one app, with room for edits. Images are
 stored under `projects/<id>/design/` and served to the project's editors only. Cheaper setups: any model
 setting can be an OpenRouter id (Gemini, DeepSeek; text-only build models build from the
 mockups' written briefs), and `DETAIL_IMAGE_MODEL` can draw everything but the key screen's

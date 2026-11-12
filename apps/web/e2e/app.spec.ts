@@ -13,7 +13,7 @@ async function signUp(page: Page, name: string, prompt?: string): Promise<string
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("correct-horse-battery");
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByTestId("credit-balance")).toHaveText("100");
+  await expect(page.getByTestId("credit-balance")).toHaveText("60");
   return email;
 }
 
@@ -57,7 +57,7 @@ test("from idea to published app", async ({ page, browser }) => {
   const app = page.frameLocator('iframe[data-frame-id="app"]');
   await expect(app.getByText("Expenses", { exact: true }).first()).toBeVisible();
   await expect(page.getByTestId("bottom-bar")).toContainText("Version 1");
-  await expect(page.getByTestId("workspace-credits")).toHaveText("90 credits"); // plan 1 + revise 1 + build 8
+  await expect(page.getByTestId("workspace-credits")).toHaveText("50 credits"); // plan 1 + revise 1 + build 8
 
   // Navigate inside the app preview.
   await app.getByRole("tab", { name: /Insights/ }).click();

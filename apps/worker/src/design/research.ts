@@ -8,7 +8,7 @@ import { addUsage, textOf, type CreateMessage, type UsageTotals } from "../gener
 import { BudgetExceeded, Cancelled } from "../llm";
 import { RESEARCH_SYSTEM, researchRequest } from "./prompts";
 
-export const RESEARCH_MODEL = () => process.env.RESEARCH_MODEL || "claude-sonnet-5-5";
+export const RESEARCH_MODEL = () => process.env.RESEARCH_MODEL || "claude-haiku-5-5";
 
 /** Pull the first JSON object out of a reply (models sometimes add a sentence or a fence). */
 export function firstJson(text: string): unknown {

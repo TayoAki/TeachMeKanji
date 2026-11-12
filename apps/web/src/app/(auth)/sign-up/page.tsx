@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { PLANS } from "@appbuilder/core";
 import { enabledSocialProviders } from "@/lib/auth";
 import { getViewer } from "@/lib/server";
 import { AuthForm } from "../auth-form";
@@ -20,6 +21,7 @@ export default async function SignUpPage({ searchParams }: PageProps<"/sign-up">
       prompt={typeof prompt === "string" ? prompt : undefined}
       oauthQuery={oauthQuery}
       next={next}
+      signupCredits={PLANS.free.signupCredits}
     />
   );
 }

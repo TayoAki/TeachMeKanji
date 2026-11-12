@@ -16,7 +16,7 @@ async function signUp(page: Page) {
     .fill(`designer-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`);
   await page.getByLabel("Password").fill("correct-horse-battery");
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByTestId("credit-balance")).toHaveText("100");
+  await expect(page.getByTestId("credit-balance")).toHaveText("60");
 }
 
 async function appImageCount(projectId: string): Promise<number> {
@@ -83,7 +83,7 @@ test("design first: mockups and a mascot, a redraw from a note, then a build tha
   // The worker rendered every screen and checked it against its mockup.
   await expect(page.getByText(/Checked against your mockups: .*\d+%/)).toBeVisible();
   // plan 1 + design 10 + one redraw 1 + build 8
-  await expect(page.getByTestId("workspace-credits")).toHaveText("80 credits");
+  await expect(page.getByTestId("workspace-credits")).toHaveText("40 credits");
 
   // The mascot's poses were added to the app as images it can show.
   if (!E2E_BASE_URL) expect(await appImageCount(projectId)).toBe(3);

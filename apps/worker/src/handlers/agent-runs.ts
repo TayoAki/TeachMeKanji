@@ -55,6 +55,9 @@ import type { HandlerContext, HandlerResult } from "./context";
 
 const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
 
+/** The plan sets up everything after it, so it gets a stronger model than the build. */
+const PLAN_MODEL = () => process.env.PLAN_MODEL || "claude-sonnet-5-5";
+
 async function loadProject(ctx: HandlerContext) {
   const [project] = await ctx.db
     .select()
@@ -205,7 +208,7 @@ export async function handlePlan(ctx: HandlerContext): Promise<HandlerResult> {
   }
   const result = await planApp({
     createMessage: ctx.createMessage,
-    model: ctx.model,
+    model: ctx.offline ? ctx.model : PLAN_MODEL(),
     prompt: project.prompt,
     platforms: project.platforms,
     images: await loadImages(ctx, input.assetIds ?? []),

@@ -15,7 +15,7 @@ test("connect tools in Settings and use one from the chat", async ({ page }) => 
   await page.getByLabel("Email").fill(`connectors-${Date.now()}@example.com`);
   await page.getByLabel("Password").fill("correct-horse-battery");
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByTestId("credit-balance")).toHaveText("100");
+  await expect(page.getByTestId("credit-balance")).toHaveText("60");
 
   await page.goto("/settings#connectors");
   const rows = page.getByTestId("connectors");

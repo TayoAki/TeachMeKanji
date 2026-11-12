@@ -37,7 +37,13 @@ import { screenMockupPrompt } from "../design/prompts";
 import { getDetailImageModel, getImageModel, ImageError, type DrawnImage } from "../images/client";
 import type { HandlerContext, HandlerResult } from "./context";
 
-const DESIGN_MODEL = () => process.env.DESIGN_MODEL || "claude-opus-5-5";
+/**
+ * The design direction: Gemini 3.8 Flash won the blind bake-off of twelve models (8.0 against
+ * 7.33 for Opus) at $0.02, so it's the default when OpenRouter is set up; Haiku otherwise.
+ */
+const DESIGN_MODEL = () =>
+  process.env.DESIGN_MODEL ||
+  (process.env.OPENROUTER_API_KEY ? "google/gemini-3.8-flash" : "claude-haiku-5-5");
 const REVIEW_MODEL = DESIGN_REVIEW_MODEL;
 const PARALLEL_SCREENS = 4;
 

@@ -11,11 +11,11 @@ import { mediaTypeOf } from "../images/client";
 import { platformUrl } from "../platform-url";
 import { directionStyle } from "./prompts";
 
-/** The build model when mockups carry the design: Sonnet matched them as well as Opus at half the cost. */
-export const DESIGN_BUILD_MODEL = () => process.env.DESIGN_BUILD_MODEL || "claude-sonnet-5-5";
+/** The build model when mockups carry the design: Haiku matched them nearly as well as Opus. */
+export const DESIGN_BUILD_MODEL = () => process.env.DESIGN_BUILD_MODEL || "claude-haiku-5-5";
 
 /** The vision model that rates, checks and matches mockups. */
-export const DESIGN_REVIEW_MODEL = () => process.env.DESIGN_REVIEW_MODEL || "claude-sonnet-5-5";
+export const DESIGN_REVIEW_MODEL = () => process.env.DESIGN_REVIEW_MODEL || "claude-haiku-5-5";
 
 export async function approvedDesignFor(
   db: Database,

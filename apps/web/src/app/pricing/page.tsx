@@ -28,7 +28,7 @@ export default async function PricingPage() {
       id: "builder",
       tagline: "Build and ship your first app.",
       features: [
-        `${PLANS.builder.monthlyCredits} credits every month`,
+        `${PLANS.builder.monthlyCredits} credits every month (about ${Math.floor(PLANS.builder.monthlyCredits / 26)} new apps)`,
         "Unlimited projects",
         `Up to ${PLANS.builder.maxScreensPerProject} screens per app`,
         "TestFlight and Google Play builds",
@@ -56,6 +56,14 @@ export default async function PricingPage() {
           Pay for the AI work, not for the small stuff: editing text yourself and restoring a
           version are free, and there are never overage charges. On Pro you can also build from your
           own Claude, ChatGPT or Cursor without paying for AI twice.
+        </p>
+        <p
+          className="mx-auto mt-4 max-w-xl rounded-xl border bg-muted/40 px-4 py-3 text-center text-sm"
+          data-testid="mistakes-promise"
+        >
+          <strong>You never pay for our mistakes.</strong> Failed steps are free, so are the
+          AI&rsquo;s repairs of its own code and the check against your mockups, and undoing an AI
+          edit within a day gives its credits back.
         </p>
         <div className="mt-10 grid gap-6 md:grid-cols-3">
           {tiers.map((tier) => (
@@ -91,10 +99,10 @@ export default async function PricingPage() {
         </div>
         <p className="mt-8 text-center text-xs text-muted-foreground">
           1 credit = ${CREDIT_USD.toFixed(2)} of AI usage, charged at what each step actually used.
-          A new app uses about 60–90 credits and a chat edit usually 5–15. Editing text and styles
-          yourself is free; a step that fails pays only for what it used. When your credits run out,
-          AI steps stop until you have more: no overage charges. Prices include any sales tax or VAT
-          that applies.
+          A new app, designed and built, uses about 25–30 credits and a chat edit usually 1–3.
+          Editing text and styles yourself is free, and a step that fails costs nothing. When your
+          credits run out, AI steps stop until you have more: no overage charges. Prices include any
+          sales tax or VAT that applies.
         </p>
       </main>
       <SiteFooter />

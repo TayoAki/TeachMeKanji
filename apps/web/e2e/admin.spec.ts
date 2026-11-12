@@ -10,7 +10,7 @@ test("an operator grants credits by email with the admin token", async ({ page, 
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("correct-horse-battery");
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByTestId("credit-balance")).toHaveText("100");
+  await expect(page.getByTestId("credit-balance")).toHaveText("60");
 
   const grant = (data: unknown, token?: string) =>
     request.post("/api/admin/credits", {
@@ -29,9 +29,9 @@ test("an operator grants credits by email with the admin token", async ({ page, 
   expect(response.status()).toBe(200);
   expect(await response.json()).toEqual({
     amount: 500,
-    granted: [{ email, balance: 600 }],
+    granted: [{ email, balance: 560 }],
     notFound: ["nobody@example.com"],
   });
   await page.reload();
-  await expect(page.getByTestId("credit-balance")).toHaveText("600");
+  await expect(page.getByTestId("credit-balance")).toHaveText("560");
 });

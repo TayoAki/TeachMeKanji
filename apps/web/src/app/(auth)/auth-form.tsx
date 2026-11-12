@@ -18,6 +18,7 @@ export function AuthForm({
   oauthQuery,
   next: nextPath,
   canResetPassword = true,
+  signupCredits = 60,
 }: {
   mode: "sign-in" | "sign-up";
   social: Array<"google" | "github">;
@@ -28,6 +29,8 @@ export function AuthForm({
   next?: string;
   /** False when the server can't send email: then there's no reset link to offer. */
   canResetPassword?: boolean;
+  /** The free plan's sign-up credits (PLANS.free, passed in: this is browser code). */
+  signupCredits?: number;
 }) {
   const router = useRouter();
   const next = nextPath ?? (prompt ? `/?prompt=${encodeURIComponent(prompt)}` : "/");
@@ -85,7 +88,9 @@ export function AuthForm({
           {mode === "sign-up" ? "Create your account" : "Welcome back"}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {mode === "sign-up" ? "You start with 100 free credits." : "Sign in to keep building."}
+          {mode === "sign-up"
+            ? `You start with ${signupCredits} free credits.`
+            : "Sign in to keep building."}
         </p>
       </div>
       {notice ? (

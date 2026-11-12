@@ -45,7 +45,8 @@ export const PLANS: Record<PlanId, PlanLimits> = {
   free: {
     name: "Free",
     priceUsdPerMonth: 0,
-    signupCredits: 100,
+    // One designed and built app (about 26 credits on the default models) plus edits and redraws.
+    signupCredits: 60,
     monthlyCredits: 0,
     maxProjects: 2,
     maxScreensPerProject: 5,
@@ -54,9 +55,9 @@ export const PLANS: Record<PlanId, PlanLimits> = {
   },
   builder: {
     name: "Builder",
-    priceUsdPerMonth: 20,
+    priceUsdPerMonth: 49,
     signupCredits: 0,
-    monthlyCredits: creditsForMargin(20, PLAN_TARGET_MARGIN.builder), // 99
+    monthlyCredits: creditsForMargin(49, PLAN_TARGET_MARGIN.builder), // 310
     maxProjects: null,
     maxScreensPerProject: 12,
     nativeBuilds: true,
@@ -123,16 +124,16 @@ export function compPlanFor(email: string): PlanId | null {
  * cost reaches it, and a run is never charged more than it reserved.
  */
 export const RUN_CREDITS: Record<string, { reserve: number; minimum: number }> = {
-  // A first plan also researches the idea on the web (about $0.20–0.35 with Sonnet + search).
+  // Research on the web (Haiku with search) and the plan (Sonnet): about 5 credits.
   plan: { reserve: 12, minimum: 1 },
-  // An app with onboarding, a paywall, settings and its main screens measured about $3.
-  build: { reserve: 90, minimum: 8 },
-  // The same build from approved mockups runs on Sonnet: measured $1.25–2.09 (6–7 screens),
-  // then checks each screen against its mockup and rebuilds the ones that miss, within this
-  // reserve. Kept low enough that a free account can design and then build one app.
-  build_from_mockups: { reserve: 60, minimum: 8 },
-  // Apps with all four parts give an edit more to read and write; two live edits used ~$0.60.
-  edit: { reserve: 24, minimum: 2 },
+  // A build without mockups, on the default model (Haiku): a few credits.
+  build: { reserve: 30, minimum: 8 },
+  // A build from approved mockups on Haiku: measured $0.13 (3 credits), then the mockup check,
+  // which is free but runs inside this reserve. Low enough that a free account can design and
+  // then build one app.
+  build_from_mockups: { reserve: 30, minimum: 8 },
+  // A chat edit on Haiku, with the regression lock's checks inside it: a credit or two.
+  edit: { reserve: 12, minimum: 2 },
   // Two judges scoring screenshots and code against the quality rubric.
   review: { reserve: 20, minimum: 1 },
   device_preview: { reserve: 0, minimum: 0 },
@@ -143,15 +144,16 @@ export const RUN_CREDITS: Record<string, { reserve: number; minimum: number }> =
   promo_storyboard: { reserve: 6, minimum: 1 },
   // No model: a few minutes of the worker's CPU, well under a credit.
   promo_render: { reserve: 1, minimum: 1 },
-  // Design direction, mascot poses and a mockup of every screen, checked: measured $2.40–3.20.
-  design: { reserve: 80, minimum: 10 },
+  // Design direction, mascot poses and a mockup of every screen, checked: mostly the images
+  // (Nano Banana 2.1), measured 17 credits for seven screens.
+  design: { reserve: 40, minimum: 10 },
   // Redraw one mockup or the mascot from a note: one or two images and a check.
   mockup: { reserve: 10, minimum: 1 },
 };
 
 /** Credits for a measured cost, before minimums and caps. */
-/** A build from mockups costs about 32 credits on Sonnet; this much it always reserves. */
-export const BUILD_FROM_MOCKUPS_FLOOR = 40;
+/** A build from mockups costs a few credits on Haiku; this much it always reserves. */
+export const BUILD_FROM_MOCKUPS_FLOOR = 20;
 
 /**
  * What a build from mockups reserves: its full reserve (room for the match check) when the

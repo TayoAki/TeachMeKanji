@@ -46,8 +46,11 @@ export function getProvider(): Provider {
       ),
       Number(process.env.MAX_MODEL_REQUESTS) || 24,
     ),
-    model: process.env.GENERATION_MODEL || "claude-opus-5-5",
-    editModel: process.env.EDIT_MODEL || "claude-sonnet-5-5",
+    // Haiku by default: in the model test it built from mockups within three points of Opus and
+    // Sonnet (80.1 against 82.8) at a twelfth of the cost. GENERATION_MODEL and EDIT_MODEL
+    // switch to a larger model.
+    model: process.env.GENERATION_MODEL || "claude-haiku-5-5",
+    editModel: process.env.EDIT_MODEL || "claude-haiku-5-5",
     offline: false,
   };
 }
