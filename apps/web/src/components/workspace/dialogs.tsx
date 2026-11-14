@@ -242,7 +242,7 @@ export function ExportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-[min(56rem,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle>Export</DialogTitle>
           <DialogDescription>
@@ -692,7 +692,7 @@ export function DeviceDialog({ open, onOpenChange, projectId }: DialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className="sm:max-w-[min(42rem,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle>Open on your phone</DialogTitle>
           <DialogDescription>

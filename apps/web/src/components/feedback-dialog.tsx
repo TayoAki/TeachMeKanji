@@ -130,7 +130,7 @@ export function FeedbackDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent
-        className="max-h-[90vh] overflow-y-auto sm:max-w-lg"
+        className="max-h-[90vh] overflow-y-auto sm:max-w-[min(56rem,calc(100%-2rem))]"
         data-testid="feedback-dialog"
       >
         <DialogHeader>

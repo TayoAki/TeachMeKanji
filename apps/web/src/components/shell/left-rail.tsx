@@ -197,7 +197,7 @@ function ActivityPopover() {
         </TooltipTrigger>
         <TooltipContent side="right">Activity</TooltipContent>
       </Tooltip>
-      <PopoverContent side="right" align="start" className="w-80 p-0">
+      <PopoverContent side="right" align="start" className="w-[min(35rem,calc(100vw-2rem))] p-0">
         <div className="border-b px-4 py-3 text-sm font-medium">Activity</div>
         <ul className="max-h-96 overflow-auto py-1 text-sm" data-testid="activity-list">
           {items === null ? (
