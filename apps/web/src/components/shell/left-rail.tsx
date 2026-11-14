@@ -381,7 +381,11 @@ function ThemeToggle() {
   return (
     <RailButton
       label={next === "light" ? "Switch to light mode" : "Switch to night mode"}
-      onClick={() => setThemePreference(next)}
+      // Decided on click from the page itself: right after a reload the rendered label can still
+      // be the server's default, and the click must switch whatever is showing.
+      onClick={() =>
+        setThemePreference(document.documentElement.classList.contains("dark") ? "light" : "dark")
+      }
       testId="rail-theme"
     >
       {shown === "dark" ? <Sun className="size-5" /> : <Moon className="size-5" />}

@@ -362,6 +362,7 @@ test("the builder switches between night and day", async ({ page }) => {
   await expect(html).not.toHaveClass(/\bdark\b/);
   await page.reload();
   await expect(html).not.toHaveClass(/\bdark\b/);
+  await expect(page.getByRole("button", { name: "Switch to night mode" })).toBeVisible();
   await page.getByTestId("rail-theme").click();
   await expect(html).toHaveClass(/\bdark\b/);
 });
