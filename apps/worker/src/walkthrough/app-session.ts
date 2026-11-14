@@ -66,6 +66,8 @@ export class AppSession {
     ).newContext({ viewport: DEVICE, deviceScaleFactor: 1 });
     const page = await context.newPage();
     await page.setContent(runtimePage(), { waitUntil: "load" });
+    // The worker runs through tsx, which names functions with a __name() helper the page lacks.
+    await page.evaluate("globalThis.__name = globalThis.__name || ((fn) => fn)");
     const session = new AppSession(page, () => context.close(), files, options);
     await session.load("/");
     return session;
@@ -150,7 +152,12 @@ export class AppSession {
         disabled?: boolean;
         offscreen?: boolean;
       }> = [];
-      const clean = (s: string | null | undefined) => (s ?? "").replace(/\s+/g, " ").trim();
+      // Icon fonts draw glyphs from the private use area: invisible noise in a label.
+      const clean = (s: string | null | undefined) =>
+        (s ?? "")
+          .replace(/[\uE000-\uF8FF]/g, "")
+          .replace(/\s+/g, " ")
+          .trim();
       let ref = 0;
       document.querySelectorAll("[data-wt]").forEach((el) => el.removeAttribute("data-wt"));
       for (const el of Array.from(document.querySelectorAll<HTMLElement>(selector))) {
