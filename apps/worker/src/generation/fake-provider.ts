@@ -83,6 +83,22 @@ function respond(params: Params): string {
       leakedText: [],
       problems: [],
     });
+  // The walkthrough: two cases from the plan, then each is used once (a scroll) and passes.
+  if (params.output_config?.format && systemText(params).startsWith("You write test cases"))
+    return JSON.stringify(fakeTestCases(request));
+  if (params.output_config?.format && systemText(params).startsWith("You test mobile apps")) {
+    const turns = params.messages.filter((m) => m.role === "assistant").length;
+    return JSON.stringify({
+      thought: "Offline tester.",
+      action: turns === 0 ? "scroll" : "done",
+      ref: -1,
+      text: "",
+      direction: turns === 0 ? "down" : "none",
+      seconds: 0,
+      result: turns === 0 ? "none" : "pass",
+      observed: turns === 0 ? "" : "Offline mode: the screen opened and scrolled.",
+    });
+  }
   // The match check: the offline build already matches its (offline) mockups.
   if (params.output_config?.format && systemText(params).startsWith("You compare an app screen"))
     return JSON.stringify({ score: 96, gaps: [], missingPictures: [] });
@@ -128,6 +144,25 @@ function respond(params: Params): string {
     });
   if (request.includes("Change request:")) return fakeEdit(request, systemText(params));
   return "<summary>Nothing to change.</summary>";
+}
+
+/** Two test cases from the plan in the request (offline mode can't judge what matters most). */
+function fakeTestCases(request: string) {
+  const plan = /"appName": "([^"]+)"/.exec(request)?.[1] ?? "the app";
+  return {
+    cases: [
+      {
+        title: "Open the app",
+        goal: `Open ${plan} and look at the first screen.`,
+        expect: "The first screen shows the app's content.",
+      },
+      {
+        title: "Come back later",
+        goal: "Open the app again after closing it.",
+        expect: "The app opens where people start, with what they saved.",
+      },
+    ],
+  };
 }
 
 /** A middling, evidence-free review (offline mode has no eyes): every criterion scores 2. */
@@ -559,6 +594,8 @@ ${records},
 ];
 
 export const seed = { ${collection.name} };
+// The user's own records: examples while trying the app, none on a real install.
+export const starter: string[] = [];
 `,
     "app/(tabs)/_layout.tsx": `import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";

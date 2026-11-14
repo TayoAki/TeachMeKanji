@@ -11,6 +11,7 @@ import {
   Loader2,
   MousePointerClick,
   Palette,
+  Smartphone,
   X,
 } from "lucide-react";
 import { connectorById, type AppPlan } from "@appbuilder/contract/protocol";
@@ -342,6 +343,28 @@ export function ChatPanel({
                     >
                       Undo this edit (credits back)
                     </button>
+                  ) : null}
+                  {m.content.test?.length ? (
+                    <ul className="mt-2 space-y-1 text-xs" data-testid="walkthrough">
+                      {m.content.test.map((t) => (
+                        <li key={t.title} className="flex items-start gap-1.5" title={t.observed}>
+                          {t.status === "pass" ? (
+                            <Check className="mt-0.5 size-3.5 shrink-0 text-emerald-600" />
+                          ) : t.status === "blocked" ? (
+                            <Smartphone className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                          ) : (
+                            <X className="mt-0.5 size-3.5 shrink-0 text-destructive" />
+                          )}
+                          <span>
+                            {t.title}
+                            {t.fixed ? <span className="opacity-70"> (fixed)</span> : null}
+                            {t.status === "blocked" ? (
+                              <span className="opacity-70"> (needs a phone)</span>
+                            ) : null}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
                   ) : null}
                   {m.content.selection ? (
                     <span className="mt-1 block font-mono text-[10px] opacity-75">

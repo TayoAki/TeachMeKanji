@@ -57,12 +57,28 @@ test("from idea to published app", async ({ page, browser }) => {
   const app = page.frameLocator('iframe[data-frame-id="app"]');
   await expect(app.getByText("Expenses", { exact: true }).first()).toBeVisible();
   await expect(page.getByTestId("bottom-bar")).toContainText("Version 1");
+  // Before it's handed over, the app was used like a person would, and the chat says how it went.
+  await expect(page.getByText(/I tested 2 things a person does in the app.*2 work/)).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByTestId("walkthrough")).toContainText("Open the app");
   await expect(page.getByTestId("workspace-credits")).toHaveText("50 credits"); // plan 1 + revise 1 + build 8
 
   // Navigate inside the app preview.
   await app.getByRole("tab", { name: /Insights/ }).click();
   await expect(page.getByTestId("app-href")).toHaveText("/insights");
   await app.getByRole("tab", { name: /Expenses/ }).click();
+
+  // The preview keeps the app's data while it moves between screens, like a phone does: an
+  // expense ticked off is still ticked after switching tabs.
+  const done = app.getByText(/ of 6 done/);
+  const before = await done.innerText();
+  await app.getByRole("checkbox").first().click();
+  await expect(done).not.toHaveText(before);
+  const ticked = await done.innerText();
+  await app.getByRole("tab", { name: /Insights/ }).click();
+  await app.getByRole("tab", { name: /Expenses/ }).click();
+  await expect(done).toHaveText(ticked);
 
   // Chat edit -> new version, live in the preview.
   await page.getByLabel("Message the agent").fill('change "Expenses" to "Spending"');
@@ -72,6 +88,8 @@ test("from idea to published app", async ({ page, browser }) => {
   });
   await expect(app.getByText("Spending", { exact: true }).first()).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId("bottom-bar")).toContainText("Version 2");
+  // A new version reloads the app with its data.
+  await expect(done).toHaveText(ticked);
 
   // Instant theme switch, no regeneration; the pick is then saved into the app as a version.
   await page.getByTestId("theme-harbor").click();

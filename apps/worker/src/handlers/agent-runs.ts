@@ -39,6 +39,7 @@ import {
 import { lockEdit } from "../design/edit-lock";
 import { withIncludedSupportChat } from "../support-chat";
 import { addPromptPictures, matchMockups, matchSummary } from "../design/match-loop";
+import { walkthroughApp, walkthroughSummary } from "../walkthrough/walkthrough";
 import { researchIdea } from "../design/research";
 import { researchForPlanner } from "../design/prompts";
 import { platformUrl, withHostedLegalLinks } from "../platform-url";
@@ -299,6 +300,11 @@ export async function handleBuild(ctx: HandlerContext): Promise<HandlerResult> {
   });
   const themeId = project.activeThemeId ?? plan.themes[0]?.id;
   await updateProject(ctx.db, project.id, { status: "ready", activeThemeId: themeId });
+  // Renders and tests use the preview user's sample data for App Cloud apps.
+  const storage: Record<string, string> =
+    cloud.enabled || project.backend === "cloud"
+      ? { "app:auth:token": await previewSession(ctx.db, project.id) }
+      : {};
 
   // Built from mockups: check every screen against its mockup and rebuild the ones that miss.
   const match = approved
@@ -313,23 +319,51 @@ export async function handleBuild(ctx: HandlerContext): Promise<HandlerResult> {
         versionId: version.id,
         template,
         settleMs: ctx.offline ? 150 : undefined,
-        storage:
-          cloud.enabled || project.backend === "cloud"
-            ? { "app:auth:token": await previewSession(ctx.db, project.id) }
-            : {},
+        storage,
       })
     : null;
   if (match?.versionId && match.versionId !== version.id)
     version = { ...version, id: match.versionId };
+
+  // Use the app like a person would before handing it over, and fix what doesn't work.
+  const tested = await walkthroughApp(ctx, {
+    plan,
+    files: match?.files ?? files,
+    themeId,
+    storage,
+    buildModel: ctx.offline ? ctx.model : approved ? DESIGN_BUILD_MODEL() : ctx.model,
+  });
+  if (tested?.repaired)
+    version = await commitVersion(ctx.db, {
+      projectId: project.id,
+      files: tested.files,
+      kind: "ai_edit",
+      summary: `Fixed what testing the app found: ${tested.cases
+        .filter((c) => c.fixed)
+        .map((c) => c.title)
+        .join(", ")}`,
+      runId: ctx.run.id,
+      createdBy: ctx.run.userId,
+    });
   const screenList = plan.screens.map((s) => s.title).join(", ");
   await addMessage(ctx.db, {
     projectId: project.id,
     role: "assistant",
     runId: ctx.run.id,
     content: {
-      text: `${plan.appName} is ready: ${screenList}.${built.warnings.length ? ` ${built.warnings.length} screen(s) need another try; ask me to regenerate them.` : ""}${match ? ` ${matchSummary(match)}` : ""} Switch themes on the right, click any element to edit it, or tell me what to change.${cloud.enabled ? ` ${APP_CLOUD_FOR_AI_NOTE}` : ""}`,
+      text: `${plan.appName} is ready: ${screenList}.${built.warnings.length ? ` ${built.warnings.length} screen(s) need another try; ask me to regenerate them.` : ""}${match ? ` ${matchSummary(match)}` : ""}${tested ? ` ${walkthroughSummary(tested)}` : ""} Switch themes on the right, click any element to edit it, or tell me what to change.${cloud.enabled ? ` ${APP_CLOUD_FOR_AI_NOTE}` : ""}`,
       versionId: version.id,
       ...(match ? { match: match.screens } : {}),
+      ...(tested?.cases.length
+        ? {
+            test: tested.cases.map(({ title, status, observed, fixed }) => ({
+              title,
+              status,
+              observed,
+              ...(fixed ? { fixed } : {}),
+            })),
+          }
+        : {}),
     },
   });
   return {
@@ -337,6 +371,7 @@ export async function handleBuild(ctx: HandlerContext): Promise<HandlerResult> {
       versionId: version.id,
       warnings: built.warnings,
       ...(match ? { match: { rounds: match.rounds, screens: match.screens } } : {}),
+      ...(tested ? { test: { repaired: tested.repaired, cases: tested.cases } } : {}),
     },
     usage: built.usage,
   };
