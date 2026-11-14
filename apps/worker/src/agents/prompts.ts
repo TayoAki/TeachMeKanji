@@ -195,7 +195,7 @@ export function dataLayerRequest(plan: AppPlan): string {
 
 Write the data and shared components of this app (the theme is written separately; use the Theme type and useTheme() as usual):
 - data/schema.ts: an exported TypeScript interface per collection (each with \`id: string\`), plus small pure helpers the screens will need (formatting, date helpers).
-- data/seed.ts: \`export const seed = { ... }\` with one key per collection (${plan.collections.map((c) => c.name).join(", ")}), using ids like "${plan.collections[0]?.name.slice(0, 1) ?? "r"}1". Dates as ISO strings relative to today. For the user's own records (things they log or create), 5–8 realistic examples. For reference content the app teaches or browses (words, kanji, recipes, exercises, places), enough real, accurate entries to feel complete and to fill every level or category the app shows, including premium ones: 30 to 60, written compactly.
+- data/seed.ts: \`export const seed = { ... }\` with one key per collection (${plan.collections.map((c) => c.name).join(", ")}), using ids like "${plan.collections[0]?.name.slice(0, 1) ?? "r"}1". Dates as ISO strings relative to today. For the user's own records (things they log or create), 5–8 realistic examples. For reference content the app teaches or browses (words, kanji, recipes, exercises, places), enough real, accurate entries to feel complete and to fill every level or category the app shows, including premium ones: 30 to 60, written compactly. Also \`export const starter = [...]\`: the names of the reference-content collections, which every new install starts with; the user's own records are examples that only show while the owner tries the app (the preview, Expo Go), so real users start without them. Keep the examples within the app's own rules: no more than a free user may have, and consistent with the paywall and plan.
 - app/(tabs)/_layout.tsx: a Tabs navigator with headerShown false, colors from the theme, and one <Tabs.Screen> per tab in this order: ${tabs.map((t) => `"${t.path.replace("app/(tabs)/", "").replace(".tsx", "")}" (${t.title}, icon ${t.icon})`).join(", ")}.
 - components/: 1–3 small shared components the screens will reuse (cards, list rows, empty states, buttons), directly in components/.
 Do not write theme/tokens.ts.`;
@@ -225,7 +225,7 @@ ${bullet(
     s.kind === "question"
       ? `question: "${s.title}" ${s.body} Options: ${s.options.join(" / ")}. Save with setAnswer("${s.answerKey}", option).`
       : s.kind === "permission"
-        ? `permission: "${s.title}" ${s.body} Explain the daily reminder first, then "Turn on reminders" calls useReminder().enable({ title, body }) with copy written for this app (and a sensible hour); "Not now" moves on. A declined permission must not block onboarding.`
+        ? `permission: "${s.title}" ${s.body} Explain the daily reminder first, then "Turn on reminders" calls useReminder().enable({ title, body }) with copy written for this app (and a sensible hour); in an app with alarms, explain that notifications are how its alarms ring and the button calls useAlarms().request() from data/alarms instead. "Not now" moves on. A declined permission must not block onboarding.`
         : `${s.kind}: "${s.title}" ${s.body}`,
   ),
 )}

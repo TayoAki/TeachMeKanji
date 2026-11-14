@@ -1,15 +1,30 @@
 // TEMPLATE FILE — owned by the platform, never written by the model.
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
 import type { Record_, Repository } from "./repo";
-import { seed } from "./seed";
+import * as seeds from "./seed";
 
 const KEY_PREFIX = "app:collection:";
 const listeners = new Map<string, Set<() => void>>();
 
+/**
+ * The rows a collection starts with. Sample records show where the owner is trying the app (the
+ * preview, Expo Go); a real install starts with only the collections data/seed lists in
+ * `starter` (reference content), or with every collection when it lists none (older apps).
+ */
+export function seedRows(collection: string): unknown[] {
+  const rows = (seeds.seed as Record<string, unknown[]>)[collection] ?? [];
+  const starter = (seeds as { starter?: readonly string[] }).starter;
+  const trying =
+    Boolean((globalThis as { __appbuilderPreview?: boolean }).__appbuilderPreview) ||
+    Constants.executionEnvironment === "storeClient";
+  return trying || !starter || starter.includes(collection) ? rows : [];
+}
+
 async function read<T extends Record_>(collection: string): Promise<T[]> {
   const raw = await AsyncStorage.getItem(KEY_PREFIX + collection);
   if (raw === null) {
-    const initial = ((seed as Record<string, unknown[]>)[collection] ?? []) as T[];
+    const initial = seedRows(collection) as T[];
     await AsyncStorage.setItem(KEY_PREFIX + collection, JSON.stringify(initial));
     return initial;
   }

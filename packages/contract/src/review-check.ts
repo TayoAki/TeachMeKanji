@@ -43,7 +43,7 @@ export interface ReviewReport {
 
 /** Phone capabilities that make an app more than a website (App Store Guideline 4.2). */
 const NATIVE =
-  /\b(haptic|useReminder|registerForPush|CameraCapture|pickPhoto|useLocation|useShareImage|PanResponder|Celebrate)\b/;
+  /\b(haptic|useReminder|setAlarms|registerForPush|CameraCapture|pickPhoto|useLocation|useShareImage|PanResponder|Celebrate)\b/;
 
 export function reviewCheck(files: ProjectFiles, context: ReviewContext): ReviewReport {
   const items: ReviewItem[] = [];

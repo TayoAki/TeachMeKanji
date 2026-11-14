@@ -3,8 +3,8 @@
 // Every device gets an anonymous account automatically; signing up (data/auth.ts) keeps it.
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { backend } from "./backend";
+import { seedRows } from "./local";
 import type { Record_, Repository } from "./repo";
-import { seed } from "./seed";
 
 export const TOKEN_KEY = "app:auth:token";
 const SEEDED_KEY = "app:cloud:seeded:";
@@ -61,16 +61,16 @@ function notify(collection: string) {
 
 async function list<T extends Record_>(collection: string): Promise<T[]> {
   const { records } = await api<{ records: T[] }>(`/collections/${collection}`);
-  const seedRows = (seed as Record<string, Record_[]>)[collection] ?? [];
+  const starting = seedRows(collection) as Record_[];
   const token = await getToken();
   const seededKey = `${SEEDED_KEY}${collection}:${token.slice(0, 12)}`;
-  if (records.length === 0 && seedRows.length > 0 && !(await AsyncStorage.getItem(seededKey))) {
+  if (records.length === 0 && starting.length > 0 && !(await AsyncStorage.getItem(seededKey))) {
     await AsyncStorage.setItem(seededKey, "1");
     await api(`/collections/${collection}`, {
       method: "POST",
-      body: JSON.stringify({ records: seedRows }),
+      body: JSON.stringify({ records: starting }),
     });
-    return seedRows as T[];
+    return starting as T[];
   }
   return records;
 }

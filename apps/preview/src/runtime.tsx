@@ -21,6 +21,7 @@ import { toPng } from "html-to-image";
 import { createModuleSystem, ModuleError } from "./loader";
 import { createSelection } from "./selection";
 import { resetAsyncStorage } from "./shims/async-storage";
+import { resetNotifications } from "./shims/native-capabilities";
 import { configureNavigation, getNavigation, RouterRoot } from "./shims/expo-router";
 import { PREVIEW_INSETS, SafeAreaProvider } from "./shims/safe-area";
 import { subscribeStatusBar } from "./shims/status-bar";
@@ -160,6 +161,7 @@ window.addEventListener("message", (event) => {
 function load(message: Extract<ParentToFrame, { type: "load" }>) {
   const started = performance.now();
   root?.unmount();
+  resetNotifications();
   resetAsyncStorage(
     message.storage ?? {},
     message.persistStorage ? (key, value) => post({ type: "storage", key, value }) : null,

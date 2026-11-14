@@ -10,6 +10,7 @@ import { trackScreen } from "../data/analytics";
 import { reportError, setErrorScreen } from "../data/errors";
 import { useSupportSetup } from "../components/support";
 import { appStructure } from "../data/app-structure";
+import { useNotificationLinks } from "../data/notifications";
 import { useAppState } from "../data/app-state";
 import { DataProvider } from "../data/repo";
 import { ThemeProvider, useTheme } from "../theme/ThemeProvider";
@@ -26,9 +27,11 @@ function RootStack() {
     trackScreen(pathname);
     setErrorScreen(pathname);
   }, [pathname]);
+  const showApp = onboarded || !appStructure.onboarding;
+  // A tapped notification (or an alarm ringing) opens the screen it names.
+  useNotificationLinks(ready && showApp);
   // Render nothing until first-launch state has loaded, so the app never flashes before onboarding.
   if (!ready) return null;
-  const showApp = onboarded || !appStructure.onboarding;
   return (
     <>
       <StatusBar style={theme.dark ? "light" : "dark"} />
