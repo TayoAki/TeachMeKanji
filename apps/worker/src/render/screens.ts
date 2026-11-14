@@ -55,15 +55,20 @@ export async function getBrowser(): Promise<Browser> {
   return browser;
 }
 
-/** True when this worker can render screens: the preview runtime is built and Chrome starts. */
-export async function canRenderScreens(): Promise<boolean> {
-  if (process.env.MATCH_STEP === "0" || !existsSync(RUNTIME)) return false;
+/** True when this worker can run apps in a browser: the preview runtime is built, Chrome starts. */
+export async function canRunApps(): Promise<boolean> {
+  if (!existsSync(RUNTIME)) return false;
   try {
     await getBrowser();
     return true;
   } catch {
     return false;
   }
+}
+
+/** True when the mockup check and regression renders may run (MATCH_STEP=0 turns them off). */
+export async function canRenderScreens(): Promise<boolean> {
+  return process.env.MATCH_STEP !== "0" && (await canRunApps());
 }
 
 /** A page that runs the preview runtime directly (no iframe) and records what it posts. */

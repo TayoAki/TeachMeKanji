@@ -251,7 +251,9 @@ export async function matchMockups(
           });
           continue;
         }
-        const candidate = withAppStructure({ ...next, ...result.files });
+        const merged: ProjectFiles = { ...next, ...result.files };
+        for (const path of result.deletes) delete merged[path];
+        const candidate = withAppStructure(merged);
         const issues = validateProject(candidate);
         if (hasErrors(issues)) {
           await ctx.emit("step", {

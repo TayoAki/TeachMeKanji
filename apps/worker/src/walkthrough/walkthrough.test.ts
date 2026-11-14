@@ -3,7 +3,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import type { CreateMessage } from "../generation/client";
 import type { HandlerContext } from "../handlers/context";
 import { fixtureProject } from "../project";
-import { canRenderScreens, closeRenderer } from "../render/screens";
+import { canRenderScreens, closeRenderer, renderScreens } from "../render/screens";
 import { AppSession } from "./app-session";
 import {
   CASES_SYSTEM,
@@ -151,6 +151,84 @@ describe("the walkthrough on a real app", () => {
   });
 });
 
+const PLAN = {
+  appName: "Habit Loop",
+  summary: "",
+  coreLoop: "",
+  onboarding: { steps: [] },
+  monetization: { premiumFeatures: [] },
+  screens: [],
+  collections: [],
+} as never;
+
+describe("the walkthrough alongside other work", () => {
+  afterAll(() => closeRenderer());
+
+  it(
+    "lets other runs render while it waits for the model",
+    { timeout: 60_000 },
+    async ({ skip }) => {
+      if (!(await canRenderScreens())) skip();
+      const files = await fixtureProject("habit-tracker");
+      const slow: CreateMessage = async (params, hooks) => {
+        if (params.system === TESTER_SYSTEM) await new Promise((r) => setTimeout(r, 1500));
+        return scripted(params, hooks);
+      };
+      let finished = 0;
+      const walk = walkthroughApp(context(slow), {
+        plan: PLAN,
+        files,
+        buildModel: "scripted",
+      }).then((result) => {
+        finished = Date.now();
+        return result;
+      });
+      // Mid-walkthrough, while it waits on the model, another build renders a screen.
+      await new Promise((r) => setTimeout(r, 2500));
+      const [shot] = await renderScreens(files, { only: ["app/(tabs)/index.tsx"], settleMs: 100 });
+      const rendered = Date.now();
+      expect(shot?.png).toBeTruthy();
+      expect((await walk)?.cases).toHaveLength(2);
+      expect(rendered).toBeLessThan(finished);
+    },
+  );
+
+  it("runs when only the mockup check is switched off", async ({ skip }) => {
+    if (!(await canRenderScreens())) skip();
+    const files = await fixtureProject("habit-tracker");
+    process.env.MATCH_STEP = "0";
+    try {
+      const result = await walkthroughApp(context(scripted), {
+        plan: PLAN,
+        files,
+        buildModel: "scripted",
+      });
+      expect(result?.cases).toHaveLength(2);
+    } finally {
+      delete process.env.MATCH_STEP;
+    }
+  });
+
+  it("keeps the cases that ran when a later one can't finish", async ({ skip }) => {
+    if (!(await canRenderScreens())) skip();
+    const files = await fixtureProject("habit-tracker");
+    const crashes: CreateMessage = async (params, hooks) => {
+      const first = JSON.stringify(params.messages[0]?.content ?? "");
+      if (params.system === TESTER_SYSTEM && first.includes("Test case: It's still there"))
+        throw new Error("The browser went away");
+      return scripted(params, hooks);
+    };
+    const result = await walkthroughApp(context(crashes), {
+      plan: PLAN,
+      files,
+      buildModel: "scripted",
+    });
+    expect(result?.cases.map((c) => [c.title, c.status])).toEqual([["Add a habit", "pass"]]);
+    expect(result?.stopped).toMatch(/couldn't finish/);
+    expect(walkthroughSummary(result!)).toContain("I tested 1 thing");
+  });
+});
+
 describe("what the walkthrough reports", () => {
   const cases: CaseResult[] = [
     {
@@ -198,7 +276,7 @@ describe("what the walkthrough reports", () => {
   it("tells the owner what works, what was fixed, what doesn't and what needs a phone", () => {
     const text = walkthroughSummary({ files: {}, repaired: true, cases });
     expect(text).toContain("I tested 3 things");
-    expect(text).toContain("1 work (I fixed Add an alarm)");
+    expect(text).toContain("1 works (I fixed Add an alarm)");
     expect(text).toContain("Still not working: Buy premium");
     expect(text).toContain("Needs a phone to check: Sky photo");
   });

@@ -1,4 +1,7 @@
 /**
+ * Each browser step takes the worker's render lock on its own (other runs' renders interleave
+ * between steps, never wait for a whole walkthrough); waiting and the tester's thinking don't.
+ *
  * A built app running in the worker's headless Chrome the way people use it in the preview: the
  * preview runtime in "app" mode, interactive, keeping what the app saves. The walkthrough tester
  * looks at it (a screenshot, the controls on screen and the text) and taps, types and scrolls.
@@ -6,7 +9,7 @@
  */
 import type { Page } from "playwright-core";
 import type { ProjectFiles } from "@appbuilder/contract";
-import { DEVICE, getBrowser, runtimePage } from "../render/screens";
+import { DEVICE, getBrowser, runtimePage, withRenderer } from "../render/screens";
 
 export interface Control {
   /** The number the tester uses to name it. */
@@ -50,7 +53,7 @@ export class AppSession {
 
   private constructor(
     private readonly page: Page,
-    private readonly close_: () => Promise<void>,
+    private readonly closeContext: () => Promise<void>,
     private readonly files: ProjectFiles,
     private readonly options: { themeId?: string; storage?: Record<string, string> },
   ) {
@@ -59,28 +62,32 @@ export class AppSession {
 
   static async open(
     files: ProjectFiles,
-    options: { themeId?: string; storage?: Record<string, string>; settleMs?: number } = {},
+    options: { themeId?: string; storage?: Record<string, string> } = {},
   ): Promise<AppSession> {
-    const context = await (
-      await getBrowser()
-    ).newContext({ viewport: DEVICE, deviceScaleFactor: 1 });
-    const page = await context.newPage();
-    await page.setContent(runtimePage(), { waitUntil: "load" });
-    // The worker runs through tsx, which names functions with a __name() helper the page lacks.
-    await page.evaluate("globalThis.__name = globalThis.__name || ((fn) => fn)");
-    const session = new AppSession(page, () => context.close(), files, options);
-    await session.load("/");
-    return session;
+    return withRenderer(async () => {
+      const context = await (
+        await getBrowser()
+      ).newContext({ viewport: DEVICE, deviceScaleFactor: 1 });
+      const page = await context.newPage();
+      await page.setContent(runtimePage(), { waitUntil: "load" });
+      // The worker runs through tsx, which names functions with a __name() helper the page lacks.
+      await page.evaluate("globalThis.__name = globalThis.__name || ((fn) => fn)");
+      const session = new AppSession(page, () => context.close(), files, options);
+      await session.load("/");
+      return session;
+    });
   }
 
   /** Close the app and open it again, keeping what it saved (like a phone). */
-  async relaunch(): Promise<void> {
-    await this.collect();
-    await this.load("/");
+  relaunch(): Promise<void> {
+    return withRenderer(async () => {
+      await this.collect();
+      await this.load("/");
+    });
   }
 
   async close(): Promise<void> {
-    await this.close_().catch(() => {});
+    await this.closeContext().catch(() => {});
   }
 
   private async load(href: string) {
@@ -138,7 +145,11 @@ export class AppSession {
     return errors;
   }
 
-  async observe(): Promise<Observation> {
+  observe(): Promise<Observation> {
+    return withRenderer(() => this.observeNow());
+  }
+
+  private async observeNow(): Promise<Observation> {
     const errors = await this.collect();
     const { controls, text } = await this.page.evaluate((height) => {
       const selector =
@@ -205,20 +216,26 @@ export class AppSession {
     return { path: this.path, controls, text, errors, jpeg };
   }
 
-  async tap(ref: number): Promise<void> {
-    await this.page.click(`[data-wt="${ref}"]`, { force: true, timeout: 5_000 });
-    await this.page.waitForTimeout(SETTLE_MS);
+  tap(ref: number): Promise<void> {
+    return withRenderer(async () => {
+      await this.page.click(`[data-wt="${ref}"]`, { force: true, timeout: 5_000 });
+      await this.page.waitForTimeout(SETTLE_MS);
+    });
   }
 
-  async type(ref: number, text: string): Promise<void> {
-    await this.page.fill(`[data-wt="${ref}"]`, text, { force: true, timeout: 5_000 });
-    await this.page.waitForTimeout(250);
+  type(ref: number, text: string): Promise<void> {
+    return withRenderer(async () => {
+      await this.page.fill(`[data-wt="${ref}"]`, text, { force: true, timeout: 5_000 });
+      await this.page.waitForTimeout(250);
+    });
   }
 
-  async scroll(direction: "up" | "down"): Promise<void> {
-    await this.page.mouse.move(DEVICE.width / 2, DEVICE.height / 2);
-    await this.page.mouse.wheel(0, direction === "down" ? 600 : -600);
-    await this.page.waitForTimeout(400);
+  scroll(direction: "up" | "down"): Promise<void> {
+    return withRenderer(async () => {
+      await this.page.mouse.move(DEVICE.width / 2, DEVICE.height / 2);
+      await this.page.mouse.wheel(0, direction === "down" ? 600 : -600);
+      await this.page.waitForTimeout(400);
+    });
   }
 
   /** Let time pass (an alarm a few seconds away, an animation, data arriving). */

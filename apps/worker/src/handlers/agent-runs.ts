@@ -333,10 +333,14 @@ export async function handleBuild(ctx: HandlerContext): Promise<HandlerResult> {
     storage,
     buildModel: ctx.offline ? ctx.model : approved ? DESIGN_BUILD_MODEL() : ctx.model,
   });
-  if (tested?.repaired)
+  // A repair that added AI to the app gets App Cloud, like the build itself.
+  const repairedCloud = tested?.repaired
+    ? await withAppCloudForAi(ctx, project, tested.files)
+    : null;
+  if (tested && repairedCloud)
     version = await commitVersion(ctx.db, {
       projectId: project.id,
-      files: tested.files,
+      files: repairedCloud.files,
       kind: "ai_edit",
       summary: `Fixed what testing the app found: ${tested.cases
         .filter((c) => c.fixed)
@@ -351,7 +355,13 @@ export async function handleBuild(ctx: HandlerContext): Promise<HandlerResult> {
     role: "assistant",
     runId: ctx.run.id,
     content: {
-      text: `${plan.appName} is ready: ${screenList}.${built.warnings.length ? ` ${built.warnings.length} screen(s) need another try; ask me to regenerate them.` : ""}${match ? ` ${matchSummary(match)}` : ""}${tested ? ` ${walkthroughSummary(tested)}` : ""} Switch themes on the right, click any element to edit it, or tell me what to change.${cloud.enabled ? ` ${APP_CLOUD_FOR_AI_NOTE}` : ""}`,
+      text: `${plan.appName} is ready: ${screenList}.${built.warnings.length ? ` ${built.warnings.length} screen(s) need another try; ask me to regenerate them.` : ""}${match ? ` ${matchSummary(match)}` : ""}${
+        tested
+          ? ` ${walkthroughSummary(tested)}`
+          : process.env.WALKTHROUGH === "0"
+            ? ""
+            : " This server can't run the app in a browser, so this build wasn't tested."
+      } Switch themes on the right, click any element to edit it, or tell me what to change.${cloud.enabled ? ` ${APP_CLOUD_FOR_AI_NOTE}` : ""}`,
       versionId: version.id,
       ...(match ? { match: match.screens } : {}),
       ...(tested?.cases.length
@@ -448,7 +458,11 @@ export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
   }
 
   let versionId: string | null = null;
-  const cloud = await withAppCloudForAi(ctx, project, result.files);
+  // Only a change that's saved can switch App Cloud on (it's turned on with the version).
+  const cloud =
+    result.changed.length > 0
+      ? await withAppCloudForAi(ctx, project, result.files)
+      : { files: result.files, enabled: false };
   if (cloud.enabled) connectors.notes.push(APP_CLOUD_FOR_AI_NOTE);
   if (result.changed.length > 0) {
     const version = await commitVersion(ctx.db, {

@@ -144,7 +144,8 @@ export function PreviewFrame({
     if (message.type === "ready") {
       if (ready.current) return; // "ready" can arrive twice (startup + reply to hello)
       ready.current = true;
-      load();
+      // A screen asked for before the frame was ready (open()) loads now.
+      load(entry?.href);
     }
     if (keepState && message.type === "navigated") path.current = message.href;
     if (keepState && message.type === "storage") {

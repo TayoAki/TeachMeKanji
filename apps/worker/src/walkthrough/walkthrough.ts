@@ -20,7 +20,7 @@ import { textOf, type CreateMessage } from "../generation/client";
 import { generateFiles } from "../generation/generate-files";
 import type { HandlerContext } from "../handlers/context";
 import { BudgetExceeded, Cancelled, freeCalls } from "../llm";
-import { canRenderScreens, withRenderer } from "../render/screens";
+import { canRunApps } from "../render/screens";
 import { AppSession, type Observation } from "./app-session";
 
 /** The model that writes the cases and uses the app (it reads screenshots). */
@@ -77,7 +77,7 @@ Write ${MAX_CASES - 4} to ${MAX_CASES} test cases in the order a new user meets 
 - title: what the user does, in a few words ("Add an alarm for 6:30 on weekdays").
 - goal: what to do, the way a person would follow it through the screens (no code, no routes).
 - expect: what must be visible afterwards for it to work.
-Don't write cases that need a real camera photo, the microphone, an email inbox or a store purchase: the preview can't do those.`;
+Add at most 2 cases for what only a real phone can show (a camera photo, the microphone, an alarm or reminder going off while the app is closed): they're reported as needing a phone, never as passing. No cases that need an email inbox or a store purchase.`;
 }
 
 const CASES_SCHEMA = {
@@ -137,7 +137,7 @@ interface Action {
   observed: string;
 }
 
-function describe(o: Observation, note?: string): string {
+function describeScreen(o: Observation, note?: string): string {
   const controls = o.controls
     .map(
       (c) =>
@@ -161,7 +161,7 @@ function screenBlocks(
       type: "image",
       source: { type: "base64", media_type: "image/jpeg", data: o.jpeg.toString("base64") },
     },
-    { type: "text", text: describe(o, note) },
+    { type: "text", text: describeScreen(o, note) },
   ];
 }
 
@@ -248,28 +248,29 @@ async function runCase(
   };
 }
 
-/** Write the cases, then run them one after another in one session. */
+/**
+ * Run the cases one after another in one session, adding each result to `into` as it finishes,
+ * so a run that can't finish still reports the cases it did.
+ */
 async function runCases(
   createMessage: CreateMessage,
   model: string,
   files: ProjectFiles,
   cases: TestCase[],
   options: { themeId?: string; storage?: Record<string, string> },
+  into: CaseResult[],
 ): Promise<CaseResult[]> {
-  return withRenderer(async () => {
-    const session = await AppSession.open(files, options);
-    try {
-      const results: CaseResult[] = [];
-      for (const [i, test] of cases.entries()) {
-        // Each case after the first starts from the app's first screen, with what's saved.
-        if (i > 0) await session.relaunch();
-        results.push(await runCase(createMessage, model, session, test));
-      }
-      return results;
-    } finally {
-      await session.close();
+  const session = await AppSession.open(files, options);
+  try {
+    for (const [i, test] of cases.entries()) {
+      // Each case after the first starts from the app's first screen, with what's saved.
+      if (i > 0) await session.relaunch();
+      into.push(await runCase(createMessage, model, session, test));
     }
-  });
+    return into;
+  } finally {
+    await session.close();
+  }
 }
 
 async function writeCases(
@@ -325,20 +326,30 @@ export async function walkthroughApp(
     buildModel: string;
   },
 ): Promise<WalkthroughResult | null> {
-  if (process.env.WALKTHROUGH === "0" || !(await canRenderScreens())) return null;
+  if (process.env.WALKTHROUGH === "0" || !(await canRunApps())) return null;
   const createMessage = freeCalls(ctx.createMessage);
   const model = ctx.offline ? ctx.model : TEST_MODEL();
   const options = { themeId: input.themeId, storage: input.storage };
   let files = input.files;
   let repaired = false;
+  // The first run's results as they come in, and the results that stand once it finished.
+  const firstRun: CaseResult[] = [];
+  let standing: CaseResult[] | null = null;
   try {
     await ctx.emit("step", { label: "Writing test cases for what people will do in the app" });
     const cases = await writeCases(createMessage, model, input.plan, files);
-    if (!cases.length) return null;
+    if (!cases.length)
+      return {
+        files,
+        repaired: false,
+        cases: [],
+        stopped: "I couldn't write test cases for this app, so this build wasn't tested.",
+      };
     await ctx.emit("step", {
       label: `Using the app like a person would: ${cases.map((c) => c.title).join(", ")}`,
     });
-    let results = await runCases(createMessage, model, files, cases, options);
+    let results = await runCases(createMessage, model, files, cases, options, firstRun);
+    standing = results;
     const failed = results.filter((r) => r.status === "fail");
     if (failed.length && !ctx.overBudget()) {
       await ctx.emit("step", {
@@ -362,7 +373,7 @@ export async function walkthroughApp(
           });
         } else {
           await ctx.emit("step", { label: "Testing the app again after the fix" });
-          const again = await runCases(createMessage, model, next, cases, options);
+          const again = await runCases(createMessage, model, next, cases, options, []);
           // Keep the fix when it makes more cases pass and breaks none that passed.
           const passing = (rs: CaseResult[]) => rs.filter((r) => r.status === "pass").length;
           const broke = again.some((r, i) => results[i]?.status === "pass" && r.status !== "pass");
@@ -384,7 +395,7 @@ export async function walkthroughApp(
     return {
       files,
       repaired,
-      cases: [],
+      cases: standing ?? firstRun,
       stopped:
         error instanceof BudgetExceeded
           ? "The build's credit reserve ran out before the app could be tested."
@@ -400,8 +411,9 @@ export function walkthroughSummary(result: WalkthroughResult): string {
   const fixed = passed.filter((r) => r.fixed);
   const failed = result.cases.filter((r) => r.status === "fail");
   const blocked = result.cases.filter((r) => r.status === "blocked");
+  const count = result.cases.length;
   const parts = [
-    `I tested ${result.cases.length} things a person does in the app, in the web preview: ${passed.length} work${
+    `I tested ${count} ${count === 1 ? "thing" : "things"} a person does in the app, in the web preview: ${passed.length} ${passed.length === 1 ? "works" : "work"}${
       fixed.length ? ` (I fixed ${fixed.map((r) => r.title).join(", ")})` : ""
     }.`,
   ];
@@ -413,5 +425,6 @@ export function walkthroughSummary(result: WalkthroughResult): string {
     parts.push(
       `Needs a phone to check: ${blocked.map((r) => `${r.title} (${r.observed})`).join("; ")}.`,
     );
+  if (result.stopped) parts.push(result.stopped);
   return parts.join(" ");
 }

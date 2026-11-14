@@ -103,7 +103,13 @@ export function ensureRuntime(templatePackageJson: string): Promise<string> {
     if (baked && existsSync(join(baked, "node_modules/expo/package.json")))
       return join(baked, "node_modules");
     const dir = dataDir("expo-runtime");
-    if (!existsSync(join(dir, "node_modules/expo/package.json"))) {
+    // Installed again when the template's dependencies changed (a new SDK module), so phones
+    // can resolve everything today's apps import.
+    const installed = await readFile(join(dir, "package.json"), "utf8").catch(() => null);
+    if (
+      !existsSync(join(dir, "node_modules/expo/package.json")) ||
+      installed !== templatePackageJson
+    ) {
       await mkdir(dir, { recursive: true });
       await writeFile(join(dir, "package.json"), templatePackageJson);
       await run("npm", ["install", "--no-audit", "--no-fund"], dir);

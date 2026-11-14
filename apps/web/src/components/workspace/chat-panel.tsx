@@ -346,8 +346,8 @@ export function ChatPanel({
                   ) : null}
                   {m.content.test?.length ? (
                     <ul className="mt-2 space-y-1 text-xs" data-testid="walkthrough">
-                      {m.content.test.map((t) => (
-                        <li key={t.title} className="flex items-start gap-1.5" title={t.observed}>
+                      {m.content.test.map((t, i) => (
+                        <li key={i} className="flex items-start gap-1.5" title={t.observed}>
                           {t.status === "pass" ? (
                             <Check className="mt-0.5 size-3.5 shrink-0 text-emerald-600" />
                           ) : t.status === "blocked" ? (
