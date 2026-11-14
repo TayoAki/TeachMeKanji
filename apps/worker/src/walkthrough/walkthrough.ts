@@ -177,7 +177,14 @@ async function runCase(
   const errors = [...observation.errors];
   let note = `Test case: ${test.title}\nGoal: ${test.goal}\nExpected: ${test.expect}`;
   for (let step = 1; step <= MAX_STEPS; step++) {
-    messages.push({ role: "user", content: screenBlocks(observation, note) });
+    // One cache point, on the newest screen: each step re-reads the steps before it from the
+    // cache instead of paying for them again.
+    for (const m of messages)
+      if (Array.isArray(m.content))
+        for (const block of m.content) delete (block as { cache_control?: unknown }).cache_control;
+    const blocks = screenBlocks(observation, note);
+    (blocks.at(-1) as { cache_control?: unknown }).cache_control = { type: "ephemeral" };
+    messages.push({ role: "user", content: blocks });
     const response = await createMessage({
       model,
       max_tokens: 2000,
