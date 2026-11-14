@@ -277,6 +277,17 @@ creates a `restore` version so history stays linear.
   differs. It runs inside the build's reserve and stops when that is spent. Mascot poses are drawn
   on one canvas at one scale and shown with `<Mascot>` from the motion kit (breathes, bounces
   into a new pose, wiggles on tap).
+- **Walkthrough (end of every build):** before the app is handed over, the worker uses it like
+  a person would (`apps/worker/src/walkthrough/`). `TEST_MODEL` (Haiku) writes up to 8 test
+  cases from the plan (onboarding, the core loop end to end, saved data surviving a relaunch,
+  the paywall's test purchase, settings, each main screen's action), then for each one reads the
+  screen in the preview runtime's `app` mode in headless Chrome (a screenshot, the numbered
+  controls and the text) and answers with one action at a time as JSON (tap, type, scroll, wait,
+  relaunch, done), up to `WALKTHROUGH_STEPS` (14). The cases run in order on one session's saved
+  data; errors the app throws fail a case; what needs a real phone (a camera photo, the
+  microphone) is "blocked", never passed. Failures get one free repair and a full re-test, kept
+  only when more cases pass and none that passed breaks. The build's chat message lists the
+  results. `WALKTHROUGH=0` turns it off; it never fails a saved build.
 - **Motion:** each screen's build call also gets the direction's motion plan for that screen
   (its moments, and the signature interaction on its screen) and builds it with the platform's
   motion kit, `components/motion.tsx` (template-owned): `Appear`, `Stagger`, `PressScale`,
