@@ -34,7 +34,7 @@ import {
 import { useRunStream } from "@/hooks/use-run-stream";
 import { AppShell, PanelSection, SidebarHeader } from "@/components/shell/app-shell";
 import type { RailUser } from "@/components/shell/left-rail";
-import { PreviewFrame } from "@/components/preview/preview-frame";
+import { PreviewFrame, type PreviewFrameHandle } from "@/components/preview/preview-frame";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -85,8 +85,15 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<SelectedElement | null>(null);
   const [chatSelection, setChatSelection] = useState<ChatSelection | null>(null);
+  // The screen the interactive preview is on (shown above it). The app moves between screens on
+  // its own; opening a screen from the canvas moves it there without losing its data.
   const [appHref, setAppHref] = useState("/");
   const [appKey, setAppKey] = useState(0);
+  const appFrame = useRef<PreviewFrameHandle>(null);
+  const openInApp = (href: string) => {
+    setAppHref(href);
+    appFrame.current?.open(href);
+  };
   const [dialog, setDialog] = useState<
     null | "share" | "export" | "publish" | "device" | "listing" | "promo"
   >(null);
@@ -172,7 +179,7 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
       toast.error(error instanceof ApiError ? error.message : "Couldn't save that text.");
       // Put the screens back to what's saved.
       setCanvasKey((k) => k + 1);
-      setAppKey((k) => k + 1);
+      appFrame.current?.open(appHref);
     }
   };
 
@@ -187,10 +194,8 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
       setCodeFocus(parseFid(message.element.fid)?.path ?? null);
     }
     if (message.type === "text-edit") void saveText(message.fid, message.text);
-    if (message.type === "navigate-request" && message.action !== "back" && message.href) {
-      setAppHref(message.href);
-      setAppKey((k) => k + 1);
-    }
+    if (message.type === "navigate-request" && message.action !== "back" && message.href)
+      openInApp(message.href);
   };
 
   const startRun = (id: string) => {
@@ -545,7 +550,10 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
                   variant="ghost"
                   className="size-7"
                   aria-label="Reload preview"
-                  onClick={() => setAppKey((k) => k + 1)}
+                  onClick={() => {
+                    setAppHref("/");
+                    setAppKey((k) => k + 1);
+                  }}
                   disabled={!hasApp}
                 >
                   <RotateCw />
@@ -556,12 +564,14 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
               {hasApp ? (
                 <PreviewFrame
                   key={appKey}
+                  ref={appFrame}
                   frameId="app"
+                  keepState
 
                   storage={previewStorage}
                   files={files}
                   mode="app"
-                  href={appHref}
+                  href="/"
                   themeId={themeId}
                   appearance={appAppearance}
                   editText={canEdit}
@@ -682,10 +692,7 @@ export function Workspace({ initial, user }: { initial: ProjectState; user: Rail
           editText={canEdit && hasApp}
           selectMode={selectMode}
           onFrameMessage={onFrameMessage}
-          onOpenScreen={(href) => {
-            setAppHref(href);
-            setAppKey((k) => k + 1);
-          }}
+          onOpenScreen={openInApp}
           onSelectScreen={
             canEdit && hasApp
               ? (file, title) =>

@@ -36,7 +36,7 @@ import {
 } from "@appbuilder/core";
 import { schema, type Database } from "@appbuilder/db";
 import { createDeviceRouter, normalizeHost, tokenFromHost } from "./device-router";
-import { childEnv, materialize } from "./project";
+import { childEnv, materialize, syncFiles } from "./project";
 
 const IDLE_MINUTES = Number(process.env.DEVICE_PREVIEW_IDLE_MINUTES || 15);
 
@@ -397,7 +397,8 @@ export class DeviceManager {
     }
     const { versionId, files } = await getCurrentFiles(this.db, projectId);
     if (!versionId || versionId === session.versionId) return;
-    await materialize(
+    // Only what changed: Metro is watching this directory.
+    await syncFiles(
       exportBundle("Preview", withoutNativeSupportChat(files)),
       dataDir("device", projectId),
     );

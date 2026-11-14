@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useEffectEvent, useImperativeHandle, useRef, type Ref } from "react";
+import { useEffect, useEffectEvent, useImperativeHandle, useRef, useState, type Ref } from "react";
 import {
   isEnvelope,
   PREVIEW_CHANNEL,
@@ -27,6 +27,12 @@ export interface PreviewFrameProps {
   storage?: Record<string, string>;
   /** Report the app's storage writes through onMessage ("storage" messages). */
   persistStorage?: boolean;
+  /**
+   * Keep the running app's saved data and screen when the frame has to load again (new files,
+   * mode or storage), like an app that stays installed on a phone. The frame only starts fresh
+   * when it remounts.
+   */
+  keepState?: boolean;
   /** Visual scale (the app still renders at full device size inside). */
   scale?: number;
   className?: string;
@@ -40,6 +46,8 @@ export interface PreviewFrameProps {
 
 export interface PreviewFrameHandle {
   capture: (pixelRatio?: number) => Promise<string>;
+  /** Show another screen: the app loads again there, keeping its saved data (keepState). */
+  open: (href: string) => void;
 }
 
 /**
@@ -61,6 +69,7 @@ export function PreviewFrame({
   className,
   storage,
   persistStorage = false,
+  keepState = false,
   appearance = null,
   editText = false,
   ref,
@@ -71,6 +80,11 @@ export function PreviewFrame({
   );
 
   const ready = useRef(false);
+  // keepState: what the app wrote to its storage, and the screen it's on, across loads.
+  const written = useRef(new Map<string, string | null>());
+  const path = useRef<string | null>(null);
+  // open(): a screen to load next (numbered, so opening the same screen again reloads it).
+  const [entry, setEntry] = useState<{ href: string; n: number } | null>(null);
 
   const send = (message: ParentToFrame) => {
     // Opaque-origin frames can only be addressed with "*"; we verify replies by source.
@@ -81,6 +95,7 @@ export function PreviewFrame({
   };
 
   useImperativeHandle(ref, () => ({
+    open: (to: string) => setEntry((current) => ({ href: to, n: (current?.n ?? 0) + 1 })),
     capture: (pixelRatio = 3) =>
       new Promise<string>((resolve, reject) => {
         const requestId = Math.random().toString(36).slice(2);
@@ -93,16 +108,25 @@ export function PreviewFrame({
       }),
   }));
 
-  const load = useEffectEvent(() => {
+  const load = useEffectEvent((at?: string) => {
+    let initial = storage;
+    if (keepState && written.current.size) {
+      const merged = { ...storage };
+      for (const [key, value] of written.current) {
+        if (value === null) delete merged[key];
+        else merged[key] = value;
+      }
+      initial = merged;
+    }
     send({
       type: "load",
       files,
       mode,
-      href,
+      href: at ?? href,
       themeId,
       selectMode,
-      storage,
-      persistStorage,
+      storage: initial,
+      persistStorage: persistStorage || keepState,
       appearance,
       editText,
     });
@@ -120,6 +144,13 @@ export function PreviewFrame({
       if (ready.current) return; // "ready" can arrive twice (startup + reply to hello)
       ready.current = true;
       load();
+    }
+    if (keepState && message.type === "navigated") path.current = message.href;
+    if (keepState && message.type === "storage") {
+      const { key, value } = message as { key: unknown; value: unknown };
+      if (typeof key === "string" && (value === null || typeof value === "string"))
+        written.current.set(key, value);
+      if (!persistStorage) return;
     }
     onMessage?.(message);
   });
@@ -139,10 +170,17 @@ export function PreviewFrame({
     return () => window.removeEventListener("message", onWindowMessage);
   }, [frameId]);
 
-  // Reload when the project or entry route changes.
+  // A new entry route starts there.
   useEffect(() => {
     if (ready.current) load();
-  }, [files, href, mode, storage]);
+  }, [href]);
+  // New files, mode or storage load the app again; with keepState it stays on its screen.
+  useEffect(() => {
+    if (ready.current) load(keepState ? (path.current ?? undefined) : undefined);
+  }, [files, mode, storage, keepState]);
+  useEffect(() => {
+    if (entry && ready.current) load(entry.href);
+  }, [entry]);
 
   useEffect(() => {
     if (ready.current && themeId) {
