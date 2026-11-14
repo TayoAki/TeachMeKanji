@@ -83,6 +83,7 @@ export function PreviewFrame({
   // keepState: what the app wrote to its storage, and the screen it's on, across loads.
   const written = useRef(new Map<string, string | null>());
   const path = useRef<string | null>(null);
+  const seed = useRef(files["data/seed.ts"]);
   // open(): a screen to load next (numbered, so opening the same screen again reloads it).
   const [entry, setEntry] = useState<{ href: string; n: number } | null>(null);
 
@@ -176,6 +177,12 @@ export function PreviewFrame({
   }, [href]);
   // New files, mode or storage load the app again; with keepState it stays on its screen.
   useEffect(() => {
+    // New sample data shows as it is, instead of the copies the app saved from the old one
+    // (data/local.ts keeps each collection under "app:collection:<name>").
+    if (keepState && files["data/seed.ts"] !== seed.current)
+      for (const key of [...written.current.keys()])
+        if (key.startsWith("app:collection:")) written.current.delete(key);
+    seed.current = files["data/seed.ts"];
     if (ready.current) load(keepState ? (path.current ?? undefined) : undefined);
   }, [files, mode, storage, keepState]);
   useEffect(() => {

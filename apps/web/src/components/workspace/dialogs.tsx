@@ -807,7 +807,8 @@ function SupportChat({ projectId }: { projectId: string }) {
       api<SupportChatState>(`/api/projects/${projectId}/support-chat`, { quiet: true })
         .then((s) => {
           setState(s);
-          setAppId(s.managed ? "" : s.appId);
+          // Never over what the owner is typing (a second load can land after they start).
+          setAppId((typed) => (typed.trim() ? typed : s.managed ? "" : s.appId));
           setOwn(Boolean(s.appId) && !s.managed);
         })
         .catch(() => {}),
