@@ -12,7 +12,9 @@ import {
   isTemplateFile,
   type ProjectFiles,
 } from "./layout";
+import { collectLinks, linkOpensScreen, screenList, showLink } from "./links";
 import { collectImports, parseModule, walk } from "./parse";
+import { buildRouteTree, type LayoutRoute } from "./routes";
 import { transpile } from "./transpile";
 
 export type Severity = "error" | "warning";
@@ -31,8 +33,16 @@ const COLOR_KEY = /(?:^color$|Color$)/;
 const ALLOWED_COLOR_KEYWORDS = new Set(["transparent"]);
 
 export interface FileContext {
-  /** All paths in the project, to check that relative imports resolve. */
+  /** All paths in the project, to check that relative imports resolve and links open a screen. */
   paths?: ReadonlySet<string>;
+  /** The paths whose screens links may open, when more are coming than `paths` has. */
+  routes?: ReadonlySet<string>;
+  /**
+   * How a link to a screen that doesn't exist counts. "warning" (the default) when checking a
+   * whole app, so an old mistake never blocks an unrelated change; "error" for the files a model
+   * just wrote, so it repairs them.
+   */
+  links?: Severity;
 }
 
 export function validateFile(path: string, source: string, context: FileContext = {}): Issue[] {
@@ -110,6 +120,26 @@ export function validateFile(path: string, source: string, context: FileContext 
             imp.line,
           );
         }
+      }
+    }
+  }
+
+  if (context.paths && !isTemplateFile(path) && /^(app|components)\//.test(path)) {
+    let tree: LayoutRoute | null = null;
+    try {
+      tree = buildRouteTree(context.routes ?? context.paths);
+    } catch {
+      tree = null; // an invalid route tree is reported elsewhere
+    }
+    if (tree) {
+      for (const link of collectLinks(ast)) {
+        if (linkOpensScreen(tree, link.href)) continue;
+        add(
+          "routes/link",
+          `Links to "${showLink(link.href)}", but no screen opens there, so it shows "Unmatched route" on a phone. The app's screens: ${screenList(tree)}.`,
+          link.line,
+          context.links ?? "warning",
+        );
       }
     }
   }

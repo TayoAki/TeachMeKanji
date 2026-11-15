@@ -52,12 +52,16 @@ export function useCollection<T extends Record_>(collection: string) {
 
   useEffect(() => {
     let alive = true;
-    const load = () =>
-      repository.list<T>(collection).then((rows) => {
-        if (!alive) return;
+    let latest = 0;
+    // Only the newest load counts: an older answer that arrives late never replaces it.
+    const load = () => {
+      const request = ++latest;
+      return repository.list<T>(collection).then((rows) => {
+        if (!alive || request !== latest) return;
         setItems(rows);
         setLoading(false);
       });
+    };
     load();
     const unsubscribe = repository.subscribe(collection, load);
     return () => {

@@ -215,4 +215,49 @@ describe("App Cloud data (template data/remote.ts)", () => {
       globalThis.fetch = realFetch;
     }
   });
+
+  it("gets the starting rows to every screen that loads a collection at once on first launch", async () => {
+    // Two screens (Today and a tab behind it) load the same empty collection at the same moment.
+    // The first seeds it; the second's empty answer arrives after that, so it must be told to
+    // load again, or it shows "nothing here yet" until something else reloads it.
+    let release!: () => void;
+    const seeded = new Promise<void>((resolve) => (release = resolve));
+    let gets = 0;
+    globalThis.fetch = (async (input: string | URL | Request, init: RequestInit = {}) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/auth/anonymous"))
+        return new Response(JSON.stringify({ token: "tok_device_2" }), { status: 200 });
+      const response = await fakeFetch(input, init);
+      if (!init.method && url.pathname.endsWith("/collections/checkins") && ++gets === 2)
+        await seeded;
+      if (init.method === "POST") release();
+      return response;
+    }) as typeof fetch;
+    try {
+      const { remoteRepository, setToken } = cloudModules.require("data/remote.ts") as {
+        remoteRepository: {
+          list: (c: string) => Promise<{ id: string }[]>;
+          subscribe: (c: string, listener: () => void) => () => void;
+        };
+        setToken: (token: string | null) => Promise<void>;
+      };
+      await setToken(null); // a new install: a new anonymous user
+      server.delete("checkins");
+
+      let reloads = 0;
+      const unsubscribe = remoteRepository.subscribe("checkins", () => reloads++);
+      const [first, second] = await Promise.all([
+        remoteRepository.list("checkins"),
+        remoteRepository.list("checkins"),
+      ]);
+      unsubscribe();
+
+      expect(first.length).toBeGreaterThan(0);
+      // The second screen either got the rows or was told to load again (and then gets them).
+      expect(second.length > 0 || reloads > 0).toBe(true);
+      expect((await remoteRepository.list("checkins")).length).toBe(first.length);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
 });

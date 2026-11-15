@@ -55,6 +55,9 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   return body;
 }
 
+/** First-launch seeding of a collection, shared by every screen that loads it at that moment. */
+const seeding = new Map<string, Promise<Record_[]>>();
+
 function notify(collection: string) {
   listeners.get(collection)?.forEach((listener) => listener());
 }
@@ -71,13 +74,26 @@ async function list<T extends Record_>(collection: string): Promise<T[]> {
     if (!seen) await AsyncStorage.setItem(seededKey, "1");
     return records;
   }
+  // Another screen is seeding this collection right now: share its result.
+  const pending = seeding.get(collection);
+  if (pending) return (await pending) as T[];
   if (starting.length > 0 && !seen) {
-    await AsyncStorage.setItem(seededKey, "1");
-    await api(`/collections/${collection}`, {
-      method: "POST",
-      body: JSON.stringify({ records: starting }),
-    });
-    return starting as T[];
+    const job = (async () => {
+      await AsyncStorage.setItem(seededKey, "1");
+      await api(`/collections/${collection}`, {
+        method: "POST",
+        body: JSON.stringify({ records: starting }),
+      });
+      return starting;
+    })();
+    seeding.set(collection, job);
+    try {
+      return (await job) as T[];
+    } finally {
+      seeding.delete(collection);
+      // A screen that read the collection empty while it was being seeded loads it again.
+      notify(collection);
+    }
   }
   return records;
 }

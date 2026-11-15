@@ -239,6 +239,7 @@ export async function buildApp(input: {
       baseFiles: files,
       expectPaths: part.expectPaths,
       allowWrite: part.allowWrite,
+      screenPaths: plan.screens.map((s) => s.path),
       onStreamStart,
       onProgress: (e) => (e.type === "file" ? void emit(e) : undefined),
     }),
@@ -281,6 +282,7 @@ export async function buildApp(input: {
         request: screenStep(screen),
         baseFiles: sharedFiles,
         expectPaths: [screen.path],
+        screenPaths: screens.map((s) => s.path),
         allowWrite: {
           test: (path) => path === screen.path || path.startsWith(dir),
           describe: `${screen.path} and a new component in ${dir} may be written`,
