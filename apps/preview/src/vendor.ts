@@ -22,6 +22,7 @@ import {
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "./shims/safe-area";
 import { StatusBar } from "./shims/status-bar";
 import { Ionicons } from "./shims/vector-icons";
+import * as fileSystem from "./shims/file-system";
 import * as haptics from "./shims/haptics";
 import * as storeReview from "./shims/store-review";
 import * as svg from "./shims/svg";
@@ -64,6 +65,7 @@ export const vendorModules: Readonly<Record<string, unknown>> = {
   "expo-notifications": esm(notifications),
   "expo-camera": esm({ CameraView, useCameraPermissions }),
   "expo-image-picker": esm(imagePicker),
+  "expo-file-system": esm(fileSystem),
   "expo-location": esm(location),
   "expo-constants": esm(constants, constants),
   "react-native-purchases": esm(purchasesSdk, purchasesSdk),

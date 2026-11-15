@@ -26,5 +26,6 @@ export const EXPO_SDK = {
     "expo-haptics": "~58.0.7",
     "lottie-react-native": "~7.5.0",
     "expo-store-review": "~58.0.2",
+    "expo-file-system": "~58.0.13",
   },
 } as const;

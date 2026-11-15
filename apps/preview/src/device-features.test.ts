@@ -121,3 +121,98 @@ describe("alarms on dates (template helpers)", () => {
     resetNotifications();
   });
 });
+
+describe("kept photos (template helpers)", () => {
+  const { keepPhoto, photoUri, keptName, forgetPhoto } = modules.require("data/photos.ts") as {
+    keepPhoto: (p: {
+      uri: string;
+      base64: string | null;
+      width: number;
+      height: number;
+    }) => Promise<{
+      uri: string;
+    }>;
+    photoUri: (uri: string) => string;
+    keptName: (uri: string) => string | null;
+    forgetPhoto: (uri: string) => void;
+  };
+
+  it("finds a kept photo by its name, wherever the documents folder has moved", () => {
+    expect(
+      keptName("file:///var/mobile/Containers/Data/Application/1F0A/Documents/photos/lx8k2a9.jpg"),
+    ).toBe("lx8k2a9.jpg");
+    expect(keptName("file:///data/user/0/app/files/photos/a1.png")).toBe("a1.png");
+    // Picked photos still in the cache, and web URLs, aren't kept ones.
+    expect(
+      keptName(
+        "file:///var/mobile/Containers/Data/Application/1F0A/Library/Caches/ImagePicker/x.jpg",
+      ),
+    ).toBeNull();
+    expect(keptName("https://example.com/photos/x.jpg")).toBeNull();
+  });
+
+  it("leaves photos as they are in the preview, which has no files", async () => {
+    const photo = { uri: "data:image/png;base64,AAAA", base64: "AAAA", width: 1, height: 1 };
+    expect(await keepPhoto(photo)).toEqual(photo);
+    expect(photoUri(photo.uri)).toBe(photo.uri);
+    expect(() => forgetPhoto(photo.uri)).not.toThrow();
+  });
+});
+
+describe("App Cloud data (template data/remote.ts)", () => {
+  // An app with App Cloud on, against an in-memory stand-in for App Cloud's collections API.
+  const cloudModules = createModuleSystem(
+    {
+      ...project,
+      "data/backend.ts": `export const backend = { apiUrl: "https://cloud.test", projectId: "p_test" };\nexport const images = { endpoint: "" };\n`,
+    },
+    vendorModules,
+    { instrument: false },
+  );
+  const server = new Map<string, Record<string, { id: string }>>();
+  const realFetch = globalThis.fetch;
+  const fakeFetch = async (input: string | URL | Request, init: RequestInit = {}) => {
+    const url = new URL(String(input));
+    const respond = (body: unknown) => new Response(JSON.stringify(body), { status: 200 });
+    if (url.pathname.endsWith("/auth/anonymous")) return respond({ token: "tok_device_1" });
+    const [, , , , , collection, id] = url.pathname.split("/");
+    const rows = (server.get(collection!) ?? {}) as Record<string, { id: string }>;
+    server.set(collection!, rows);
+    if (init.method === "POST") {
+      for (const r of (JSON.parse(String(init.body)) as { records: { id: string }[] }).records)
+        rows[r.id] = r;
+      return respond({ ok: true });
+    }
+    if (init.method === "DELETE") {
+      delete rows[decodeURIComponent(id!)];
+      return respond({ ok: true });
+    }
+    return respond({ records: Object.values(rows) });
+  };
+
+  it("keeps a collection empty after the person deletes everything in it", async () => {
+    globalThis.fetch = fakeFetch as typeof fetch;
+    try {
+      const { remoteRepository } = cloudModules.require("data/remote.ts") as {
+        remoteRepository: {
+          list: (c: string) => Promise<{ id: string }[]>;
+          remove: (c: string, id: string) => Promise<void>;
+        };
+      };
+      // This device first sees the collection with records (made on another device, or the
+      // preview's shared user), so it never seeds it itself.
+      server.set("habits", { h1: { id: "h1" }, h2: { id: "h2" } });
+      expect((await remoteRepository.list("habits")).map((r) => r.id).sort()).toEqual(["h1", "h2"]);
+      for (const r of await remoteRepository.list("habits"))
+        await remoteRepository.remove("habits", r.id);
+      // Deleting everything must not bring the starting rows back.
+      expect(await remoteRepository.list("habits")).toEqual([]);
+      expect(Object.keys(server.get("habits")!)).toEqual([]);
+
+      // A collection this device has never seen with records still gets its starting rows.
+      expect((await remoteRepository.list("checkins")).length).toBeGreaterThan(0);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+});

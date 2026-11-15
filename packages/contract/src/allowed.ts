@@ -75,6 +75,8 @@ export const IMPORTABLE_MODULES: Readonly<Record<string, readonly string[] | "*"
   ],
   // Used through <Lottie> and <Celebrate> from components/lottie (see PLATFORM_ONLY_MODULES).
   "lottie-react-native": ["default"],
+  // Kept photos, used through keepPhoto() and photoUri() from data/photos (see PLATFORM_ONLY_MODULES).
+  "expo-file-system": ["Directory", "File", "Paths"],
   // Apple's rating prompt, used through noteWin() from data/growth (see PLATFORM_ONLY_MODULES).
   "expo-store-review": ["hasAction", "isAvailableAsync", "requestReview"],
   // Hire Shelby support chat, only in data/support-chat.ts (written by the platform) and used
@@ -109,6 +111,8 @@ export const PLATFORM_ONLY_MODULES: Readonly<Record<string, string>> = {
     "Schedule alarms with setAlarms() from data/alarms, the daily habit's nudges with enableNudges() from data/habit or the daily reminder with useReminder() from data/reminders; register for the owner's notifications with registerForPush() from data/push.",
   "expo-camera": "Show the camera with <CameraCapture> from components/camera.",
   "expo-image-picker": "Pick or take a photo with pickPhoto() from data/photos.",
+  "expo-file-system":
+    "Keep a photo with keepPhoto() from data/photos and show it with photoUri(); forget it with forgetPhoto().",
   "expo-location": "Get the person's location with useLocation() from data/location.",
   "expo-constants": "The platform's helpers read the app's configuration.",
   "react-native-purchases": "Sell premium with usePurchases() from data/purchases.",
