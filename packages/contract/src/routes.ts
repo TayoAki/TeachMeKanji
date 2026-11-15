@@ -38,6 +38,8 @@ export interface RouteMatch {
 }
 
 const ROUTE_FILE = /\.(tsx|ts|jsx|js)$/;
+/** A group folder, "(tabs)": it adds no URL segment. */
+const GROUP = /^\(.*\)$/;
 
 export function buildRouteTree(paths: Iterable<string>): LayoutRoute {
   const appFiles = [...paths].filter((p) => p.startsWith("app/") && ROUTE_FILE.test(p));
@@ -94,7 +96,7 @@ function toPattern(file: string): Segment[] {
     .split("/");
   const segments: Segment[] = [];
   parts.forEach((part, i) => {
-    if (/^\(.*\)$/.test(part)) return; // groups add no URL segment
+    if (GROUP.test(part)) return; // groups add no URL segment
     if (part === "index" && i === parts.length - 1) return;
     const param = /^\[(?:\.\.\.)?(.+)\]$/.exec(part);
     segments.push(param ? { type: "param", name: param[1]! } : { type: "static", value: part });
@@ -127,13 +129,41 @@ export function splitHref(href: string): { pathname: string; query: Record<strin
   return { pathname, query };
 }
 
+/** True when the screen's file sits inside these groups, in this order. */
+function inGroups(file: string, groups: string[]): boolean {
+  const dirs = file
+    .split("/")
+    .slice(1, -1)
+    .filter((d) => GROUP.test(d));
+  let next = 0;
+  for (const dir of dirs) if (dir === groups[next]) next++;
+  return next === groups.length;
+}
+
+/** The path an app reads (usePathname): an href's pathname without its groups. */
+export function pathnameOf(href: string): string {
+  const { pathname } = splitHref(href);
+  return (
+    "/" +
+    pathname
+      .split("/")
+      .filter((p) => p && !GROUP.test(decodeURIComponent(p)))
+      .join("/")
+  );
+}
+
 export function matchRoute(tree: LayoutRoute, href: string): RouteMatch | null {
   const { pathname, query } = splitHref(href);
-  const parts = pathname.split("/").filter(Boolean).map(decodeURIComponent);
+  const all = pathname.split("/").filter(Boolean).map(decodeURIComponent);
+  // Expo Router accepts groups in an href ("/(tabs)/stats"): they add no URL segment and only
+  // pick the screen inside them.
+  const groups = all.filter((p) => GROUP.test(p));
+  const parts = all.filter((p) => !GROUP.test(p));
   let best: { match: RouteMatch; score: number } | null = null;
 
   for (const { layouts, screen } of screens(tree)) {
     if (screen.pattern.length !== parts.length) continue;
+    if (!inGroups(screen.file, groups)) continue;
     const params: Record<string, string> = {};
     let score = 0;
     let ok = true;

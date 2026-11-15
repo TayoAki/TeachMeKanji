@@ -26,7 +26,7 @@ import {
   hrefFor,
   matchRoute,
   normalizeHref,
-  splitHref,
+  pathnameOf,
   type LayoutRoute,
   type RouteMatch,
   type RouteNode,
@@ -161,7 +161,7 @@ export function useLocalSearchParams<
 export const useGlobalSearchParams = useLocalSearchParams;
 
 export function usePathname(): string {
-  return splitHref(useContext(ScreenContext).href).pathname;
+  return pathnameOf(useContext(ScreenContext).href);
 }
 
 export function useFocusEffect(effect: () => void | (() => void)): void {
