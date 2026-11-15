@@ -125,8 +125,10 @@ and accounts with one switch and no setup.
   record, 200 per write, 7 MB per request body.
 - **Users:** a device gets an anonymous user on first launch, so its data is saved
   immediately. `useAuth()` signs up (upgrading the anonymous user in place, so its data stays
-  theirs), signs in and out. Passwords are scrypt-hashed; sessions are random bearer tokens
-  stored as SHA-256 hashes, valid 90 days.
+  theirs), signs in and out. The workspace preview's shared user is never upgraded; a sign-up
+  there gets a copy of its records instead, so the preview (and the AI tester) see what a phone
+  would. Passwords are scrypt-hashed; sessions are random bearer tokens stored as SHA-256
+  hashes, valid 90 days.
 - **API:** `/api/app/<projectId>/auth/*` and `/collections/<name>[/<id>]`, CORS-open and
   authenticated only by bearer tokens (never cookies), because apps call it from phones, the
   sandboxed preview and published web pages. Every query is scoped to the project and to the

@@ -127,7 +127,8 @@ export async function signOutApp(db: Database, token: string): Promise<void> {
 /**
  * Create an email account. If the caller is an anonymous user, that user is upgraded in place,
  * so the data they created before signing up stays theirs. The workspace preview's shared user
- * is never upgraded: its tokens are handed to every editor.
+ * is never upgraded (its tokens are handed to every editor): the new account gets a copy of its
+ * records instead, so signing up in the preview keeps what was saved, as it does on a phone.
  */
 export async function signUpApp(
   db: Database,
@@ -156,10 +157,14 @@ export async function signUpApp(
         .where(eq(appUser.id, current.id))
         .returning()) as [AppUser];
     } else {
-      [user] = (await db
-        .insert(appUser)
-        .values({ id: newId("au"), projectId, email, name, passwordHash })
-        .returning()) as [AppUser];
+      user = await db.transaction(async (tx) => {
+        const [created] = (await tx
+          .insert(appUser)
+          .values({ id: newId("au"), projectId, email, name, passwordHash })
+          .returning()) as [AppUser];
+        if (current && isPreviewUser(current)) await copyRecords(tx, current, created);
+        return created;
+      });
     }
   } catch (error) {
     // Two sign-ups with the same email at once: the unique index decides.
@@ -169,6 +174,33 @@ export async function signUpApp(
     throw error;
   }
   return { user, token: await createSession(db, user) };
+}
+
+type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
+
+/**
+ * Copy one user's records to another (a sign-up from the workspace preview's shared user), under
+ * the project's write lock and within the account's and the app's storage limits: the newest
+ * records come first when not all of them fit.
+ */
+async function copyRecords(tx: Tx, from: AppUser, to: AppUser): Promise<void> {
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"app-cloud:" + from.projectId}))`);
+  const [{ total }] = (await tx
+    .select({ total: count() })
+    .from(appRecord)
+    .where(eq(appRecord.projectId, from.projectId))) as [{ total: number }];
+  const room = Math.min(
+    APP_CLOUD_LIMITS.recordsPerAccount,
+    APP_CLOUD_LIMITS.recordsPerProject - total,
+  );
+  if (room <= 0) return;
+  await tx.execute(sql`
+    insert into ${appRecord} (project_id, owner_id, collection, id, data)
+    select project_id, ${to.id}, collection, id, data from ${appRecord}
+    where project_id = ${from.projectId} and owner_id = ${from.id}
+    order by updated_at desc
+    limit ${room}
+  `);
 }
 
 /**
