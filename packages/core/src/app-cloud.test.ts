@@ -123,6 +123,50 @@ describe("App Cloud (Postgres)", () => {
     expect(summary.collections).toEqual([{ name: "notes", records: 1 }]);
   });
 
+  it("signs up from the workspace preview with a copy of its records, and leaves the shared user as it was", async () => {
+    // On a phone, sign-up keeps what the person saved as a guest (the user is upgraded in place).
+    // The preview's shared user can't be upgraded, so its records are copied instead, and the
+    // preview behaves like a phone for the owner and the AI tester.
+    const p = await cloudProject();
+    const previewToken = await previewSession(db, p.id);
+    const preview = (await sessionUser(db, p.id, previewToken))!;
+    await putRecords(db, preview, "doses", [
+      { id: "d1", at: "2026-11-14" },
+      { id: "d2", at: "2026-11-15" },
+    ]);
+    await putRecords(db, preview, "vials", [{ id: "v1", label: "Vial A" }]);
+
+    const signedUp = await signUpApp(
+      db,
+      p.id,
+      { email: "tester@example.com", password: "long-password" },
+      preview,
+    );
+    expect(signedUp.user.id).not.toBe(preview.id);
+    expect(await listRecords(db, signedUp.user, "doses")).toEqual([
+      { id: "d1", at: "2026-11-14" },
+      { id: "d2", at: "2026-11-15" },
+    ]);
+    expect(await listRecords(db, signedUp.user, "vials")).toEqual([{ id: "v1", label: "Vial A" }]);
+
+    // The copy is the account's own: changing it leaves the shared user's records alone.
+    await putRecords(db, signedUp.user, "doses", [{ id: "d3", at: "2026-11-16" }]);
+    expect(await listRecords(db, preview, "doses")).toHaveLength(2);
+    expect((await sessionUser(db, p.id, previewToken))?.id).toBe(preview.id);
+
+    // Signing up from a real device's guest still moves its records, without copying.
+    const anon = await createAnonymousUser(db, p.id);
+    await putRecords(db, anon.user, "doses", [{ id: "x1", at: "2026-11-15" }]);
+    const moved = await signUpApp(
+      db,
+      p.id,
+      { email: "phone@example.com", password: "long-password" },
+      anon.user,
+    );
+    expect(moved.user.id).toBe(anon.user.id);
+    expect(await listRecords(db, moved.user, "doses")).toEqual([{ id: "x1", at: "2026-11-15" }]);
+  });
+
   it("deletes an account with its data, sessions and push tokens, but only empties the preview user", async () => {
     const p = await cloudProject();
     const anon = await createAnonymousUser(db, p.id);
