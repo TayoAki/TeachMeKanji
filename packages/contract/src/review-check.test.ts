@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { paymentsConfigFile, withStoreSettings } from "./platform-config";
+import { withSupportEmail } from "./app-privacy";
+import { appInfoFile } from "./app-structure";
+import { paymentsConfigFile, supportChatFile, withStoreSettings } from "./platform-config";
 import { reviewCheck, type ReviewContext } from "./review-check";
 
 const app = {
@@ -64,5 +66,36 @@ describe("the App Review check", () => {
     expect(byId["native"]?.status).toBe("warn");
     expect(byId["delete-account"]?.fix).toContain("deleteAccount()");
     expect(byId["complete"]?.detail).toContain("app/(tabs)/index.tsx");
+  });
+
+  it("needs a support email for the support page App Review visits", () => {
+    expect(status(app)["support"]).toBe("pass");
+    const noEmail = withSupportEmail(app, "");
+    expect(noEmail["data/app-info.ts"]).toContain('supportEmail: ""');
+    expect(status(noEmail)["support"]).toBe("fail");
+    const chatOnly = {
+      ...noEmail,
+      "data/support-chat.ts": supportChatFile({ appId: "app_abcdefgh1234" }),
+    };
+    expect(status(chatOnly)["support"]).toBe("warn");
+    expect(withSupportEmail(noEmail, "help@water.app")["data/app-info.ts"]).toContain(
+      'supportEmail: "help@water.app"',
+    );
+  });
+
+  it("reads the app-info.ts the platform writes (quoted keys)", () => {
+    const written = {
+      ...app,
+      "data/app-info.ts": appInfoFile({
+        name: "Streaks",
+        version: "1.0.0",
+        supportEmail: "help@example.com",
+        privacyUrl: "https://example.com/privacy",
+        termsUrl: "https://example.com/terms",
+      }),
+    };
+    expect(written["data/app-info.ts"]).toContain('"privacyUrl": "https://example.com/privacy"');
+    expect(status(written)["privacy-policy"]).toBe("pass");
+    expect(status(written)["support"]).toBe("pass");
   });
 });

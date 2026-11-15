@@ -7,18 +7,30 @@
  * user's App Store Connect API key (which also lets EAS create the signing certificate and
  * profile), or Google Play's internal testing track (as a draft release) with their Play
  * service account key. The keys are written into the build folder only for the run.
+ *
+ * Sending to TestFlight also fills the app's App Store Connect record (fillAppStoreConnect): the
+ * Privacy Policy, Support and Marketing URLs of the pages App Builder hosts for the app, and any
+ * empty listing text from the Store listing step.
  */
 import { existsSync } from "node:fs";
 import { chmod, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
-import { and, eq } from "drizzle-orm";
-import { readStoreSettings, readSupportChat, withAppIdentifiers } from "@appbuilder/contract";
+import { and, desc, eq } from "drizzle-orm";
+import {
+  hostedAppPages,
+  readAppPrivacyUrl,
+  readStoreSettings,
+  readSupportChat,
+  withAppIdentifiers,
+  type StoreListing,
+} from "@appbuilder/contract";
 import {
   commitVersion,
   dataDir,
   decryptSecret,
   exportBundle,
+  fillAppStoreConnect,
   getCurrentFiles,
   parseAppStoreConnectKey,
   parsePlayServiceAccount,
@@ -28,7 +40,7 @@ import {
 import { schema } from "@appbuilder/db";
 import { AgentError } from "../agents/agents";
 import { ensureRuntime } from "../device";
-import { withHostedLegalLinks } from "../platform-url";
+import { platformUrl, withHostedLegalLinks } from "../platform-url";
 import { withIncludedSupportChat } from "../support-chat";
 import { childEnv, materialize } from "../project";
 import type { HandlerContext, HandlerResult } from "./context";
@@ -76,6 +88,23 @@ async function storeKey(ctx: HandlerContext, provider: "app-store-connect" | "pl
   return decryptSecret(row.encryptedToken);
 }
 
+/** The listing the last successful Store listing run wrote, if any. */
+async function latestListing(ctx: HandlerContext): Promise<StoreListing | null> {
+  const [row] = await ctx.db
+    .select({ output: schema.agentRun.output })
+    .from(schema.agentRun)
+    .where(
+      and(
+        eq(schema.agentRun.projectId, ctx.run.projectId),
+        eq(schema.agentRun.kind, "store_listing"),
+        eq(schema.agentRun.status, "succeeded"),
+      ),
+    )
+    .orderBy(desc(schema.agentRun.createdAt))
+    .limit(1);
+  return (row?.output as { listing?: StoreListing } | null)?.listing ?? null;
+}
+
 export async function handleNativeBuild(ctx: HandlerContext): Promise<HandlerResult> {
   const input = ctx.run.input as {
     platform: "android" | "ios";
@@ -120,6 +149,7 @@ export async function handleNativeBuild(ctx: HandlerContext): Promise<HandlerRes
   const env: Record<string, string> = {};
   let submit: Record<string, unknown> = {};
   const secrets: Array<{ name: string; content: string }> = [];
+  let appStore: { key: ReturnType<typeof parseAppStoreConnectKey>; ascAppId: string } | null = null;
   if (input.submit && input.platform === "ios") {
     const key = parseAppStoreConnectKey(await storeKey(ctx, "app-store-connect"));
     const { ascAppId } = readStoreSettings(files);
@@ -127,6 +157,7 @@ export async function handleNativeBuild(ctx: HandlerContext): Promise<HandlerRes
       throw new AgentError(
         "Add the App Store Connect app ID in the build dialog first (create the app in App Store Connect with the bundle ID shown there).",
       );
+    appStore = { key, ascAppId };
     secrets.push({ name: "asc-api-key.p8", content: key.privateKey });
     Object.assign(env, {
       EXPO_ASC_API_KEY_PATH: "./asc-api-key.p8",
@@ -200,6 +231,18 @@ export async function handleNativeBuild(ctx: HandlerContext): Promise<HandlerRes
       ? (JSON.parse(json) as Array<{ id: string; buildDetailsPageUrl?: string }>)
       : [];
     const build = builds[0];
+    let listing: { filled: string[]; note: string } | null = null;
+    if (appStore) {
+      await ctx.emit("step", { label: "Filling in the app's App Store Connect links" });
+      const pages = hostedAppPages(platformUrl(), ctx.run.projectId);
+      listing = await fillAppStoreConnect(appStore.key, appStore.ascAppId, {
+        privacyPolicyUrl: readAppPrivacyUrl(files) || pages.privacyUrl,
+        supportUrl: pages.supportUrl,
+        marketingUrl: pages.marketingUrl,
+        listing: await latestListing(ctx),
+        platformOrigin: platformUrl(),
+      });
+    }
     return {
       output: {
         platform: input.platform,
@@ -207,6 +250,7 @@ export async function handleNativeBuild(ctx: HandlerContext): Promise<HandlerRes
         submit: Boolean(input.submit),
         buildId: build?.id ?? null,
         detailsUrl: build?.buildDetailsPageUrl ?? null,
+        ...(listing ? { appStoreFilled: listing.filled, appStoreNote: listing.note } : {}),
       },
     };
   } finally {

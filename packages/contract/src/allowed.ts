@@ -75,6 +75,8 @@ export const IMPORTABLE_MODULES: Readonly<Record<string, readonly string[] | "*"
   ],
   // Used through <Lottie> and <Celebrate> from components/lottie (see PLATFORM_ONLY_MODULES).
   "lottie-react-native": ["default"],
+  // Apple's rating prompt, used through noteWin() from data/growth (see PLATFORM_ONLY_MODULES).
+  "expo-store-review": ["hasAction", "isAvailableAsync", "requestReview"],
   // Hire Shelby support chat, only in data/support-chat.ts (written by the platform) and used
   // through useSupport() from components/support.
   "@hireshelby/react-native": ["HireShelby", "useUnreadCount"],
@@ -95,7 +97,8 @@ export const INSTRUMENTED_MODULES: ReadonlySet<string> = new Set([
 
 /**
  * Native modules only the platform's own files import; generated code uses the helpers:
- * useShareImage() (components/share), useReminder() (data/reminders), setAlarms() (data/alarms), <CameraCapture>
+ * useShareImage() (components/share), useReminder() (data/reminders), setAlarms() (data/alarms),
+ * enableNudges() (data/habit), <CameraCapture>
  * (components/camera), pickPhoto() (data/photos), useLocation() (data/location) and
  * registerForPush() (data/push).
  */
@@ -103,7 +106,7 @@ export const PLATFORM_ONLY_MODULES: Readonly<Record<string, string>> = {
   "react-native-view-shot": "Share a card as an image with useShareImage() from components/share.",
   "expo-sharing": "Share a card as an image with useShareImage() from components/share.",
   "expo-notifications":
-    "Schedule alarms with setAlarms() from data/alarms or the daily reminder with useReminder() from data/reminders; register for the owner's notifications with registerForPush() from data/push.",
+    "Schedule alarms with setAlarms() from data/alarms, the daily habit's nudges with enableNudges() from data/habit or the daily reminder with useReminder() from data/reminders; register for the owner's notifications with registerForPush() from data/push.",
   "expo-camera": "Show the camera with <CameraCapture> from components/camera.",
   "expo-image-picker": "Pick or take a photo with pickPhoto() from data/photos.",
   "expo-location": "Get the person's location with useLocation() from data/location.",
@@ -115,6 +118,8 @@ export const PLATFORM_ONLY_MODULES: Readonly<Record<string, string>> = {
     'Play an animation with <Lottie name="success" | "confetti" | "loading" | "heart" | "sparkle" /> or <Celebrate trigger={…} /> from components/lottie.',
   "@hireshelby/react-native":
     "Offer help with useSupport() or <SupportButton /> from components/support.",
+  "expo-store-review":
+    "Call noteWin() from data/growth after each success of the core loop; it asks for a rating at the right time.",
 };
 
 /** AsyncStorage may only be used by the data layer, never directly by screens. */

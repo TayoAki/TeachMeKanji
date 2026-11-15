@@ -6,6 +6,7 @@ import { fixtureProject } from "../project";
 import { canRenderScreens, closeRenderer, renderScreens } from "../render/screens";
 import { AppSession } from "./app-session";
 import {
+  casesRequest,
   CASES_SYSTEM,
   TESTER_SYSTEM,
   failureReport,
@@ -271,6 +272,18 @@ describe("what the walkthrough reports", () => {
     expect(report).toContain("TypeError: x is undefined");
     expect(report).not.toContain("Add an alarm");
     expect(report).not.toContain("Sky photo");
+  });
+
+  it("after a chat edit, tests that change first, without needing a plan", () => {
+    const request = casesRequest(null, ["/(tabs)/index"], "Add a snooze button to the ring screen");
+    expect(request).toContain('"Add a snooze button to the ring screen"');
+    expect(request).toContain("2 to 4 test cases: the change itself");
+    expect(request).toContain("no saved plan");
+    const text = walkthroughSummary(
+      { files: {}, repaired: false, cases: cases.slice(0, 1) },
+      { change: true },
+    );
+    expect(text).toContain("I tried the change in the web preview, 1 case: 1 works");
   });
 
   it("tells the owner what works, what was fixed, what doesn't and what needs a phone", () => {

@@ -22,6 +22,8 @@ export const TEMPLATE_FILES = [
   "data/reminders.ts",
   "data/alarms.ts",
   "data/notifications.ts",
+  "data/growth.ts",
+  "data/habit.ts",
   "components/AiImage.tsx",
   "components/share.ts",
   "components/camera.tsx",

@@ -56,13 +56,15 @@ export interface WalkthroughResult {
 
 export const CASES_SYSTEM = `You write test cases for a mobile app before real people use it: the things a person does with it, each checked through the app's own screens.`;
 
-export function casesRequest(plan: AppPlan, routes: string[]): string {
-  return `The app's plan:
+export function casesRequest(plan: AppPlan | null, routes: string[], change?: string): string {
+  const app = plan
+    ? `The app's plan:
 ${JSON.stringify(
   {
     appName: plan.appName,
     summary: plan.summary,
     coreLoop: plan.coreLoop,
+    ...(plan.habit?.daily ? { dailyHabit: plan.habit.daily } : {}),
     onboarding: plan.onboarding.steps.map((s) => ({ kind: s.kind, title: s.title })),
     monetization: plan.monetization,
     screens: plan.screens.map((s) => ({ title: s.title, route: s.path, purpose: s.purpose })),
@@ -70,10 +72,16 @@ ${JSON.stringify(
   },
   null,
   1,
-)}
+)}`
+    : "The app has no saved plan; work from its routes and screens.";
+  const what = change
+    ? `This test follows a change the owner just asked for: "${change.slice(0, 600)}"
+Write 2 to 4 test cases: the change itself working end to end through the app's screens first, then the core loop and anything the change could have broken.`
+    : `Write ${MAX_CASES - 4} to ${MAX_CASES} test cases in the order a new user meets them. Cover: the first launch and onboarding (when there is one); the core loop end to end (create or do the main thing and see it where it should appear); that what the user saves is still there after leaving the screen and after relaunching the app; the paywall (closing it works, and a purchase in the preview's test mode unlocks what it promises); settings that change the app; the daily habit when there is one (doing today's action marks today done and the streak shows 1, and doing it again doesn't count twice); the viral loop (sharing the app's best moment, inviting a friend); and every main screen's main action.`;
+  return `${app}
 Routes in the build: ${routes.join(", ")}
 
-Write ${MAX_CASES - 4} to ${MAX_CASES} test cases in the order a new user meets them. Cover: the first launch and onboarding (when there is one); the core loop end to end (create or do the main thing and see it where it should appear); that what the user saves is still there after leaving the screen and after relaunching the app; the paywall (closing it works, and a purchase in the preview's test mode unlocks what it promises); settings that change the app; and every main screen's main action. Each case:
+${what} Each case:
 - title: what the user does, in a few words ("Add an alarm for 6:30 on weekdays").
 - goal: what to do, the way a person would follow it through the screens (no code, no routes).
 - expect: what must be visible afterwards for it to work.
@@ -109,7 +117,7 @@ Answer with one action at a time:
 - wait: seconds (at most 15), for something due soon (an alarm set a few seconds away, data arriving).
 - relaunch: close and reopen the app, to check that something was saved.
 - done: result "pass" when you saw the expected result; "fail" when a control did nothing, showed the wrong thing, lost what was saved, crashed, or the goal can't be reached through the app; "blocked" when it needs something the preview can't do (a real camera photo, the microphone, an email inbox, a store purchase). observed says exactly what happened and on which screen, in one or two sentences.
-Errors the app threw count as a failure. Purchases in the preview are test purchases: they should unlock what the paywall promises. Fill fields an unused action doesn't need with -1, "" or "none".`;
+Errors the app threw count as a failure. Purchases in the preview are test purchases: they should unlock what the paywall promises. Sharing in the preview shows "Share sheet: …" with what would be shared for a few seconds: seeing it, with the right message and link, means sharing works. Fill fields an unused action doesn't need with -1, "" or "none".`;
 
 const ACTION_SCHEMA = {
   type: "object",
@@ -276,8 +284,9 @@ async function runCases(
 async function writeCases(
   createMessage: CreateMessage,
   model: string,
-  plan: AppPlan,
+  plan: AppPlan | null,
   files: ProjectFiles,
+  change?: string,
 ): Promise<TestCase[]> {
   const routes = Object.keys(files)
     .filter((p) => p.startsWith("app/") && !p.endsWith("_layout.tsx"))
@@ -290,11 +299,11 @@ async function writeCases(
       format: { type: "json_schema", schema: CASES_SCHEMA as unknown as Record<string, unknown> },
     },
     system: CASES_SYSTEM,
-    messages: [{ role: "user", content: casesRequest(plan, routes) }],
+    messages: [{ role: "user", content: casesRequest(plan, routes, change) }],
   });
   try {
     const { cases } = JSON.parse(textOf(response)) as { cases: TestCase[] };
-    return cases.filter((c) => c.title && c.goal && c.expect).slice(0, MAX_CASES);
+    return cases.filter((c) => c.title && c.goal && c.expect).slice(0, change ? 4 : MAX_CASES);
   } catch {
     return [];
   }
@@ -319,11 +328,14 @@ export function failureReport(results: CaseResult[]): string {
 export async function walkthroughApp(
   ctx: HandlerContext,
   input: {
-    plan: AppPlan;
+    /** The app's plan (null for an app made without one). */
+    plan: AppPlan | null;
     files: ProjectFiles;
     themeId?: string;
     storage?: Record<string, string>;
     buildModel: string;
+    /** After a chat edit: the request, so the cases test that change and what it could break. */
+    change?: string;
   },
 ): Promise<WalkthroughResult | null> {
   if (process.env.WALKTHROUGH === "0" || !(await canRunApps())) return null;
@@ -336,8 +348,12 @@ export async function walkthroughApp(
   const firstRun: CaseResult[] = [];
   let standing: CaseResult[] | null = null;
   try {
-    await ctx.emit("step", { label: "Writing test cases for what people will do in the app" });
-    const cases = await writeCases(createMessage, model, input.plan, files);
+    await ctx.emit("step", {
+      label: input.change
+        ? "Writing test cases for the change"
+        : "Writing test cases for what people will do in the app",
+    });
+    const cases = await writeCases(createMessage, model, input.plan, files, input.change);
     if (!cases.length)
       return {
         files,
@@ -359,7 +375,7 @@ export async function walkthroughApp(
         createMessage,
         model: input.buildModel,
         system: codeSystem("The app's current files:", filesAsContext(files)),
-        request: `Testing the app in the preview the way a person uses it found these problems:\n${failureReport(results)}\n\nFix them so each of these works through the app's screens. Change only what the fixes need. Start with <summary>one sentence</summary>, then a <file> block with the complete new contents of every file you change.`,
+        request: `${input.change ? `The owner just asked for this change, which must stay: "${input.change.slice(0, 600)}". ` : ""}Testing the app in the preview the way a person uses it found these problems:\n${failureReport(results)}\n\nFix them so each of these works through the app's screens. Change only what the fixes need. Start with <summary>one sentence</summary>, then a <file> block with the complete new contents of every file you change.`,
         baseFiles: files,
       });
       if (repair.ok) {
@@ -404,16 +420,22 @@ export async function walkthroughApp(
   }
 }
 
-/** One paragraph for the build's chat message. */
-export function walkthroughSummary(result: WalkthroughResult): string {
+/** One paragraph for the chat message of a build (or, with `change`, of an edit). */
+export function walkthroughSummary(
+  result: WalkthroughResult,
+  options: { change?: boolean } = {},
+): string {
   if (!result.cases.length) return result.stopped ?? "";
   const passed = result.cases.filter((r) => r.status === "pass");
   const fixed = passed.filter((r) => r.fixed);
   const failed = result.cases.filter((r) => r.status === "fail");
   const blocked = result.cases.filter((r) => r.status === "blocked");
   const count = result.cases.length;
+  const tested = options.change
+    ? `I tried the change in the web preview, ${count} ${count === 1 ? "case" : "cases"}`
+    : `I tested ${count} ${count === 1 ? "thing" : "things"} a person does in the app, in the web preview`;
   const parts = [
-    `I tested ${count} ${count === 1 ? "thing" : "things"} a person does in the app, in the web preview: ${passed.length} ${passed.length === 1 ? "works" : "work"}${
+    `${tested}: ${passed.length} ${passed.length === 1 ? "works" : "work"}${
       fixed.length ? ` (I fixed ${fixed.map((r) => r.title).join(", ")})` : ""
     }.`,
   ];

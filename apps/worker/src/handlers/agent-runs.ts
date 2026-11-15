@@ -433,6 +433,10 @@ export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
   // mockups the request wasn't about must still match them.
   const planRow = await latestPlan(ctx.db, project.id);
   const plan = planRow ? (planRow.data as unknown as AppPlan) : null;
+  const storage: Record<string, string> =
+    project.backend === "cloud"
+      ? { "app:auth:token": await previewSession(ctx.db, project.id) }
+      : {};
   const locked =
     result.changed.length > 0
       ? await lockEdit(ctx, {
@@ -444,10 +448,7 @@ export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
           plan,
           mockups: planRow ? await approvedMockups(ctx.db, project.id, planRow.id) : undefined,
           themeId: project.activeThemeId ?? plan?.themes[0]?.id,
-          storage:
-            project.backend === "cloud"
-              ? { "app:auth:token": await previewSession(ctx.db, project.id) }
-              : {},
+          storage,
           buildModel: ctx.editModel,
           reviewModel: ctx.offline ? ctx.model : DESIGN_REVIEW_MODEL(),
         })
@@ -455,6 +456,28 @@ export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
   if (locked) {
     result.files = locked.files;
     result.changed = locked.changed;
+  }
+
+  // Use the change the way a person would before it's saved, and fix what it broke (free).
+  const tested =
+    result.changed.length > 0
+      ? await walkthroughApp(ctx, {
+          plan,
+          files: result.files,
+          themeId: project.activeThemeId ?? plan?.themes[0]?.id,
+          storage,
+          buildModel: ctx.editModel,
+          change: input.request,
+        })
+      : null;
+  if (tested?.repaired) {
+    const before = result.files;
+    const repairedPaths = [
+      ...Object.keys(tested.files).filter((p) => tested.files[p] !== before[p]),
+      ...Object.keys(before).filter((p) => !(p in tested.files)),
+    ];
+    result.files = tested.files;
+    result.changed = [...new Set([...result.changed, ...repairedPaths])];
   }
 
   let versionId: string | null = null;
@@ -483,8 +506,25 @@ export async function handleEdit(ctx: HandlerContext): Promise<HandlerResult> {
     role: "assistant",
     runId: ctx.run.id,
     content: {
-      text: [result.summary, ...(locked?.notes ?? []), ...connectors.notes].join("\n\n"),
+      text: [
+        result.summary,
+        ...(locked?.notes ?? []),
+        ...(tested ? [walkthroughSummary(tested, { change: true })] : []),
+        ...connectors.notes,
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
       changed: result.changed,
+      ...(tested?.cases.length
+        ? {
+            test: tested.cases.map(({ title, status, observed, fixed }) => ({
+              title,
+              status,
+              observed,
+              ...(fixed ? { fixed } : {}),
+            })),
+          }
+        : {}),
       versionId,
       // Undo goes back to the version before this edit (and refunds it within a day).
       undoVersionId: versionId ? current.versionId : null,

@@ -30,4 +30,5 @@ export * from "./funnel-report";
 export * from "./admin-report";
 export * from "./backup";
 export * from "./store-credentials";
+export * from "./app-store-metadata";
 export * from "./design";

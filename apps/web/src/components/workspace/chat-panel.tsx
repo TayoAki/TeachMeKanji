@@ -91,6 +91,16 @@ function PlanCard({
               <dd className="inline text-muted-foreground">{plan.coreLoop}</dd>
             </div>
           ) : null}
+          {plan.habit?.daily ? (
+            <div data-testid="plan-habit">
+              <dt className="inline font-medium">Every day: </dt>
+              <dd className="inline text-muted-foreground">
+                {plan.habit.daily}, with a streak.
+                {plan.habit.carrot ? ` Morning nudge: “${plan.habit.carrot}”` : ""}
+                {plan.habit.stick ? ` Evening, if not done yet: “${plan.habit.stick}”` : ""}
+              </dd>
+            </div>
+          ) : null}
         </dl>
       ) : null}
       <ol className="mt-3 space-y-2">
@@ -115,6 +125,19 @@ function PlanCard({
           </li>
         ))}
       </ol>
+      {plan.leftOut?.length ? (
+        <div className="mt-3 rounded-lg bg-muted/60 p-2 text-xs" data-testid="plan-left-out">
+          <p className="font-medium">Left out, so App Review only sees what works:</p>
+          <ul className="mt-1 space-y-1 text-muted-foreground">
+            {plan.leftOut.map((l, i) => (
+              <li key={i}>
+                <span className="text-foreground">{l.feature}</span>: {l.reason}.{" "}
+                {l.instead ? `Instead: ${l.instead}.` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {plan.collections.length ? (
         <p className="mt-3 text-xs text-muted-foreground">
           Data:{" "}

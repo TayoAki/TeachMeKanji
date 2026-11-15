@@ -13,17 +13,24 @@ Decide the product first:
 - audience: who it is for, specifically, in one line.
 - angle: what makes this app distinct: the personal story, frustration or point of view behind it. Use the user's own words and context when they give any; otherwise choose a specific, believable angle rather than a generic one.
 - coreLoop: the one action people come back to repeat. The first version nails this loop; leave everything else out.
-- shareMoment: one result in the app worth screenshotting or sharing (a streak card, a finished plan, a score), shown in a main screen.
+- shareMoment: one result in the app worth screenshotting or sharing (a streak card, a finished plan, a score), shown in a main screen. It is what people post and what a demo video shows, so make it look good in a screen recording: one bold result, big type, a short signature animation (a reveal, a count-up).
+- habit: why people come back every day, which is what keeps an app alive after the first week. People return for a daily ritual, not for a tool they need once: an app for planning a single date or booking a trip is opened once and forgotten. So find the one thing worth doing every day (today's question, today's workout, today's word) and make it the core loop the home screen leads with.
+  - daily: that action in a few words, e.g. "Answer today's question".
+  - carrot: the morning nudge about what's waiting today, specific to this app, under 90 characters.
+  - stick: the evening nudge on a day that isn't done yet: what they'd lose, i.e. their streak ("{streak}" becomes the number), and in an app shared with a partner or friends, the person waiting on them, only when that's true. Under 90 characters, honest, no invented urgency.
+  - All three "" only when the app truly isn't a daily one (a converter, a one-time calculator).
 
 Every app has four parts, in this order in "screens":
-1. Onboarding: role "onboarding", path app/onboarding.tsx, kind "stack". onboarding.steps holds 2 to 4 steps that get people to their first win fast. Prefer steps that do work: a "question" that personalizes the app (2 to 5 short options, an answerKey the main app reads), a "demo" that lets them try the core action once, or a "permission" step that explains the daily reminder before asking for it (only if the app has one). At most one "value" step; no generic promotional slides.
+1. Onboarding: role "onboarding", path app/onboarding.tsx, kind "stack". onboarding.steps holds 2 to 4 steps that get people to their first win fast. Prefer steps that do work: a "question" that personalizes the app (2 to 5 short options, an answerKey the main app reads), a "demo" that lets them try the core action once, or a "permission" step that explains the daily nudge (or the reminder, or alarms) before asking for it (only if the app has one; an app with a habit should have it). At most one "value" step; no generic promotional slides.
 2. Paywall: role "paywall", path app/paywall.tsx, kind "stack". monetization.premiumFeatures lists 2 to 4 concrete things premium unlocks, each of which a main screen will show (locked for free users). monetization.offers lists 1 to 3 plans: id, label, price (e.g. "$4.99"), period (week, month, year or lifetime), trialDays (0 for none) and a short badge such as "Save 40%" or "". Price for this audience. The free app must still deliver the core loop.
 3. Main app: role "main". ${defaultScreens} screens by default, or the number the user asks for, never more than ${maxScreens}. 2 to 5 of them are tabs: the first tab is the home screen at exactly app/(tabs)/index.tsx, the other tabs at app/(tabs)/<key>.tsx. Screens opened from a tab (detail, add/edit forms) are "stack" screens at app/<key>.tsx; a detail screen for one record uses a route parameter: app/<collection-singular>/[id].tsx. The home tab puts the core loop one tap away.
 4. Settings: role "settings", path app/settings.tsx, kind "stack". Its purpose names the preferences that matter for this app.
 
 Rules for the plan:
-- Plan only what the app can really do: its data (on the device, or App Cloud accounts when enabled), its screens, the platform's purchases, one daily local reminder at a time the user picks, sharing a card as an image, taking a photo with the camera or picking one from the library, scanning a barcode or QR code, the person's current location (coordinates and the place name), notifications the owner sends to everyone who opted in (App Cloud apps), and AI features: a small, fast AI that answers a question, explains, gives feedback, suggests, or describes what is in a photo (one request at a time, a few seconds each; the owner's credits pay for it). It can't use contacts, health data, audio, video, Bluetooth, maps or background tracking, so don't plan features, onboarding steps or premium perks that need them.
-- Habit and learning apps usually benefit from the daily reminder (a reason to come back) and from sharing the share moment as an image.
+- This first version is a launch prototype: it goes to App Review to open App Store pre-orders, and Apple rejects an app that shows a feature that doesn't work or promises one it doesn't have. So plan a small app whose every feature really works, not a long list.
+- Plan only what the app can really do: its data (on the device, or App Cloud accounts when enabled), its screens, the platform's purchases, a daily habit with a streak and a morning and an evening nudge, one daily local reminder at a time the user picks, alarms at set times on chosen days (they ring once with the phone's ringtone, like a notification, even when the app is closed, and open the alarm's own screen), sharing a card as an image, inviting friends with a link, Apple's own rating prompt, taking a photo with the camera or picking one from the library, scanning a barcode or QR code, the person's current location (coordinates and the place name), notifications the owner sends to everyone who opted in (App Cloud apps), and AI features: a small, fast AI that answers a question, explains, gives feedback, suggests, or describes what is in a photo, including checking that a photo shows something (one request at a time, a few seconds each; the owner's credits pay for it). It can't record or play audio (no custom or looping sounds, no voice), play video, count steps or motion, or use contacts, health data, Bluetooth, maps, widgets or background tracking, so don't plan features, onboarding steps or premium perks that need them.
+- leftOut: every feature the user's idea asks for that the app can't really do this way, each with the reason in plain words and what the plan does instead (for example "Read a verse aloud" → no microphone → "read it on screen, then tap I'm up"). [] when nothing is left out. Never plan a stand-in that only pretends (a fake timer for pushups, a button that claims to verify).
+- Apps people use every day get the habit (a streak and the two nudges) rather than the plain daily reminder, and share the share moment as an image.
 - Every screen must be useful with local data. Define 1 to 3 collections (snake_case names, plural) with realistic fields; "id" is implicit, don't list it.
 - Give every screen a concise purpose that says what it shows and what the user can do there, and an Ionicons icon name.
 - Propose exactly 5 distinct visual themes (at least 2 dark), each with a short id, a name, a one-line mood and a primary color as #RRGGBB. Avoid the generic purple-to-blue look unless the idea calls for it.
@@ -218,6 +225,7 @@ export function roleGuidance(plan: AppPlan, screen: PlanScreen): string {
   const answerKeys = steps
     .filter((s) => s.kind === "question" && s.answerKey)
     .map((s) => s.answerKey);
+  const habit = plan.habit?.daily ? plan.habit : null;
   if (screen.role === "onboarding") {
     return `This is the onboarding flow, shown on first launch. Build every step in this one screen (keep the current step in state; no new routes), in this order:
 ${bullet(
@@ -225,7 +233,9 @@ ${bullet(
     s.kind === "question"
       ? `question: "${s.title}" ${s.body} Options: ${s.options.join(" / ")}. Save with setAnswer("${s.answerKey}", option).`
       : s.kind === "permission"
-        ? `permission: "${s.title}" ${s.body} Explain the daily reminder first, then "Turn on reminders" calls useReminder().enable({ title, body }) with copy written for this app (and a sensible hour); in an app with alarms, explain that notifications are how its alarms ring and the button calls useAlarms().request() from data/alarms instead. "Not now" moves on. A declined permission must not block onboarding.`
+        ? habit
+          ? `permission: "${s.title}" ${s.body} Explain the two nudges first (a morning one about what's waiting, an evening one only if the day isn't done yet), then "Turn on nudges" calls enableNudges(nudges) from data/habit, with nudges imported from data/nudges. "Not now" moves on. A declined permission must not block onboarding.`
+          : `permission: "${s.title}" ${s.body} Explain the daily reminder first, then "Turn on reminders" calls useReminder().enable({ title, body }) with copy written for this app (and a sensible hour); in an app with alarms, explain that notifications are how its alarms ring and the button calls useAlarms().request() from data/alarms instead. "Not now" moves on. A declined permission must not block onboarding.`
         : `${s.kind}: "${s.title}" ${s.body}`,
   ),
 )}
@@ -250,16 +260,22 @@ ${bullet(features)}
   if (screen.role === "settings") {
     return `This is Settings, a stack screen: set the title with <Stack.Screen options={{ title: "Settings" }} /> and use the navigator's header (no custom title text). Grouped sections with small uppercase headers and rows separated by hairlines, in a ScrollView:
 - Subscription: the status from usePurchases() (premium with activeOffer, or an "Upgrade to Premium" row calling openPaywall()), "Restore Purchases" (restorePurchases(), showing the outcome) and "Manage subscription" opening https://apps.apple.com/account/subscriptions on iOS or https://play.google.com/store/account/subscriptions on Android (Platform.OS, Linking.openURL).
-- Preferences that matter for this app (${screen.purpose}). Show onboarding answers (useAppState().answers${answerKeys.length ? `: ${answerKeys.join(", ")}` : ""}) with a "Change" action that calls resetOnboarding(). Use a Switch only for something that really changes the app. If the app has a daily reminder, a "Daily reminder" row with a Switch (useReminder().enable / disable) and the time (setTime), and a note when permission was denied. An "Appearance" row with three choices (System, Light, Dark) from useAppearance() in theme/ThemeProvider.
+- Preferences that matter for this app (${screen.purpose}). Show onboarding answers (useAppState().answers${answerKeys.length ? `: ${answerKeys.join(", ")}` : ""}) with a "Change" action that calls resetOnboarding(). Use a Switch only for something that really changes the app. ${habit ? 'A "Daily nudges" row with a Switch (useHabit().nudgesOn; on: enableNudges(nudges) with nudges from data/nudges, off: disableNudges()) and a note when permission was denied.' : 'If the app has a daily reminder, a "Daily reminder" row with a Switch (useReminder().enable / disable) and the time (setTime), and a note when permission was denied.'} An "Appearance" row with three choices (System, Light, Dark) from useAppearance() in theme/ThemeProvider. An "Invite friends" row that calls inviteFriends() from data/growth.
 - Support and legal: Contact support (mailto:appInfo.supportEmail), Privacy Policy and Terms of Use (appInfo), each hidden when empty.
 - About: the app name and "Version " + appInfo.version.
 - "Replay onboarding" calling resetOnboarding().`;
   }
   const isHome = screen.path === "app/(tabs)/index.tsx";
-  const lines = [`Core loop of this app: ${plan.coreLoop || plan.summary}`];
+  const lines = [
+    habit
+      ? `Core loop of this app: ${plan.coreLoop || plan.summary}. The daily habit is "${habit.daily}": where this screen completes it, call useHabit().complete() from data/habit right after the success (it also counts the win for the rating prompt, so no noteWin() for it), then celebrate with <Celebrate> from components/lottie, bigger when it resolves milestone: true. Another success of the core loop that isn't today's habit calls noteWin() from data/growth.`
+      : `Core loop of this app: ${plan.coreLoop || plan.summary}. Where this screen completes it (a task done, a day kept), call noteWin() from data/growth right after the success.`,
+  ];
   if (isHome)
     lines.push(
-      'This is the home screen: put the core action one tap away near the top, and a settings button in the top-right corner (Ionicons "settings-outline", accessibilityLabel "Settings") that opens /settings.',
+      habit
+        ? `This is the home screen. It leads with today's action, "${habit.daily}": one large card or button near the top named in plain words, showing whether it's done today (useHabit().doneToday) and what comes after; the streak beside it as a headline number (<CountUp> with the streak and "day streak") and the week as seven small dots (useHabit().week, today's marked). At most three other entry points, each plainly named. A settings button in the top-right corner (Ionicons "settings-outline", accessibilityLabel "Settings") opens /settings.`
+        : 'This is the home screen: put the core action one tap away near the top, and a settings button in the top-right corner (Ionicons "settings-outline", accessibilityLabel "Settings") that opens /settings.',
     );
   if (features.length)
     lines.push(
@@ -267,7 +283,7 @@ ${bullet(features)}
     );
   if (plan.shareMoment)
     lines.push(
-      `Share moment: ${plan.shareMoment}. If it belongs on this screen, design it as a polished card worth posting (real data, not empty placeholders), wrapped in <View ref={ref} collapsable={false}> from useShareImage() (components/share), with a Share button that calls share({ message }) to share it as an image.`,
+      `Share moment: ${plan.shareMoment}. If it belongs on this screen, design it as a polished card worth posting (real data, not empty placeholders), wrapped in <View ref={ref} collapsable={false}> from useShareImage() (components/share), with a Share button that calls share({ message }) to share it as an image, and next to it an invite (inviteFriends(message) from data/growth) whose copy says why a friend makes this better.`,
     );
   if (answerKeys.length)
     lines.push(

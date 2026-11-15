@@ -6,8 +6,8 @@ import JSZip from "jszip";
 import { Check, Copy, Download, Images, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import {
-  appPrivacyPath,
   buildRouteTree,
+  hostedAppPages,
   readAppPrivacyUrl,
   screens as listScreens,
   STORE_LIMITS,
@@ -62,10 +62,14 @@ export function StoreListingDialog({
   const [runId, setRunId] = useState<string | null>(null);
   const [shots, setShots] = useState<Shot[]>([]);
   const [capturing, setCapturing] = useState<string | null>(null);
-  // The app's own Privacy link, or the policy App Builder hosts for it (filled on the next run).
-  const privacyUrl =
-    readAppPrivacyUrl(files) ||
-    (typeof window === "undefined" ? "" : window.location.origin + appPrivacyPath(projectId));
+  // The pages App Builder hosts for the app; the app's own Privacy link wins when it has one.
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
+  const pages = origin ? hostedAppPages(origin, projectId) : null;
+  const links = {
+    privacyUrl: readAppPrivacyUrl(files) || pages?.privacyUrl || "",
+    supportUrl: pages?.supportUrl ?? "",
+    marketingUrl: pages?.marketingUrl ?? "",
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -95,7 +99,7 @@ export function StoreListingDialog({
   const download = async () => {
     if (!listing) return;
     const zip = new JSZip();
-    zip.file("listing.txt", listingText(listing, privacyUrl));
+    zip.file("listing.txt", listingText(listing, links));
     for (const [index, shot] of shots.entries()) {
       const name = `${String(index + 1).padStart(2, "0")}-${slug(shot.caption)}.png`;
       zip.file(`${SIZES.appStore.folder}/${name}`, shot.appStore.split(",")[1]!, { base64: true });
@@ -155,10 +159,21 @@ export function StoreListingDialog({
               max={STORE_LIMITS.description}
               long
             />
-            <Field
-              label="Privacy Policy URL (App Store Connect and Google Play)"
-              value={privacyUrl}
-            />
+            <div className="grid gap-3 sm:grid-cols-3" data-testid="listing-links">
+              <Field
+                label="Privacy Policy URL (App Store Connect and Google Play)"
+                value={links.privacyUrl}
+              />
+              <Field label="Support URL (App Store Connect)" value={links.supportUrl} />
+              <Field
+                label="Marketing URL (App Store Connect) / Website (Google Play)"
+                value={links.marketingUrl}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Send to TestFlight fills these links in App Store Connect for you, with any listing
+              text you haven&rsquo;t written there yet.
+            </p>
 
             <div className="flex flex-wrap items-center gap-2">
               <Button
@@ -406,7 +421,10 @@ function slug(text: string): string {
     .slice(0, 40);
 }
 
-function listingText(listing: StoreListing, privacyUrl: string): string {
+function listingText(
+  listing: StoreListing,
+  links: { privacyUrl: string; supportUrl: string; marketingUrl: string },
+): string {
   return [
     `Name (App Store, ${STORE_LIMITS.name}): ${listing.name}`,
     `Subtitle (App Store, ${STORE_LIMITS.subtitle}): ${listing.subtitle}`,
@@ -414,7 +432,9 @@ function listingText(listing: StoreListing, privacyUrl: string): string {
     `Keywords (App Store, ${STORE_LIMITS.keywords}): ${listing.keywords}`,
     `Short description (Google Play, ${STORE_LIMITS.shortDescription}): ${listing.shortDescription}`,
     `Category: ${listing.category}`,
-    `Privacy Policy URL (both stores): ${privacyUrl}`,
+    `Privacy Policy URL (both stores): ${links.privacyUrl}`,
+    `Support URL (App Store): ${links.supportUrl}`,
+    `Marketing URL (App Store) / Website (Google Play): ${links.marketingUrl}`,
     "",
     "Description (both stores):",
     listing.description,

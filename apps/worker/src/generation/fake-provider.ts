@@ -140,7 +140,7 @@ function respond(params: Params): string {
   const screen = /Write the screen `([^`]+)` \("([^"]+)"/.exec(request);
   if (screen)
     return formatFileBlocks({
-      [screen[1]!]: screenFile(screen[1]!, screen[2]!, systemText(params)),
+      [screen[1]!]: screenFile(screen[1]!, screen[2]!, systemText(params), request),
     });
   if (request.includes("Change request:")) return fakeEdit(request, systemText(params));
   return "<summary>Nothing to change.</summary>";
@@ -149,6 +149,21 @@ function respond(params: Params): string {
 /** Two test cases from the plan in the request (offline mode can't judge what matters most). */
 function fakeTestCases(request: string) {
   const plan = /"appName": "([^"]+)"/.exec(request)?.[1] ?? "the app";
+  if (request.includes("This test follows a change"))
+    return {
+      cases: [
+        {
+          title: "Try the change",
+          goal: "Open the screen the change was about and use it.",
+          expect: "The change shows and works.",
+        },
+        {
+          title: "Open the app",
+          goal: `Open ${plan} and look at the first screen.`,
+          expect: "The first screen shows the app's content.",
+        },
+      ],
+    };
   return {
     cases: [
       {
@@ -299,6 +314,7 @@ function fakePlan(request: string): AppPlan {
 
   const idea = /App idea: (.*)/.exec(request)?.[1] ?? "";
   const d = domainFor(idea);
+  const daily = /\b(daily|every day|habit|streak)\b/i.test(idea);
   const screens: PlanScreen[] = [
     {
       key: "home",
@@ -367,6 +383,24 @@ function fakePlan(request: string): AppPlan {
     angle: `Built for logging in seconds, not managing a spreadsheet`,
     coreLoop: `Add a ${d.singular} in two taps and see the running total`,
     shareMoment: `A monthly summary card of your ${d.collection}`,
+    // Like the real planner: a daily habit when the idea is something people do every day.
+    habit: daily
+      ? {
+          daily: `Log today's ${d.singular}`,
+          carrot: `Today's ${d.singular} takes a minute.`,
+          stick: "Your {streak}-day streak ends at midnight.",
+        }
+      : { daily: "", carrot: "", stick: "" },
+    // Like the real planner: what the idea asks for that apps can't really do.
+    leftOut: /\b(aloud|voice|custom sounds?)\b/i.test(idea)
+      ? [
+          {
+            feature: "Voice and custom sounds",
+            reason: "apps can't record or play audio",
+            instead: "on-screen steps and the phone's own ringtone",
+          },
+        ]
+      : [],
     onboarding: {
       steps: [
         {
@@ -383,6 +417,17 @@ function fakePlan(request: string): AppPlan {
           options: [],
           answerKey: "",
         },
+        ...(daily
+          ? [
+              {
+                kind: "permission" as const,
+                title: "A nudge each morning",
+                body: "And one in the evening, only if today isn't done.",
+                options: [],
+                answerKey: "",
+              },
+            ]
+          : []),
       ],
     },
     monetization: {
@@ -659,16 +704,19 @@ function contextInfo(system: string) {
 
 const prefix = (path: string) => "../".repeat(path.split("/").length - 1);
 
-function screenFile(path: string, title: string, system: string): string {
+function screenFile(path: string, title: string, system: string, request = ""): string {
   const { collection, noun, detailRoute, addRoute } = contextInfo(system);
   const root = prefix(path);
+  // Like the real model: the daily habit, when the plan has one (see roleGuidance).
+  const habit = /The daily habit is "([^"]+)"/.exec(request)?.[1];
+  const nudges = request.includes("enableNudges(nudges)");
   if (path === "app/(tabs)/index.tsx")
-    return listScreen(root, title, collection, noun, detailRoute, addRoute);
+    return listScreen(root, title, collection, noun, detailRoute, addRoute, habit);
   if (path.includes("[id]")) return detailScreen(root, collection, noun);
   if (path.startsWith("app/add-")) return formScreen(root, title, collection, noun);
-  if (path === "app/onboarding.tsx") return onboardingScreen(root, collection);
+  if (path === "app/onboarding.tsx") return onboardingScreen(root, collection, nudges);
   if (path === "app/paywall.tsx") return paywallScreen(root);
-  if (path === "app/settings.tsx") return structureSettingsScreen(root);
+  if (path === "app/settings.tsx") return structureSettingsScreen(root, nudges);
   if (/settings/.test(path)) return settingsScreen(root, title, collection, noun);
   return statsScreen(root, title, collection, noun);
 }
@@ -689,17 +737,25 @@ function listScreen(
   noun: string,
   detail?: string,
   add?: string,
+  habit?: string,
 ) {
   return `import { Ionicons } from "@expo/vector-icons";
 import { Link } from "expo-router";
 ${head(root, ", Pressable")}
 import { Appear, CountUp } from "${root}components/motion";
-import { formatDate, VALUE_LABEL, type ${noun} } from "${root}data/schema";
+${
+  habit
+    ? `import { useHabit } from "${root}data/habit";
+`
+    : ""
+}import { formatDate, VALUE_LABEL, type ${noun} } from "${root}data/schema";
 
 export default function HomeScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { items, update } = useCollection<${noun}>(${JSON.stringify(collection)});
+  const { items, update } = useCollection<${noun}>(${JSON.stringify(collection)});${
+    habit ? "\n  const habit = useHabit();" : ""
+  }
   const total = items.reduce((sum, item) => sum + item.value, 0);
   const done = items.filter((item) => item.done).length;
 
@@ -716,7 +772,7 @@ export default function HomeScreen() {
         <Text style={{ color: theme.colors.text, fontSize: theme.font.size.display, fontWeight: theme.font.weight.bold }}>
           ${title}
         </Text>
-        <View style={{ backgroundColor: theme.colors.primary, borderRadius: theme.radius.lg, padding: theme.spacing.lg, gap: theme.spacing.xs }}>
+${habit ? habitCard(habit) : ""}        <View style={{ backgroundColor: theme.colors.primary, borderRadius: theme.radius.lg, padding: theme.spacing.lg, gap: theme.spacing.xs }}>
           <Text style={{ color: theme.colors.onPrimary, fontSize: theme.font.size.caption }}>Total {VALUE_LABEL.toLowerCase()}</Text>
           <CountUp value={total} style={{ color: theme.colors.onPrimary, fontSize: theme.font.size.display, fontWeight: theme.font.weight.bold }} />
           <Text style={{ color: theme.colors.onPrimary, fontSize: theme.font.size.body }}>
@@ -784,6 +840,29 @@ ${
 }    </View>
   );
 }
+`;
+}
+
+/** Today's action, the streak and the week's dots, at the top of the home screen. */
+function habitCard(daily: string): string {
+  return `        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={habit.doneToday ? "Done for today" : ${JSON.stringify(daily)}}
+          onPress={() => void habit.complete()}
+          style={({ pressed }) => ({ backgroundColor: theme.colors.surface, borderColor: habit.doneToday ? theme.colors.success : theme.colors.primary, borderWidth: 2, borderRadius: theme.radius.lg, padding: theme.spacing.lg, gap: theme.spacing.sm, opacity: pressed ? 0.85 : 1 })}
+        >
+          <Text style={{ color: theme.colors.text, fontSize: theme.font.size.title, fontWeight: theme.font.weight.bold }}>
+            {habit.doneToday ? "Done for today" : ${JSON.stringify(daily)}}
+          </Text>
+          <Text style={{ color: theme.colors.textMuted, fontSize: theme.font.size.body, fontVariant: ["tabular-nums"] }}>
+            {habit.streak} day streak
+          </Text>
+          <View style={{ flexDirection: "row", gap: theme.spacing.xs }}>
+            {habit.week.map((day) => (
+              <View key={day.date} style={{ width: 12, height: 12, borderRadius: theme.radius.pill, backgroundColor: day.done ? theme.colors.success : theme.colors.border, borderWidth: day.today ? 2 : 0, borderColor: theme.colors.primary }} />
+            ))}
+          </View>
+        </Pressable>
 `;
 }
 
@@ -972,11 +1051,15 @@ export default function SettingsScreen() {
 `;
 }
 
-function onboardingScreen(root: string, collection: string) {
+function onboardingScreen(root: string, collection: string, nudges = false) {
   return `import { Pressable, ScrollView, Text, View } from "react-native";
 import { useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAppState } from "${root}data/app-state";
+import { useAppState } from "${root}data/app-state";${
+    nudges
+      ? `\nimport { enableNudges } from "${root}data/habit";\nimport { nudges } from "${root}data/nudges";`
+      : ""
+  }
 import { useTheme } from "${root}theme/ThemeProvider";
 
 const OPTIONS = ["Staying on budget", "Seeing trends", "Just logging"];
@@ -1017,7 +1100,16 @@ export default function OnboardingScreen() {
                 <Text style={{ color: theme.colors.text, fontSize: theme.font.size.body }}>{option}</Text>
               </Pressable>
             ))}
-      </ScrollView>
+      </ScrollView>${
+        nudges
+          ? `
+      {last ? (
+        <Pressable accessibilityRole="button" onPress={() => void enableNudges(nudges)} style={{ padding: theme.spacing.md, alignItems: "center" }}>
+          <Text style={{ color: theme.colors.primary, fontWeight: theme.font.weight.bold }}>Turn on daily nudges</Text>
+        </Pressable>
+      ) : null}`
+          : ""
+      }
       <Pressable
         accessibilityRole="button"
         disabled={!last && !chosen}
@@ -1106,12 +1198,17 @@ export default function PaywallScreen() {
 `;
 }
 
-function structureSettingsScreen(root: string) {
-  return `import { Linking, Platform, Pressable, ScrollView, Text, View } from "react-native";
+function structureSettingsScreen(root: string, nudges = false) {
+  return `import { Linking, Platform, Pressable, ScrollView, Text, View${nudges ? ", Switch" : ""} } from "react-native";
 import { Stack } from "expo-router";
 import { SupportButton } from "${root}components/support";
 import { appInfo } from "${root}data/app-info";
 import { useAppState } from "${root}data/app-state";
+import { inviteFriends } from "${root}data/growth";${
+    nudges
+      ? `\nimport { useHabit } from "${root}data/habit";\nimport { nudges } from "${root}data/nudges";`
+      : ""
+  }
 import { usePurchases } from "${root}data/purchases";
 import { useAppearance, useTheme } from "${root}theme/ThemeProvider";
 
@@ -1121,7 +1218,7 @@ export default function SettingsScreen() {
   const theme = useTheme();
   const { isPremium, activeOffer, status, error, restorePurchases, openPaywall } = usePurchases();
   const { resetOnboarding } = useAppState();
-  const [appearance, setAppearance] = useAppearance();
+  const [appearance, setAppearance] = useAppearance();${nudges ? "\n  const habit = useHabit();" : ""}
   const row = { paddingVertical: theme.spacing.md, borderBottomWidth: 1, borderBottomColor: theme.colors.border };
   const label = { color: theme.colors.text, fontSize: theme.font.size.body };
   const header = { color: theme.colors.textMuted, fontSize: theme.font.size.caption, marginTop: theme.spacing.lg };
@@ -1142,10 +1239,23 @@ export default function SettingsScreen() {
         <Text style={label}>{status === "restoring" ? "Restoring…" : "Restore Purchases"}</Text>
       </Pressable>
       {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
+      <Pressable accessibilityRole="button" onPress={() => inviteFriends()} style={row}>
+        <Text style={label}>Invite friends</Text>
+      </Pressable>
       <Pressable accessibilityRole="button" onPress={() => Linking.openURL(MANAGE_URL)} style={row}>
         <Text style={label}>Manage subscription</Text>
       </Pressable>
-      <Text style={header}>APPEARANCE</Text>
+${
+  nudges
+    ? `      <Text style={header}>DAILY NUDGES</Text>
+      <View style={{ ...row, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <Text style={label}>Daily nudges</Text>
+        <Switch accessibilityLabel="Daily nudges" value={habit.nudgesOn} onValueChange={(on) => void (on ? habit.enableNudges(nudges) : habit.disableNudges())} trackColor={{ true: theme.colors.primary, false: theme.colors.border }} />
+      </View>
+      {habit.permission === "denied" ? <Text style={{ color: theme.colors.textMuted }}>Notifications are off for this app; allow them in your phone's settings.</Text> : null}
+`
+    : ""
+}      <Text style={header}>APPEARANCE</Text>
       <View style={{ ...row, flexDirection: "row", gap: theme.spacing.sm }}>
         {(["system", "light", "dark"] as const).map((option) => (
           <Pressable

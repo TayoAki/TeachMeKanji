@@ -3,6 +3,7 @@
  * and its setup before it goes to the stores. Deterministic and instant. Each failed item says
  * which guideline it is, and those the AI can fix carry the chat request that fixes them.
  */
+import { appInfoField } from "./app-privacy";
 import { STRUCTURE_SCREENS, isStructureScreen } from "./app-structure";
 import { isScreenFile, type ProjectFiles } from "./layout";
 import {
@@ -43,7 +44,7 @@ export interface ReviewReport {
 
 /** Phone capabilities that make an app more than a website (App Store Guideline 4.2). */
 const NATIVE =
-  /\b(haptic|useReminder|setAlarms|registerForPush|CameraCapture|pickPhoto|useLocation|useShareImage|PanResponder|Celebrate)\b/;
+  /\b(haptic|useReminder|setAlarms|enableNudges|inviteFriends|registerForPush|CameraCapture|pickPhoto|useLocation|useShareImage|PanResponder|Celebrate)\b/;
 
 export function reviewCheck(files: ProjectFiles, context: ReviewContext): ReviewReport {
   const items: ReviewItem[] = [];
@@ -59,9 +60,8 @@ export function reviewCheck(files: ProjectFiles, context: ReviewContext): Review
     ([p]) => p.startsWith("app/") || p.startsWith("components/"),
   );
   const ownSource = own.map(([, s]) => s).join("\n");
-  const appInfo = files["data/app-info.ts"] ?? "";
-  const infoField = (name: string) =>
-    new RegExp(`${name}:\\s*"([^"]*)"`).exec(appInfo)?.[1]?.trim() ?? "";
+  // The platform writes app-info.ts with quoted keys; the model may not.
+  const infoField = (name: string) => appInfoField(files, name).trim();
 
   // Purchases (3.1.1 / 3.1.2): a paywall must sell real subscriptions, honestly described.
   if (paywall !== undefined) {
@@ -143,19 +143,25 @@ export function reviewCheck(files: ProjectFiles, context: ReviewContext): Review
       : "The app has no privacy policy link. Ask the AI to rebuild Settings, or set appInfo.privacyUrl: every app needs one.",
     guideline: "App Store 5.1.1(i) · Google Play User Data",
   });
+  // The store listing's Support URL is the hosted support page, which shows the support email:
+  // App Review needs real contact details there (and Android has no chat).
   const chat = Boolean(readSupportChat(files).appId);
   const email = Boolean(infoField("supportEmail"));
   add({
     id: "support",
     title: "A way to contact support",
-    status: pass(chat || email, "warn"),
-    detail: chat
-      ? `Help & support opens the Hire Shelby chat on iOS${email ? " and emails support elsewhere" : "; add a support email for Android, where the chat doesn't run"}.`
-      : email
-        ? "Help & support emails your support address. Connect Hire Shelby for an in-app chat."
-        : "Add a support email (data/app-info.ts) or connect Hire Shelby so people and App Review can reach you; the store listing also needs a support URL.",
+    status: email ? "pass" : chat ? "warn" : "fail",
+    detail: email
+      ? chat
+        ? "Help & support opens the Hire Shelby chat on iOS and emails support elsewhere; the support page shows the email."
+        : "Help & support emails your support address, and the app's support page shows it. Connect Hire Shelby for an in-app chat."
+      : chat
+        ? "Help & support opens the Hire Shelby chat on iOS. Add a support email for Android and for the app's support page, which App Review visits."
+        : "Add a support email so people and App Review can reach you: the app's support page (the listing's Support URL) and Help & support use it.",
     guideline: "App Store 1.5",
-    fix: "Ask me for a support email and put it in data/app-info.ts as supportEmail, then offer it in Settings with <SupportButton />.",
+    fix: email
+      ? undefined
+      : "Ask me for a support email and put it in data/app-info.ts as supportEmail, then offer it in Settings with <SupportButton />.",
   });
 
   // A complete app (2.1, 4.2).

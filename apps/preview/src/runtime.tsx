@@ -34,6 +34,22 @@ installStillMotion();
 // its own errors instead, so apps running here never report.
 (globalThis as { __appbuilderPreview?: boolean }).__appbuilderPreview = true;
 
+// Browsers here have no share sheet (React Native's Share needs navigator.share): show what the
+// app would share for a few seconds, so sharing and invites can be tried in the preview.
+function showShareSheet(data: { title?: string; text?: string; url?: string }): Promise<void> {
+  const sheet = document.createElement("div");
+  sheet.setAttribute("role", "dialog");
+  sheet.setAttribute("aria-label", "Share sheet");
+  sheet.style.cssText =
+    "position:fixed;left:12px;right:12px;bottom:28px;z-index:2147483647;background:rgba(28,28,30,.96);color:#fff;border-radius:16px;padding:14px 16px;font:14px -apple-system,system-ui,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.3);word-break:break-word";
+  sheet.textContent = `Share sheet: ${[data.title, data.text, data.url].filter(Boolean).join(" · ")}`;
+  document.body.appendChild(sheet);
+  setTimeout(() => sheet.remove(), 4000);
+  return Promise.resolve();
+}
+if (!("share" in navigator))
+  Object.defineProperty(navigator, "share", { value: showShareSheet, configurable: true });
+
 const frameId = new URLSearchParams(location.hash.slice(1)).get("frame") ?? "default";
 
 function post(message: FrameToParent) {

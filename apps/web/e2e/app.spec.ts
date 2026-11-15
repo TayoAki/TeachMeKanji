@@ -86,6 +86,10 @@ test("from idea to published app", async ({ page, browser }) => {
   await expect(page.getByText("Changed “Expenses” to “Spending”.")).toBeVisible({
     timeout: 30_000,
   });
+  // The change was tried in the preview like a person would before it was saved.
+  await expect(
+    page.getByText(/I tried the change in the web preview, 2 cases: 2 work/),
+  ).toBeVisible();
   await expect(app.getByText("Spending", { exact: true }).first()).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId("bottom-bar")).toContainText("Version 2");
   // A new version reloads the app with its data.
@@ -521,7 +525,7 @@ test("store builds: keys are checked before saving, identifiers live in app.json
   // Store settings: valid identifiers and the App Store Connect app id, saved as a version.
   const store = async () =>
     (await (await page.request.get(`/api/projects/${projectId}/store`)).json()) as {
-      settings: { ios: string; android: string; ascAppId: string };
+      settings: { ios: string; android: string; ascAppId: string; supportEmail: string };
       keys: { expo: boolean; appStore: boolean; play: boolean };
     };
   const before = await store();
@@ -539,7 +543,24 @@ test("store builds: keys are checked before saving, identifiers live in app.json
     ios: "com.me.water",
     android: "com.me.water",
     ascAppId: "6741234567",
+    supportEmail: "",
   });
+
+  // The support email: on the support page every app gets (the listing's Support URL).
+  const ids = { ios: "com.me.water", android: "com.me.water", ascAppId: "6741234567" };
+  expect((await put({ ...ids, supportEmail: "not an email" })).status()).toBe(400);
+  expect((await put({ ...ids, supportEmail: "help@water.example" })).status()).toBe(200);
+  expect((await store()).settings.supportEmail).toBe("help@water.example");
+  await page.goto(`/apps/${projectId}/support`);
+  await expect(page.getByTestId("support-email")).toHaveText("help@water.example");
+  await expect(
+    page.getByRole("heading", { name: "How do I cancel my subscription?" }),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Privacy policy", exact: true })).toHaveAttribute(
+    "href",
+    new RegExp(`/apps/${projectId}/privacy$`),
+  );
+  expect((await page.request.get("/apps/no-such-project/support")).status()).toBe(404);
   const { files } = (await (await page.request.get(`/api/projects/${projectId}`)).json()) as {
     files: Record<string, string>;
   };
@@ -554,6 +575,7 @@ test("store builds: keys are checked before saving, identifiers live in app.json
   expect(reviewStatus["purchases-real"]).toBe("fail");
   expect(reviewStatus["identifier"]).toBe("pass");
   expect(reviewStatus["crashes"]).toBe("pass");
+  expect(reviewStatus["support"]).toBe("pass");
 
   // Settings: an incomplete App Store Connect key or Play key is refused before anything is sent.
   await page.goto("/settings#integrations");
@@ -856,4 +878,78 @@ test("support chat: connecting Hire Shelby installs its SDK for store builds and
   expect(
     JSON.parse(after["package.json"]!).dependencies["@hireshelby/react-native"],
   ).toBeUndefined();
+});
+
+test("launch prototypes: the plan says what it left out, and invites lead to the app's page", async ({
+  page,
+}) => {
+  await signUp(page, "Grower");
+  await page
+    .getByLabel("Describe your app")
+    .fill("A gratitude journal that reads your entries aloud");
+  await page.getByTestId("prompt-submit").click();
+  await page.waitForURL(/\/projects\//);
+  const projectId = page.url().split("/projects/")[1]!;
+  // What the app can't really do is named on the plan, not built as a pretend feature.
+  await expect(page.getByTestId("plan-left-out")).toContainText("Voice and custom sounds", {
+    timeout: 30_000,
+  });
+  await page.getByTestId("confirm-build").click({ timeout: 30_000 });
+  await expect(page.getByTestId("status")).toHaveText("Ready", { timeout: 60_000 });
+
+  // Invite friends shares a link to the app's own page (the preview shows the share sheet).
+  const settings = page
+    .getByTestId("canvas-screen")
+    .filter({ hasText: "settings.tsx" })
+    .frameLocator("iframe");
+  await settings.getByText("Invite friends").click();
+  await expect(settings.getByRole("dialog", { name: "Share sheet" })).toContainText(
+    `/apps/${projectId}`,
+  );
+
+  // The page says it's coming to the App Store until the app has its App Store record.
+  await page.goto(`/apps/${projectId}`);
+  await expect(page.getByTestId("app-page-name")).toBeVisible();
+  await expect(page.getByTestId("app-page-soon")).toHaveText("Coming soon to the App Store.");
+});
+
+test("the daily habit: the plan's daily action leads home, counts once a day, and has nudges", async ({
+  page,
+}) => {
+  await signUp(page, "Ritual");
+  await page.getByLabel("Describe your app").fill("A daily gratitude journal");
+  await page.getByTestId("prompt-submit").click();
+  await page.waitForURL(/\/projects\//);
+  const projectId = page.url().split("/projects/")[1]!;
+  // The plan says what people come back for every day, and what the two nudges say.
+  const habit = page.getByTestId("plan-habit");
+  await expect(habit).toContainText("Every day: Log today's", { timeout: 30_000 });
+  await expect(habit).toContainText("Your {streak}-day streak ends at midnight.");
+  await page.getByTestId("confirm-build").click({ timeout: 30_000 });
+  await expect(page.getByTestId("status")).toHaveText("Ready", { timeout: 60_000 });
+
+  // The nudges' copy is the app's own, editable file.
+  const { files } = (await (await page.request.get(`/api/projects/${projectId}`)).json()) as {
+    files: Record<string, string>;
+  };
+  expect(files["data/nudges.ts"]).toContain("{streak}-day streak ends at midnight.");
+
+  // Home leads with today's action; doing it starts the streak, and doing it again doesn't count.
+  const home = page
+    .getByTestId("canvas-screen")
+    .filter({ hasText: "index.tsx" })
+    .first()
+    .frameLocator("iframe");
+  await expect(home.getByText("0 day streak")).toBeVisible();
+  await home.getByRole("button", { name: /^Log today's/ }).click();
+  await expect(home.getByText("1 day streak")).toBeVisible();
+  await home.getByRole("button", { name: "Done for today" }).click();
+  await expect(home.getByText("1 day streak")).toBeVisible();
+
+  // Settings turns the nudges on and off.
+  const settings = page
+    .getByTestId("canvas-screen")
+    .filter({ hasText: "settings.tsx" })
+    .frameLocator("iframe");
+  await expect(settings.getByRole("switch", { name: "Daily nudges" })).toBeVisible();
 });
