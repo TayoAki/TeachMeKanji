@@ -61,6 +61,9 @@ export interface GenerateFilesOptions {
  * failures back for repair (append-only conversation). Later attempts only need to resend
  * the files that failed; earlier valid files are kept.
  */
+/** How many times a cut-off answer may continue (each turn writes up to 64k tokens). */
+const MAX_CONTINUATIONS = 3;
+
 export async function generateFiles(options: GenerateFilesOptions): Promise<GenerateFilesResult> {
   const {
     createMessage,
@@ -83,18 +86,34 @@ export async function generateFiles(options: GenerateFilesOptions): Promise<Gene
 
   for (let attempt = 1; attempt <= maxRepairs + 1; attempt++) {
     options.onProgress?.({ type: "attempt", attempt });
-    const response = await createMessage(
-      {
-        model,
-        max_tokens: 64_000,
-        output_config: { effort },
-        system,
-        messages,
-      },
-      // Repairs fix files that failed the platform's checks: the user doesn't pay for them.
-      attempt === 1 ? { onStreamStart: options.onStreamStart } : { free: true },
-    );
+    const ask = (first: boolean) =>
+      createMessage(
+        {
+          model,
+          max_tokens: 64_000,
+          output_config: { effort },
+          system,
+          messages,
+        },
+        // Repairs fix files that failed the platform's checks: the user doesn't pay for them.
+        attempt === 1 ? (first ? { onStreamStart: options.onStreamStart } : {}) : { free: true },
+      );
+    let response = await ask(true);
     usage = addUsage(usage, response);
+    // A long answer (many large files) can hit the output limit. The files finished so far are
+    // kept, and the model continues from the unfinished one, in the same conversation.
+    const turns = [textOf(response)];
+    for (let more = 0; response.stop_reason === "max_tokens" && more < MAX_CONTINUATIONS; more++) {
+      const finished = turns.flatMap((t) => Object.keys(parseFileBlocks(t).files));
+      messages.push({ role: "assistant", content: response.content });
+      messages.push({
+        role: "user",
+        content: `Your answer was cut off${finished.length ? ` after these complete files: ${finished.join(", ")}` : ""}. Continue where you stopped: write the unfinished file again from its start as a complete <file> block, then the remaining files and the summary. Don't repeat the complete files.`,
+      });
+      response = await ask(false);
+      usage = addUsage(usage, response);
+      turns.push(textOf(response));
+    }
     if (response.stop_reason !== "end_turn") {
       const detail =
         response.stop_reason === "refusal"
@@ -103,7 +122,12 @@ export async function generateFiles(options: GenerateFilesOptions): Promise<Gene
       throw new GenerationStopped(response.stop_reason, detail ?? undefined);
     }
 
-    const parsed = parseFileBlocks(textOf(response));
+    // Each turn is read on its own: an unfinished block never runs into the next turn's files.
+    const parsed = turns.map(parseFileBlocks).reduce((all, turn) => ({
+      files: { ...all.files, ...turn.files },
+      deletes: [...all.deletes, ...turn.deletes],
+      summary: turn.summary ?? all.summary,
+    }));
     summary = parsed.summary ?? summary;
     for (const path of parsed.deletes) deletes.add(path);
     const outOfScope: string[] = [];
