@@ -64,7 +64,14 @@ async function list<T extends Record_>(collection: string): Promise<T[]> {
   const starting = seedRows(collection) as Record_[];
   const token = await getToken();
   const seededKey = `${SEEDED_KEY}${collection}:${token.slice(0, 12)}`;
-  if (records.length === 0 && starting.length > 0 && !(await AsyncStorage.getItem(seededKey))) {
+  const seen = await AsyncStorage.getItem(seededKey);
+  // A collection is seeded only the first time this device finds it empty. Once it has had
+  // records here, empty means the person deleted them, and the starting rows stay away.
+  if (records.length > 0) {
+    if (!seen) await AsyncStorage.setItem(seededKey, "1");
+    return records;
+  }
+  if (starting.length > 0 && !seen) {
     await AsyncStorage.setItem(seededKey, "1");
     await api(`/collections/${collection}`, {
       method: "POST",
