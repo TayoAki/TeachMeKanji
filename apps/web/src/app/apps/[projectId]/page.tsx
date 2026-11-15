@@ -38,7 +38,10 @@ export default async function AppPage({ params }: PageProps<"/apps/[projectId]">
             Coming soon to the App Store.
           </p>
         )}
-        <p className="mt-6 text-xs text-muted-foreground">
+        <p className="mt-6 flex justify-center gap-4 text-xs text-muted-foreground">
+          <a href={`/apps/${projectId}/support`} className="underline underline-offset-2">
+            Support
+          </a>
           <a href={`/apps/${projectId}/privacy`} className="underline underline-offset-2">
             Privacy policy
           </a>

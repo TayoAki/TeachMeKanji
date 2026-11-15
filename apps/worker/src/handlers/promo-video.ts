@@ -76,6 +76,7 @@ export async function handlePromoStoryboard(ctx: HandlerContext): Promise<Handle
         angle: plan.angle,
         coreLoop: plan.coreLoop,
         shareMoment: plan.shareMoment,
+        ...(plan.habit?.daily ? { dailyHabit: plan.habit.daily } : {}),
         screens: plan.screens.map((s) => ({ path: s.path, title: s.title, purpose: s.purpose })),
       }
     : { appName: readAppDataPractices(files).appName };

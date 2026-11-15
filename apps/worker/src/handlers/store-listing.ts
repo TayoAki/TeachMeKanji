@@ -40,7 +40,7 @@ export async function handleStoreListing(ctx: HandlerContext): Promise<HandlerRe
     messages: [
       {
         role: "user",
-        content: `The app${plan ? `:\n${JSON.stringify({ appName: plan.appName, summary: plan.summary, audience: plan.audience, angle: plan.angle, coreLoop: plan.coreLoop, shareMoment: plan.shareMoment, premium: plan.monetization.premiumFeatures, screens: plan.screens.map((s) => ({ path: s.path, title: s.title, purpose: s.purpose })) }, null, 2)}` : " has no stored plan."}\n\nScreens you can caption (use these paths exactly): ${screens.join(", ")}\n\nThe main home screen's code:\n${(files["app/(tabs)/index.tsx"] ?? "").slice(0, 6000)}`,
+        content: `The app${plan ? `:\n${JSON.stringify({ appName: plan.appName, summary: plan.summary, audience: plan.audience, angle: plan.angle, coreLoop: plan.coreLoop, shareMoment: plan.shareMoment, dailyHabit: plan.habit?.daily || undefined, premium: plan.monetization.premiumFeatures, screens: plan.screens.map((s) => ({ path: s.path, title: s.title, purpose: s.purpose })) }, null, 2)}` : " has no stored plan."}\n\nScreens you can caption (use these paths exactly): ${screens.join(", ")}\n\nThe main home screen's code:\n${(files["app/(tabs)/index.tsx"] ?? "").slice(0, 6000)}`,
       },
     ],
   });

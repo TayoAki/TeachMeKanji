@@ -16,6 +16,8 @@ import {
   hasErrors,
   MONETIZATION_FILE,
   monetizationFile,
+  NUDGES_FILE,
+  nudgesFile,
   normalizePlan,
   validateProject,
   withAppStructure,
@@ -162,6 +164,8 @@ export async function buildApp(input: {
       termsUrl: "",
     }),
   };
+  // The daily habit's nudges, from the plan (onboarding and Settings turn them on).
+  if (plan.habit?.daily) files = { ...files, [NUDGES_FILE]: nudgesFile(plan.appName, plan.habit) };
   if (design?.images && Object.keys(design.images).length > 0)
     files = { ...files, [IMAGES_FILE]: appImagesFile(design.images) };
   // The theme follows the mockup of the main screen.

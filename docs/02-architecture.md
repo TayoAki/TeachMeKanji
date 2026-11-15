@@ -301,6 +301,18 @@ creates a `restore` version so history stays linear.
   App Store" until the owner saves the App Store ID under Send to the stores, then links to the
   App Store page (where it can be pre-ordered). The preview shows a "Share sheet" overlay for
   anything an app shares.
+- **The daily habit (retention):** people come back for a daily ritual, not a tool they need
+  once, so the plan has a `habit`: the one thing to do each day (`daily`), a morning nudge about
+  what's waiting (`carrot`) and an evening one about the streak they'd lose (`stick`); all ""
+  for apps that aren't daily. The template's `data/habit.ts` keeps the streak on the phone
+  (`useHabit()`, `completeToday()`, which also counts a win for the rating prompt) and schedules
+  the nudges as dated local notifications a week ahead, refreshed whenever the app opens: a
+  carrot each morning not yet done, and a stick only on a day not done yet while there is a
+  streak, with "{streak}" filled in; finishing today calls off today's. The copy and times are
+  `data/nudges.ts`, written from the plan and editable. The home screen leads with today's action
+  and the streak, onboarding's permission step and a Settings switch turn the nudges on, and the
+  walkthrough checks that today's action counts once. The share moment is planned to look good
+  in a screen recording (what people post and what the promo video shows).
 - **Motion:** each screen's build call also gets the direction's motion plan for that screen
   (its moments, and the signature interaction on its screen) and builds it with the platform's
   motion kit, `components/motion.tsx` (template-owned): `Appear`, `Stagger`, `PressScale`,
@@ -482,6 +494,18 @@ SDK ≤ 55, while store Expo Go runs only the latest SDK (58). See
   3. Credentials must exist before the first build: the Android keystore is generated and
      backed up (or managed by EAS), and **iOS requires the user's Apple Developer
      credentials**, collected in an onboarding step.
+- **The pages every app gets, and App Store Connect filled in:** one template per page, filled
+  with the app's own files: `/apps/<projectId>` (the app's page: invites and the Marketing
+  URL), `/apps/<projectId>/privacy` (the privacy policy, from what the app uses) and
+  `/apps/<projectId>/support` (the Support URL: the support email set under Send to the stores,
+  the in-app chat when connected, and answers about purchases, refunds, account deletion,
+  notifications and data). App Review needs real contact details there, so the review check
+  fails without a support email. Send to TestFlight then fills the app's App Store Connect record
+  with the owner's App Store Connect key (`fillAppStoreConnect` in `packages/core`): the Privacy
+  Policy, Support and Marketing URLs, and any empty subtitle, description, keywords and
+  promotional text from the Store listing step. Only editable records change, a link only when
+  it's empty or one of the platform's own, and text the owner typed is never replaced. Google
+  Play's links are copied from the Store listing dialog.
 - **Web publish:** `npx expo export --platform web`, then `eas deploy` with the user's
   token. Store the URL per version, and republish from a newer version.
 

@@ -3,6 +3,7 @@ import {
   APP_INFO_FILE,
   countLimitedScreens,
   MONETIZATION_FILE,
+  NUDGES_FILE,
   withAppStructure,
 } from "./app-structure";
 import { BACKEND_CONFIG_FILE, refreshTemplate } from "./platform-config";
@@ -23,6 +24,7 @@ export function isWritablePath(path: string): boolean {
     "data/seed.ts",
     MONETIZATION_FILE,
     APP_INFO_FILE,
+    NUDGES_FILE,
   ].includes(path);
 }
 
@@ -98,7 +100,7 @@ export function applyChanges(
 function writableReason(path: string): string {
   if (!isSafePath(path)) return "Not a valid relative file path.";
   if (isTemplateFile(path)) return "This file belongs to the platform and can't be changed.";
-  return "Only app/ and components/ (.ts/.tsx), theme/tokens.ts, data/schema.ts, data/seed.ts, data/content/*.ts, data/monetization.ts and data/app-info.ts can be written.";
+  return "Only app/ and components/ (.ts/.tsx), theme/tokens.ts, data/schema.ts, data/seed.ts, data/content/*.ts, data/monetization.ts, data/app-info.ts and data/nudges.ts can be written.";
 }
 
 /** Set the app's display name, slug and URL scheme in app.json. */

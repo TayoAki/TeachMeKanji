@@ -67,6 +67,20 @@ export interface PlanLeftOut {
   instead: string;
 }
 
+/**
+ * Why people come back every day: one daily action with a streak, a morning nudge about what's
+ * waiting (the carrot) and an evening one about the streak they'd lose (the stick). All "" for
+ * an app people don't use daily.
+ */
+export interface PlanHabit {
+  /** The one thing to do each day, e.g. "Answer today's question". */
+  daily: string;
+  /** The morning nudge, e.g. "Today's question is ready: 30 seconds, then see your partner's". */
+  carrot: string;
+  /** The evening nudge on a day not done yet, e.g. "Your 12-day streak ends at midnight". */
+  stick: string;
+}
+
 export interface AppPlan {
   appName: string;
   summary: string;
@@ -78,6 +92,8 @@ export interface AppPlan {
   coreLoop: string;
   /** A result worth screenshotting or sharing. */
   shareMoment: string;
+  /** The daily habit loop. Older plans have none. */
+  habit?: PlanHabit;
   onboarding: { steps: PlanOnboardingStep[] };
   monetization: PlanMonetization;
   screens: PlanScreen[];
@@ -101,6 +117,7 @@ export const APP_PLAN_JSON_SCHEMA = {
     "angle",
     "coreLoop",
     "shareMoment",
+    "habit",
     "onboarding",
     "monetization",
     "screens",
@@ -128,6 +145,16 @@ export const APP_PLAN_JSON_SCHEMA = {
     angle: { type: "string" },
     coreLoop: { type: "string" },
     shareMoment: { type: "string" },
+    habit: {
+      type: "object",
+      additionalProperties: false,
+      required: ["daily", "carrot", "stick"],
+      properties: {
+        daily: { type: "string" },
+        carrot: { type: "string" },
+        stick: { type: "string" },
+      },
+    },
     onboarding: {
       type: "object",
       additionalProperties: false,
@@ -329,6 +356,14 @@ function normalizeMonetization(
   };
 }
 
+function normalizeHabit(input: PlanHabit | undefined): PlanHabit {
+  const daily = cleanText(input?.daily);
+  // Nudges without a daily action have nothing to point at.
+  return daily
+    ? { daily, carrot: cleanText(input?.carrot), stick: cleanText(input?.stick) }
+    : { daily: "", carrot: "", stick: "" };
+}
+
 /**
  * Make a model-proposed (or older, stored) plan safe to build: exactly one onboarding, paywall
  * and settings screen at their fixed routes; for the main screens, valid paths, exactly one home
@@ -466,6 +501,7 @@ export function normalizePlan(
       angle: cleanText(input.angle),
       coreLoop: cleanText(input.coreLoop),
       shareMoment: cleanText(input.shareMoment),
+      habit: normalizeHabit(input.habit),
       onboarding: normalizeOnboarding(input.onboarding, fixes),
       monetization: normalizeMonetization(input.monetization, fixes),
       // The user's journey: first launch, the paywall, the app, then settings.

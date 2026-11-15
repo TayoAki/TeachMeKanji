@@ -20,6 +20,29 @@ export function appPrivacyPath(projectId: string): string {
   return `/apps/${projectId}/privacy`;
 }
 
+/** The app's page (where invites lead; the store listing's Marketing URL). */
+export function appPagePath(projectId: string): string {
+  return `/apps/${projectId}`;
+}
+
+/** The app's support page (the store listing's Support URL). */
+export function appSupportPath(projectId: string): string {
+  return `/apps/${projectId}/support`;
+}
+
+/**
+ * The pages App Builder hosts for every app, from one shared template filled with the app's own
+ * details: what App Store Connect and Play Console ask for when an app is submitted.
+ */
+export function hostedAppPages(appUrl: string, projectId: string) {
+  const origin = appUrl.replace(/\/$/, "");
+  return {
+    privacyUrl: `${origin}${appPrivacyPath(projectId)}`,
+    supportUrl: `${origin}${appSupportPath(projectId)}`,
+    marketingUrl: `${origin}${appPagePath(projectId)}`,
+  };
+}
+
 export interface AppDataPractices {
   /** App Cloud: data saved on App Builder's servers instead of only on the device. */
   cloud: boolean;
@@ -69,7 +92,7 @@ export function readAppDataPractices(files: ProjectFiles): AppDataPractices {
     photos: uses(/\bpickPhoto\s*\(/),
     location: uses(/\buseLocation\s*\(/),
     push: cloud && uses(/\bregisterForPush\s*\(/),
-    reminders: uses(/\b(useReminder|setAlarms)\s*\(/),
+    reminders: uses(/\b(useReminder|setAlarms|enableNudges)\s*\(/),
     purchases: payments.iosApiKey !== "" || payments.androidApiKey !== "",
     supportChat: readSupportChat(files).appId !== "",
     appName: appInfoField(files, "name"),
@@ -80,6 +103,11 @@ export function readAppDataPractices(files: ProjectFiles): AppDataPractices {
 /** The app's Privacy link from data/app-info.ts ("" when not set). */
 export function readAppPrivacyUrl(files: ProjectFiles): string {
   return appInfoField(files, "privacyUrl");
+}
+
+/** The app's Terms link from data/app-info.ts ("" when not set). */
+export function readAppTermsUrl(files: ProjectFiles): string {
+  return appInfoField(files, "termsUrl");
 }
 
 /**
@@ -102,10 +130,24 @@ export function withLegalLinks(
   return next === source ? files : { ...files, [APP_INFO_FILE]: next };
 }
 
+/**
+ * Set the app's support email (data/app-info.ts): Settings' Help & support writes to it, and the
+ * hosted support page shows it. "" removes it.
+ */
+export function withSupportEmail(files: ProjectFiles, email: string): ProjectFiles {
+  const source = files[APP_INFO_FILE];
+  if (source === undefined) return files;
+  const next = source.replace(
+    /(["']?supportEmail["']?\s*:\s*)(["'])[^"'\n]*\2/,
+    (_match, key: string) => `${key}${JSON.stringify(email)}`,
+  );
+  return next === source ? files : { ...files, [APP_INFO_FILE]: next };
+}
+
 /** The links a project gets on the platform at `appUrl` (APP_PUBLIC_URL). */
 export function legalLinksFor(appUrl: string, projectId: string) {
   return {
-    privacyUrl: `${appUrl.replace(/\/$/, "")}${appPrivacyPath(projectId)}`,
+    privacyUrl: hostedAppPages(appUrl, projectId).privacyUrl,
     termsUrl: APPLE_STANDARD_EULA_URL,
   };
 }

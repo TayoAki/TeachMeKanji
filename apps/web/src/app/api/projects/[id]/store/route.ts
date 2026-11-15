@@ -2,9 +2,11 @@ import { and, eq, inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import {
   IDENTIFIER_PATTERN,
+  readAppDataPractices,
   readStoreSettings,
   withAppIdentifiers,
   withStoreSettings,
+  withSupportEmail,
 } from "@appbuilder/contract";
 import { getCurrentFiles } from "@appbuilder/core";
 import { schema } from "@appbuilder/db";
@@ -30,7 +32,10 @@ export const GET = route(
       : [];
     const has = (provider: string) => keys.some((k) => k.provider === provider);
     return NextResponse.json({
-      settings: readStoreSettings(withAppIdentifiers(files, id)),
+      settings: {
+        ...readStoreSettings(withAppIdentifiers(files, id)),
+        supportEmail: readAppDataPractices(files).supportEmail,
+      },
       keys: { expo: has("expo"), appStore: has("app-store-connect"), play: has("play-console") },
     });
   },
@@ -40,12 +45,19 @@ export const PUT = route(
   async (request: Request, ctx: RouteContext<"/api/projects/[id]/store">) => {
     const { id } = await ctx.params;
     const { viewer } = await requireProject(id, "manage");
-    const body = await readJson<{ ios?: string; android?: string; ascAppId?: string }>(request);
+    const body = await readJson<{
+      ios?: string;
+      android?: string;
+      ascAppId?: string;
+      supportEmail?: string;
+    }>(request);
     const settings = {
       ios: String(body.ios ?? "").trim(),
       android: String(body.android ?? "").trim(),
       ascAppId: String(body.ascAppId ?? "").trim(),
     };
+    // Shown on the app's support page (the store listing's Support URL) and in its Settings.
+    const supportEmail = body.supportEmail === undefined ? null : String(body.supportEmail).trim();
     if (!IDENTIFIER_PATTERN.test(settings.ios) || !IDENTIFIER_PATTERN.test(settings.android))
       throw new HttpError(400, "Identifiers look like com.yourname.appname.");
     if (settings.ascAppId && !/^\d{6,12}$/.test(settings.ascAppId))
@@ -53,12 +65,20 @@ export const PUT = route(
         400,
         "The App Store Connect app ID is the number under App Information → Apple ID.",
       );
-    const { versionId } = await commitPlatformChange({
+    if (supportEmail && !/^[^\s@"'<>]+@[^\s@"'<>]+\.[^\s@"'<>]+$/.test(supportEmail))
+      throw new HttpError(400, "The support email doesn't look like an email address.");
+    const { versionId, files } = await commitPlatformChange({
       projectId: id,
       userId: viewer!.id,
       summary: "Store settings",
-      change: (files) => withStoreSettings(files, settings),
+      change: (files) => {
+        const next = withStoreSettings(files, settings);
+        return supportEmail === null ? next : withSupportEmail(next, supportEmail);
+      },
     });
-    return NextResponse.json({ versionId, settings });
+    return NextResponse.json({
+      versionId,
+      settings: { ...settings, supportEmail: readAppDataPractices(files).supportEmail },
+    });
   },
 );

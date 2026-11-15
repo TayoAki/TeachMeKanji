@@ -4,7 +4,13 @@ export { fid, parseFid } from "./fid";
 export type { ProjectFiles } from "./layout";
 export * from "./app-plan";
 export { journeyRank, STRUCTURE_SCREENS } from "./app-structure";
-export { appPrivacyPath, readAppPrivacyUrl } from "./app-privacy";
+export {
+  appPagePath,
+  appPrivacyPath,
+  appSupportPath,
+  hostedAppPages,
+  readAppPrivacyUrl,
+} from "./app-privacy";
 export type { InlinePatch, StyleValue } from "./inline-edit";
 export * from "./routes";
 export * from "./connectors";

@@ -4,6 +4,7 @@
  * routes; the template's root layout gates on data/app-structure.ts, which the platform keeps in
  * step with the files (a structure screen the user deletes is simply skipped).
  */
+import type { PlanHabit } from "./app-plan";
 import { isScreenFile, type ProjectFiles } from "./layout";
 
 export type ScreenRole = "onboarding" | "paywall" | "main" | "settings";
@@ -19,6 +20,8 @@ export type StructureRole = keyof typeof STRUCTURE_SCREENS;
 export const APP_STRUCTURE_FILE = "data/app-structure.ts";
 export const MONETIZATION_FILE = "data/monetization.ts";
 export const APP_INFO_FILE = "data/app-info.ts";
+/** The daily habit's nudge copy and times (apps with a daily habit); editable afterwards. */
+export const NUDGES_FILE = "data/nudges.ts";
 
 export function isStructureScreen(path: string): boolean {
   return (Object.values(STRUCTURE_SCREENS) as string[]).includes(path);
@@ -81,6 +84,26 @@ export const DEFAULT_OFFERS: PlanOffer[] = [
   },
   { id: "monthly", label: "Monthly", price: "$4.99", period: "month", trialDays: 0, badge: "" },
 ];
+
+/** data/nudges.ts from the plan's habit: the morning and evening nudges data/habit schedules. */
+export function nudgesFile(appName: string, habit: PlanHabit): string {
+  const plan = {
+    carrot: { hour: 8, minute: 0, title: appName, body: habit.carrot || `${habit.daily}.` },
+    stick: {
+      hour: 20,
+      minute: 0,
+      title: appName,
+      body: habit.stick || "Your {streak}-day streak ends at midnight.",
+    },
+    href: "/",
+  };
+  return `// The daily habit's nudges (data/habit). Written from the plan; edit the copy or times here.
+// "{streak}" becomes the streak. The evening one only comes on a day that isn't done yet.
+import type { NudgePlan } from "./habit";
+
+export const nudges: NudgePlan = ${JSON.stringify(plan, null, 2)};
+`;
+}
 
 /** data/monetization.ts from the plan (the model may edit it later, e.g. to change prices). */
 export function monetizationFile(monetization: PlanMonetization): string {

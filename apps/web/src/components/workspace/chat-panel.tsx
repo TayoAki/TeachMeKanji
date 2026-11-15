@@ -91,6 +91,16 @@ function PlanCard({
               <dd className="inline text-muted-foreground">{plan.coreLoop}</dd>
             </div>
           ) : null}
+          {plan.habit?.daily ? (
+            <div data-testid="plan-habit">
+              <dt className="inline font-medium">Every day: </dt>
+              <dd className="inline text-muted-foreground">
+                {plan.habit.daily}, with a streak.
+                {plan.habit.carrot ? ` Morning nudge: “${plan.habit.carrot}”` : ""}
+                {plan.habit.stick ? ` Evening, if not done yet: “${plan.habit.stick}”` : ""}
+              </dd>
+            </div>
+          ) : null}
         </dl>
       ) : null}
       <ol className="mt-3 space-y-2">

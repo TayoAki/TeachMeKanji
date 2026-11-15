@@ -64,6 +64,7 @@ ${JSON.stringify(
     appName: plan.appName,
     summary: plan.summary,
     coreLoop: plan.coreLoop,
+    ...(plan.habit?.daily ? { dailyHabit: plan.habit.daily } : {}),
     onboarding: plan.onboarding.steps.map((s) => ({ kind: s.kind, title: s.title })),
     monetization: plan.monetization,
     screens: plan.screens.map((s) => ({ title: s.title, route: s.path, purpose: s.purpose })),
@@ -76,7 +77,7 @@ ${JSON.stringify(
   const what = change
     ? `This test follows a change the owner just asked for: "${change.slice(0, 600)}"
 Write 2 to 4 test cases: the change itself working end to end through the app's screens first, then the core loop and anything the change could have broken.`
-    : `Write ${MAX_CASES - 4} to ${MAX_CASES} test cases in the order a new user meets them. Cover: the first launch and onboarding (when there is one); the core loop end to end (create or do the main thing and see it where it should appear); that what the user saves is still there after leaving the screen and after relaunching the app; the paywall (closing it works, and a purchase in the preview's test mode unlocks what it promises); settings that change the app; the viral loop (sharing the app's best moment, inviting a friend); and every main screen's main action.`;
+    : `Write ${MAX_CASES - 4} to ${MAX_CASES} test cases in the order a new user meets them. Cover: the first launch and onboarding (when there is one); the core loop end to end (create or do the main thing and see it where it should appear); that what the user saves is still there after leaving the screen and after relaunching the app; the paywall (closing it works, and a purchase in the preview's test mode unlocks what it promises); settings that change the app; the daily habit when there is one (doing today's action marks today done and the streak shows 1, and doing it again doesn't count twice); the viral loop (sharing the app's best moment, inviting a friend); and every main screen's main action.`;
   return `${app}
 Routes in the build: ${routes.join(", ")}
 

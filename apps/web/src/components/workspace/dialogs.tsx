@@ -20,6 +20,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { hostedAppPages } from "@appbuilder/contract/protocol";
 import { useRunStream } from "@/hooks/use-run-stream";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -775,7 +776,7 @@ export function DeviceDialog({ open, onOpenChange, projectId }: DialogProps) {
 // --- Send to the stores ------------------------------------------------------------------
 
 interface StoreState {
-  settings: { ios: string; android: string; ascAppId: string };
+  settings: { ios: string; android: string; ascAppId: string; supportEmail: string };
   keys: { expo: boolean; appStore: boolean; play: boolean };
 }
 
@@ -1035,6 +1036,32 @@ function ReviewCheck({
   );
 }
 
+/** The pages App Builder hosts for the app: what the store listings link to. */
+function AppPages({ projectId }: { projectId: string }) {
+  // Rendered in a dialog, so only in the browser.
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
+  if (!origin) return null;
+  const pages = hostedAppPages(origin, projectId);
+  return (
+    <ul className="space-y-1 text-xs text-muted-foreground" data-testid="app-pages">
+      {(
+        [
+          ["Privacy policy", pages.privacyUrl],
+          ["Support", pages.supportUrl],
+          ["Marketing", pages.marketingUrl],
+        ] as const
+      ).map(([label, url]) => (
+        <li key={label} className="flex min-w-0 gap-2">
+          <span className="w-24 shrink-0">{label}</span>
+          <a href={url} target="_blank" rel="noreferrer" className="truncate underline">
+            {url}
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function StoreSubmit({
   projectId,
   onAskAI,
@@ -1044,7 +1071,12 @@ function StoreSubmit({
 }) {
   const [checkPlatform, setCheckPlatform] = useState<"ios" | "android">("ios");
   const [state, setState] = useState<StoreState | null>(null);
-  const [settings, setSettings] = useState({ ios: "", android: "", ascAppId: "" });
+  const [settings, setSettings] = useState({
+    ios: "",
+    android: "",
+    ascAppId: "",
+    supportEmail: "",
+  });
   const [saving, setSaving] = useState(false);
   const [run, setRun] = useState<{ id: string; platform: "ios" | "android" } | null>(null);
   useEffect(() => {
@@ -1059,7 +1091,8 @@ function StoreSubmit({
   const changed =
     settings.ios !== state.settings.ios ||
     settings.android !== state.settings.android ||
-    settings.ascAppId !== state.settings.ascAppId;
+    settings.ascAppId !== state.settings.ascAppId ||
+    settings.supportEmail !== state.settings.supportEmail;
 
   const saveSettings = async () => {
     setSaving(true);
@@ -1093,7 +1126,9 @@ function StoreSubmit({
       <p className="text-xs text-muted-foreground">
         A production build that goes to TestFlight, or to Google Play&rsquo;s internal testing (as a
         draft release), by itself. Create the app in App Store Connect and Play Console first, with
-        these identifiers.
+        these identifiers. Sending to TestFlight also fills App Store Connect&rsquo;s privacy,
+        support and marketing links with the pages App Builder hosts for the app, and any empty
+        listing text with the store listing.
       </p>
       <div className="grid grid-cols-2 gap-2">
         <Input
@@ -1117,7 +1152,16 @@ function StoreSubmit({
           placeholder="App Store Connect app ID (App Information → Apple ID)"
           className="col-span-2 text-xs"
         />
+        <Input
+          type="email"
+          value={settings.supportEmail}
+          onChange={(e) => setSettings({ ...settings, supportEmail: e.target.value })}
+          aria-label="Support email"
+          placeholder="Support email (on the app's support page and in Help & support)"
+          className="col-span-2 text-xs"
+        />
       </div>
+      <AppPages projectId={projectId} />
       {changed ? (
         <Button size="sm" variant="outline" onClick={saveSettings} disabled={saving}>
           {saving ? <Loader2 className="animate-spin" /> : null} Save store settings
@@ -1140,6 +1184,14 @@ function StoreSubmit({
                 >
                   Follow it on expo.dev
                 </a>
+              ) : null}
+              {Array.isArray(o.appStoreFilled) && o.appStoreFilled.length ? (
+                <span className="mt-1 block" data-testid="app-store-filled">
+                  Filled in App Store Connect: {o.appStoreFilled.join(", ")}.
+                </span>
+              ) : null}
+              {o.appStoreNote ? (
+                <span className="mt-1 block text-amber-700">{String(o.appStoreNote)}</span>
               ) : null}
             </span>
           )}
