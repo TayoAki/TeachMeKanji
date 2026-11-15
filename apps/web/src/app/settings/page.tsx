@@ -1,7 +1,8 @@
 import { desc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { creditBalance, PLANS, userPlan } from "@appbuilder/core";
+import { creditBalance, factoryMode, PLANS, userPlan } from "@appbuilder/core";
 import { schema } from "@appbuilder/db";
+import { FactoryProvider } from "@/components/factory";
 import { SettingsView, type SettingsData } from "@/components/settings-view";
 import { plain } from "@/lib/serialize";
 import { db, getViewer } from "@/lib/server";
@@ -44,5 +45,9 @@ export default async function SettingsPage() {
     billing: billingAvailability(),
     mcpUrl: MCP_RESOURCE,
   }) as unknown as SettingsData;
-  return <SettingsView initial={data} />;
+  return (
+    <FactoryProvider factory={factoryMode()}>
+      <SettingsView initial={data} />
+    </FactoryProvider>
+  );
 }

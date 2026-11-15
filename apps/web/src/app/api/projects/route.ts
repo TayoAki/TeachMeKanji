@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import {
   addMessage,
   assertProjectRate,
-  creditBalance,
+  spendableCredits,
   createProject,
   enqueueRun,
   getStorage,
@@ -44,7 +44,7 @@ export const POST = route(async (request: Request) => {
   }
 
   await assertProjectRate(db(), viewer.id);
-  const balance = await creditBalance(db(), viewer.id);
+  const balance = await spendableCredits(db(), viewer.id);
   const needed = RUN_CREDITS.plan!.reserve;
   if (balance < needed) {
     throw new HttpError(

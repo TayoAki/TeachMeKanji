@@ -53,6 +53,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { TimeAgo } from "@/components/time-ago";
+import { useFactory } from "@/components/factory";
 
 export interface RailUser {
   name: string;
@@ -244,6 +245,7 @@ export function LeftRail({
   active?: "home" | "community" | "settings";
 }) {
   const router = useRouter();
+  const factory = useFactory();
   const [searchOpen, setSearchOpen] = useState(false);
 
   // Bug reports carry the builder's recent errors in this tab.
@@ -325,9 +327,11 @@ export function LeftRail({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => router.push("/settings")}>
-              Settings & credits
+              {factory ? "Settings" : "Settings & credits"}
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => router.push("/pricing")}>Plans</DropdownMenuItem>
+            {factory ? null : (
+              <DropdownMenuItem onSelect={() => router.push("/pricing")}>Plans</DropdownMenuItem>
+            )}
             <ThemeMenu />
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => openFeedback({ kind: "bug" })}>

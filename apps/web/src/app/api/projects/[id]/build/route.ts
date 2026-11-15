@@ -3,7 +3,7 @@ import {
   activeRun,
   assertRunRate,
   buildFromMockupsReserve,
-  creditBalance,
+  spendableCredits,
   currentDesign,
   designApproved,
   enqueueRun,
@@ -38,7 +38,7 @@ export const POST = route(
       userId: viewer!.id,
       kind: "build",
       ...(design && designApproved(design)
-        ? { reserve: buildFromMockupsReserve(await creditBalance(db(), viewer!.id)) }
+        ? { reserve: buildFromMockupsReserve(await spendableCredits(db(), viewer!.id)) }
         : {}),
     });
     return NextResponse.json({ runId: run.id });

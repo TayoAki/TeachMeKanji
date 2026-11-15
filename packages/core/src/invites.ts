@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { schema, type Database } from "@appbuilder/db";
+import { factoryMode } from "./billing";
 import { sha256 } from "./crypto";
 import { invitesNeedVerifiedEmail } from "./authz";
 import { newId } from "./ids";
@@ -48,6 +49,15 @@ export async function peekInvite(db: Database, token: string) {
       ),
     );
   return row ?? null;
+}
+
+/**
+ * Whether a new account may be created. Always outside factory mode; in factory mode (the
+ * team's own factory) only for someone holding a valid, unused invite link.
+ */
+export async function signUpAllowed(db: Database, inviteToken: string | null): Promise<boolean> {
+  if (!factoryMode()) return true;
+  return Boolean(inviteToken && (await peekInvite(db, inviteToken)));
 }
 
 /**

@@ -27,6 +27,7 @@ import {
   runBudgetUsd,
   updateProject,
   type Run,
+  factoryMode,
 } from "@appbuilder/core";
 import { schema, type Database } from "@appbuilder/db";
 import { AgentError } from "./agents/agents";
@@ -250,8 +251,9 @@ export async function runWorker(
           backingUp = true;
           void backupIfDue(getStorage()).finally(() => (backingUp = false));
         }
-        // The funnel's launch emails that are due (only when a real email provider is set).
-        if (emailProviderSet())
+        // The funnel's launch emails that are due (only when a real email provider is set, and
+        // never in factory mode, which has no funnel).
+        if (emailProviderSet() && !factoryMode())
           await sendDueFunnelEmails(db, {
             appUrl: (process.env.APP_PUBLIC_URL || process.env.BETTER_AUTH_URL || "").replace(
               /\/$/,

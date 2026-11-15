@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import { TimeAgo } from "@/components/time-ago";
+import { useFactory } from "@/components/factory";
 import { AssistantsSection } from "@/components/assistants-section";
 import { ConnectorsSection } from "@/components/connectors-section";
 import { FeedbackSection } from "@/components/feedback-section";
@@ -144,6 +145,7 @@ function Integration({
 
 export function SettingsView({ initial }: { initial: SettingsData }) {
   const router = useRouter();
+  const factory = useFactory();
   const [data, setData] = useState(initial);
   const refresh = async () => setData(await api<SettingsData>("/api/me", { quiet: true }));
 
@@ -158,75 +160,79 @@ export function SettingsView({ initial }: { initial: SettingsData }) {
       active="settings"
       tabs={<span className="px-2 text-sm font-semibold">Settings</span>}
       aside={
-        <PanelSection title="Plan">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl font-semibold">{data.limits.name}</span>
-            {data.plan !== "free" ? <Badge>Active</Badge> : null}
-          </div>
-          <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
-            <li>
-              {data.limits.maxProjects === null
-                ? "Unlimited projects"
-                : `${data.limits.maxProjects} projects`}
-            </li>
-            <li>Up to {data.limits.maxScreensPerProject} screens per app</li>
-            <li>
-              {data.limits.nativeBuilds
-                ? "Android & iOS builds"
-                : "Web publishing and source export"}
-            </li>
-            {data.limits.mcp ? <li>Build from Claude and other AI assistants (MCP)</li> : null}
-            {data.limits.monthlyCredits ? (
-              <li>{data.limits.monthlyCredits} credits every month</li>
-            ) : null}
-          </ul>
-          {data.plan !== "free" ? (
-            <Button variant="outline" size="sm" className="mt-4 w-full" onClick={portal}>
-              Manage subscription
-            </Button>
-          ) : (
-            <Button asChild size="sm" className="mt-4 w-full">
-              <Link href="/pricing">See plans</Link>
-            </Button>
-          )}
-        </PanelSection>
+        factory ? undefined : (
+          <PanelSection title="Plan">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-semibold">{data.limits.name}</span>
+              {data.plan !== "free" ? <Badge>Active</Badge> : null}
+            </div>
+            <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
+              <li>
+                {data.limits.maxProjects === null
+                  ? "Unlimited projects"
+                  : `${data.limits.maxProjects} projects`}
+              </li>
+              <li>Up to {data.limits.maxScreensPerProject} screens per app</li>
+              <li>
+                {data.limits.nativeBuilds
+                  ? "Android & iOS builds"
+                  : "Web publishing and source export"}
+              </li>
+              {data.limits.mcp ? <li>Build from Claude and other AI assistants (MCP)</li> : null}
+              {data.limits.monthlyCredits ? (
+                <li>{data.limits.monthlyCredits} credits every month</li>
+              ) : null}
+            </ul>
+            {data.plan !== "free" ? (
+              <Button variant="outline" size="sm" className="mt-4 w-full" onClick={portal}>
+                Manage subscription
+              </Button>
+            ) : (
+              <Button asChild size="sm" className="mt-4 w-full">
+                <Link href="/pricing">See plans</Link>
+              </Button>
+            )}
+          </PanelSection>
+        )
       }
       bottomLeft={<span>{data.user.email}</span>}
-      bottomRight={<span>{data.credits} credits</span>}
+      bottomRight={factory ? undefined : <span>{data.credits} credits</span>}
     >
       <div className="mx-auto max-w-2xl space-y-10 p-6">
-        <section>
-          <h2 className="mb-3 text-lg font-semibold">Credits</h2>
-          <div className="rounded-xl border bg-background">
-            <div className="flex items-baseline gap-2 border-b p-4">
-              <span className="text-3xl font-semibold" data-testid="settings-credits">
-                {data.credits}
-              </span>
-              <span className="text-sm text-muted-foreground">credits available</span>
+        {factory ? null : (
+          <section>
+            <h2 className="mb-3 text-lg font-semibold">Credits</h2>
+            <div className="rounded-xl border bg-background">
+              <div className="flex items-baseline gap-2 border-b p-4">
+                <span className="text-3xl font-semibold" data-testid="settings-credits">
+                  {data.credits}
+                </span>
+                <span className="text-sm text-muted-foreground">credits available</span>
+              </div>
+              <ul className="max-h-80 divide-y overflow-auto text-sm" data-testid="ledger">
+                {data.ledger
+                  .filter((l) => l.reason !== "reserve" && l.reason !== "release")
+                  .map((l) => (
+                    <li key={l.id} className="flex items-center gap-3 px-4 py-2">
+                      <span className="flex-1">{l.note ?? REASONS[l.reason] ?? l.reason}</span>
+                      <span className="text-xs text-muted-foreground">
+                        <TimeAgo date={l.createdAt} />
+                      </span>
+                      <span
+                        className={`w-14 text-right tabular-nums ${l.delta < 0 ? "" : "text-emerald-600"}`}
+                      >
+                        {l.delta > 0 ? "+" : ""}
+                        {l.delta}
+                      </span>
+                    </li>
+                  ))}
+              </ul>
             </div>
-            <ul className="max-h-80 divide-y overflow-auto text-sm" data-testid="ledger">
-              {data.ledger
-                .filter((l) => l.reason !== "reserve" && l.reason !== "release")
-                .map((l) => (
-                  <li key={l.id} className="flex items-center gap-3 px-4 py-2">
-                    <span className="flex-1">{l.note ?? REASONS[l.reason] ?? l.reason}</span>
-                    <span className="text-xs text-muted-foreground">
-                      <TimeAgo date={l.createdAt} />
-                    </span>
-                    <span
-                      className={`w-14 text-right tabular-nums ${l.delta < 0 ? "" : "text-emerald-600"}`}
-                    >
-                      {l.delta > 0 ? "+" : ""}
-                      {l.delta}
-                    </span>
-                  </li>
-                ))}
-            </ul>
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Runs are charged by what the AI actually used. Failed or cancelled runs are free.
-          </p>
-        </section>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Runs are charged by what the AI actually used. Failed or cancelled runs are free.
+            </p>
+          </section>
+        )}
 
         <AssistantsSection mcpUrl={data.mcpUrl} allowed={data.limits.mcp} />
 

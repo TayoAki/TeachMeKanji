@@ -9,7 +9,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { HIRESHELBY_PACKAGE, HIRESHELBY_VERSION } from "@appbuilder/contract";
 import { schema, type Database } from "@appbuilder/db";
 import { CREDIT_USD, PLANS } from "./billing";
-import { creditBalance, userPlan } from "./credits";
+import { spendableCredits, userPlan } from "./credits";
 
 const { creditLedger, project, supportAiUsage, supportWorkspace, syncCursor, user } = schema;
 
@@ -100,7 +100,7 @@ async function owner(db: Database, userId: string) {
 async function desiredState(db: Database, userId: string) {
   return {
     active: PLANS[await userPlan(db, userId)].supportChat,
-    aiAllowed: (await creditBalance(db, userId)) >= 1,
+    aiAllowed: (await spendableCredits(db, userId)) >= 1,
   };
 }
 

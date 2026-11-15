@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CircleCheck, CircleX, Loader2, Plus, Search, Sparkles } from "lucide-react";
 import { AppShell, PanelSection, SidebarHeader } from "@/components/shell/app-shell";
 import type { RailUser } from "@/components/shell/left-rail";
+import { useFactory } from "@/components/factory";
 import { PromptBox, type PromptSubmission } from "@/components/prompt-box";
 import { ProjectCard, type ProjectCardData } from "@/components/project-card";
 import { Button } from "@/components/ui/button";
@@ -97,7 +98,9 @@ export function Dashboard({ initial }: { initial: DashboardData }) {
     }
   };
 
-  const limitReached = data.limits.maxProjects !== null && own.length >= data.limits.maxProjects;
+  const factory = useFactory();
+  const limitReached =
+    !factory && data.limits.maxProjects !== null && own.length >= data.limits.maxProjects;
   const grid = (projects: ProjectCardData[], empty: string) =>
     projects.length === 0 ? (
       <p className="text-sm text-muted-foreground">{empty}</p>
@@ -181,26 +184,28 @@ export function Dashboard({ initial }: { initial: DashboardData }) {
       }
       aside={
         <>
-          <PanelSection title="Credits">
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-semibold" data-testid="credit-balance">
-                {data.credits}
-              </span>
-              <span className="text-sm text-muted-foreground">credits</span>
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {data.limits.name} plan ·{" "}
-              {data.limits.maxProjects === null
-                ? "unlimited projects"
-                : `${own.length}/${data.limits.maxProjects} projects`}{" "}
-              · up to {data.limits.maxScreensPerProject} screens per app
-            </p>
-            {data.plan === "free" ? (
-              <Button asChild size="sm" className="mt-3 w-full">
-                <Link href="/pricing">Upgrade</Link>
-              </Button>
-            ) : null}
-          </PanelSection>
+          {factory ? null : (
+            <PanelSection title="Credits">
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-semibold" data-testid="credit-balance">
+                  {data.credits}
+                </span>
+                <span className="text-sm text-muted-foreground">credits</span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {data.limits.name} plan ·{" "}
+                {data.limits.maxProjects === null
+                  ? "unlimited projects"
+                  : `${own.length}/${data.limits.maxProjects} projects`}{" "}
+                · up to {data.limits.maxScreensPerProject} screens per app
+              </p>
+              {data.plan === "free" ? (
+                <Button asChild size="sm" className="mt-3 w-full">
+                  <Link href="/pricing">Upgrade</Link>
+                </Button>
+              ) : null}
+            </PanelSection>
+          )}
           <PanelSection title="Activity">
             <ul className="space-y-2.5 text-sm">
               {activity.slice(0, 8).map((a) => (

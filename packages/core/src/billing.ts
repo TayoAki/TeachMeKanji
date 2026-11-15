@@ -15,6 +15,16 @@ export const HOSTING_USD_PER_USER_MONTH = 2;
 export const PAYMENT_FEE_RATE = 0.029 + 0.007;
 export const PAYMENT_FEE_FIXED_USD = 0.3;
 
+/**
+ * Factory mode (FACTORY_MODE=1): App Builder is the team's own app factory, not a product sold
+ * to others. There are no plans, prices or credit limits: everyone gets the highest plan's
+ * limits, nothing is blocked for credits, and runs still record what they cost. Pricing,
+ * checkout and the marketing funnel are off, and new accounts need an invite link.
+ */
+export function factoryMode(): boolean {
+  return (process.env.FACTORY_MODE || "") === "1";
+}
+
 export type PlanId = "free" | "builder" | "pro";
 export type PaidPlanId = Exclude<PlanId, "free">;
 export const PAID_PLANS: readonly PaidPlanId[] = ["builder", "pro"];

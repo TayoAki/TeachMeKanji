@@ -8,7 +8,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { schema, type Database } from "@appbuilder/db";
 import { AppCloudError } from "./app-cloud";
 import { CREDIT_USD } from "./billing";
-import { creditBalance } from "./credits";
+import { spendableCredits } from "./credits";
 
 export const APP_AI = {
   model: "claude-haiku-5-5",
@@ -30,7 +30,7 @@ export async function assertAppAiAllowed(
   projectId: string,
   ownerId: string,
 ): Promise<void> {
-  if ((await creditBalance(db, ownerId)) < 1)
+  if ((await spendableCredits(db, ownerId)) < 1)
     throw new AppCloudError(402, "AI in this app is paused: the app's owner is out of credits.");
   const [row] = await db
     .select({ calls: schema.appAiUsage.calls })
