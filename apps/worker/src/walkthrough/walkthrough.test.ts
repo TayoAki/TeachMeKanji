@@ -1,5 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { afterAll, describe, expect, it } from "vitest";
+import { withAppStructure } from "@appbuilder/contract";
 import type { CreateMessage } from "../generation/client";
 import type { HandlerContext } from "../handlers/context";
 import { fixtureProject } from "../project";
@@ -100,6 +101,45 @@ const context = (createMessage: CreateMessage) =>
 
 describe("the walkthrough on a real app", () => {
   afterAll(() => closeRenderer());
+
+  it("starts like a fresh install: onboarding first, then the app once it's finished", async ({
+    skip,
+  }) => {
+    if (!(await canRenderScreens())) skip();
+    const files = withAppStructure({
+      ...(await fixtureProject("habit-tracker")),
+      "app/onboarding.tsx": `import { Pressable, Text, View } from "react-native";
+import { useAppState } from "../data/app-state";
+
+export default function Onboarding() {
+  const { completeOnboarding } = useAppState();
+  return (
+    <View>
+      <Text>Welcome to your habits</Text>
+      <Pressable accessibilityRole="button" onPress={() => completeOnboarding()}>
+        <Text>Start</Text>
+      </Pressable>
+    </View>
+  );
+}
+`,
+    });
+    const session = await AppSession.open(files);
+    try {
+      // Before onboarding is finished, the app itself is behind its guard, as on a phone.
+      const first = await session.observe();
+      expect(first.path).toBe("/onboarding");
+      expect(first.text).toContain("Welcome to your habits");
+      await session.tap(first.controls.find((c) => c.name === "Start")!.ref);
+      await session.wait(1);
+      expect((await session.observe()).path).toBe("/");
+      // Finished stays finished.
+      await session.relaunch();
+      expect((await session.observe()).path).toBe("/");
+    } finally {
+      await session.close();
+    }
+  });
 
   it("lists the controls on screen, and keeps what the app saved when it's relaunched", async ({
     skip,

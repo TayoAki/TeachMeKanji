@@ -101,6 +101,8 @@ export class AppSession {
             type: "load",
             files,
             mode: "app",
+            // A fresh install, like a phone: onboarding first, then the app.
+            guards: true,
             href,
             themeId,
             storage,

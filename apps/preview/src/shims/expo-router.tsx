@@ -30,6 +30,7 @@ import {
   type LayoutRoute,
   type RouteMatch,
   type RouteNode,
+  type ScreenRoute,
 } from "@appbuilder/contract";
 import { Ionicons } from "./vector-icons";
 import { useSafeAreaInsets } from "./safe-area";
@@ -44,6 +45,8 @@ type NavAction = "push" | "replace" | "back" | "navigate";
 interface NavigationConfig {
   tree: LayoutRoute;
   mode: "app" | "screen";
+  /** Honor Stack.Protected guards like a phone (the AI tester); off in the builder's preview. */
+  guards?: boolean;
   initialHref: string;
   onNavigated?: (href: string) => void;
   /** Screen mode: the frame never navigates itself; it asks the parent instead. */
@@ -297,22 +300,50 @@ function useLevel(): LevelInfo {
   return level;
 }
 
+interface DeclaredScreen {
+  name: string;
+  options: Options;
+  /** Inside a `<X.Protected guard={false}>`: unreachable on a phone right now. */
+  blocked: boolean;
+}
+
 /**
  * Collect `<X.Screen name options />` declarations from a navigator's children, in order,
- * including those grouped in `<X.Protected>` or fragments.
+ * including those grouped in `<X.Protected>` (noting a false guard) or fragments.
  */
-function declaredScreens(children: ReactNode): Array<{ name: string; options: Options }> {
-  const out: Array<{ name: string; options: Options }> = [];
-  const visit = (nodes: ReactNode) =>
+function declaredScreens(children: ReactNode): DeclaredScreen[] {
+  const out: DeclaredScreen[] = [];
+  const visit = (nodes: ReactNode, blocked: boolean) =>
     Children.forEach(nodes, (child) => {
       if (!isValidElement(child)) return;
-      const props = child.props as { name?: string; options?: Options; children?: ReactNode };
+      const props = child.props as {
+        name?: string;
+        options?: Options;
+        guard?: boolean;
+        children?: ReactNode;
+      };
       if (typeof props.name === "string")
-        out.push({ name: props.name, options: props.options ?? {} });
-      else if (props.children !== undefined) visit(props.children);
+        out.push({ name: props.name, options: props.options ?? {}, blocked });
+      else if (props.children !== undefined)
+        visit(props.children, blocked || (child.type === Protected && props.guard === false));
     });
-  visit(children);
+  visit(children, false);
   return out;
+}
+
+/** Where a guarded-off screen goes: the first declared screen its guards allow. */
+function allowedHref(layout: LayoutRoute, screens: DeclaredScreen[]): string {
+  for (const screen of screens) {
+    if (screen.blocked) continue;
+    const node = layout.children.find((c) => c.name === screen.name);
+    if (!node) continue;
+    if (node.kind === "screen") return hrefFor(node);
+    const index = node.children.find(
+      (c): c is ScreenRoute => c.kind === "screen" && c.name === "index",
+    );
+    return index ? hrefFor(index) : firstHref(node);
+  }
+  return "/";
 }
 
 function resolveScreenOptions(screenOptions: ScreenOptionsProp | undefined, name: string): Options {
@@ -394,7 +425,15 @@ function StackNavigator({
 }) {
   const level = useLevel();
   const [dynamic, setOptions] = useDynamicOptions();
-  const declared = declaredScreens(children).find((s) => s.name === level.childName)?.options ?? {};
+  const screens = declaredScreens(children);
+  const active = screens.find((s) => s.name === level.childName);
+  // Like a phone (when asked): a screen behind a false guard sends the person to an allowed one.
+  const redirect =
+    nav().config.guards && active?.blocked ? allowedHref(level.layout, screens) : null;
+  useEffect(() => {
+    if (redirect) nav().replace(redirect);
+  }, [redirect]);
+  const declared = active?.options ?? {};
   const options: Options = {
     ...resolveScreenOptions(screenOptions, level.childName),
     ...declared,
@@ -402,6 +441,7 @@ function StackNavigator({
   };
   const headerShown = options.headerShown !== false;
   const title = (options.title as string) ?? titleFromName(level.childName);
+  if (redirect) return null;
 
   return (
     <NavigatorContext.Provider value={{ setOptions, childKey: level.childKey }}>
@@ -519,7 +559,8 @@ function ScreenOptions({ options }: { name?: string; options?: Options }) {
 
 /**
  * `<Stack.Protected guard>` gates screens on a device (onboarding before the app). The preview
- * shows every screen on the canvas, so here it only groups its declarations.
+ * shows every screen on the canvas, so it renders nothing itself: the Stack reads its guard,
+ * and only redirects when the runtime was loaded with `guards` (the AI tester).
  */
 function Protected({ children }: { guard: boolean; children?: ReactNode }) {
   return <>{children}</>;

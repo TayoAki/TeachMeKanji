@@ -198,6 +198,7 @@ function load(message: Extract<ParentToFrame, { type: "load" }>) {
   configureNavigation({
     tree,
     mode: message.mode,
+    guards: message.mode === "app" && message.guards === true,
     initialHref,
     onNavigated: (href) => post({ type: "navigated", href }),
     onRequest: (href, action) => post({ type: "navigate-request", href, action }),
