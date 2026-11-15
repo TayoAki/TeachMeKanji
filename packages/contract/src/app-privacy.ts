@@ -72,8 +72,8 @@ function appCode(files: ProjectFiles): string {
     .join("\n");
 }
 
-/** A string field of data/app-info.ts, whichever quoting the file uses. */
-function appInfoField(files: ProjectFiles, name: string): string {
+/** A string field of data/app-info.ts, whichever quoting the file uses ("" when not set). */
+export function appInfoField(files: ProjectFiles, name: string): string {
   const source = files[APP_INFO_FILE] ?? "";
   return new RegExp(`["']?${name}["']?\\s*:\\s*(["'])([^"'\\n]*)\\1`).exec(source)?.[2] ?? "";
 }

@@ -556,7 +556,7 @@ test("store builds: keys are checked before saving, identifiers live in app.json
   await expect(
     page.getByRole("heading", { name: "How do I cancel my subscription?" }),
   ).toBeVisible();
-  await expect(page.getByRole("link", { name: "Privacy policy" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Privacy policy", exact: true })).toHaveAttribute(
     "href",
     new RegExp(`/apps/${projectId}/privacy$`),
   );

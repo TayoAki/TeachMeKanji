@@ -3,6 +3,7 @@
  * and its setup before it goes to the stores. Deterministic and instant. Each failed item says
  * which guideline it is, and those the AI can fix carry the chat request that fixes them.
  */
+import { appInfoField } from "./app-privacy";
 import { STRUCTURE_SCREENS, isStructureScreen } from "./app-structure";
 import { isScreenFile, type ProjectFiles } from "./layout";
 import {
@@ -59,9 +60,8 @@ export function reviewCheck(files: ProjectFiles, context: ReviewContext): Review
     ([p]) => p.startsWith("app/") || p.startsWith("components/"),
   );
   const ownSource = own.map(([, s]) => s).join("\n");
-  const appInfo = files["data/app-info.ts"] ?? "";
-  const infoField = (name: string) =>
-    new RegExp(`${name}:\\s*"([^"]*)"`).exec(appInfo)?.[1]?.trim() ?? "";
+  // The platform writes app-info.ts with quoted keys; the model may not.
+  const infoField = (name: string) => appInfoField(files, name).trim();
 
   // Purchases (3.1.1 / 3.1.2): a paywall must sell real subscriptions, honestly described.
   if (paywall !== undefined) {
