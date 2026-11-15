@@ -105,6 +105,11 @@ app.json / package.json      template  — name, slug, icons from plan
 4. Every screen file has a default export, scrolls when its content is longer than the
    viewport, and renders with seed data and no route params (needed for canvas frames).
 5. The theme pack keys are identical across all 5 packs.
+6. Every literal link (`router.push/replace/navigate`, `<Link href>`, `<Redirect href>`, as a
+   string, a template literal or `{ pathname }`) opens a screen that exists, or one a parallel
+   build step is writing (`screenPaths`). An error on the files a model just wrote, so it is
+   repaired; a warning when a whole app is checked, so an old mistake never blocks an unrelated
+   edit. Interpolated parts match any segment; apps with a catch-all route aren't checked.
 
 A violation sends the file back to the model with the errors (at most 2 repair attempts).
 If it still fails, the run surfaces a "fix with AI" message.

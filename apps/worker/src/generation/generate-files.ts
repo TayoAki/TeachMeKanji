@@ -46,6 +46,11 @@ export interface GenerateFilesOptions {
    * other's files. Writes elsewhere are reported for repair.
    */
   allowWrite?: { test: (path: string) => boolean; describe: string };
+  /**
+   * Screens being written alongside this call (a build's other screens): links to them count as
+   * opening a screen although they aren't in baseFiles yet.
+   */
+  screenPaths?: string[];
   /** Called once when the first response starts streaming (its prompt is then cached). */
   onStreamStart?: () => void;
   maxRepairs?: number;
@@ -162,9 +167,11 @@ export async function generateFiles(options: GenerateFilesOptions): Promise<Gene
         });
       }
     }
+    // A link the model just wrote to a screen that doesn't exist is repaired like any error.
+    const routes = new Set([...paths, ...(options.screenPaths ?? [])]);
     for (const [path, content] of Object.entries(written)) {
       if (deletes.has(path)) continue;
-      issues.push(...validateFile(path, content, { paths }));
+      issues.push(...validateFile(path, content, { paths, routes, links: "error" }));
     }
     // Untouched files must still resolve their imports (e.g. after a delete or rename).
     if (deletes.size > 0) {

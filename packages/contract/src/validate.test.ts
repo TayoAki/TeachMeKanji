@@ -154,3 +154,89 @@ describe("validateFile", () => {
     expect(hasErrors(issues)).toBe(false);
   });
 });
+
+describe("links open a screen", () => {
+  // Tidemark's Today linked "/protocols/new" while the screen is app/protocol/[id].tsx: a phone
+  // shows "Unmatched route", and nothing else caught it.
+  const paths = new Set([
+    "app/_layout.tsx",
+    "app/(tabs)/_layout.tsx",
+    "app/(tabs)/index.tsx",
+    "app/(tabs)/protocols.tsx",
+    "app/protocol/[id].tsx",
+    "app/settings.tsx",
+    "app/paywall.tsx",
+  ]);
+  const check = (source: string, links?: "error" | "warning") =>
+    validateFile("app/(tabs)/index.tsx", source, { paths, links }).filter(
+      (i) => i.rule === "routes/link",
+    );
+
+  it("reports a link no screen opens, as an error when asked and a warning otherwise", () => {
+    const source = `import { router } from "expo-router";
+export default function Today() {
+  return router.push("/protocols/new");
+}`;
+    const [issue] = check(source, "error");
+    expect(issue).toMatchObject({ severity: "error", line: 3 });
+    expect(issue!.message).toContain('"/protocols/new"');
+    expect(issue!.message).toContain("/protocol/[id]");
+    expect(check(source)[0]!.severity).toBe("warning");
+  });
+
+  it("accepts links that open a screen, in every form expo-router takes", () => {
+    const source = `import { Link, Redirect, router } from "expo-router";
+export default function Today({ id, tab }: { id: string; tab: string }) {
+  router.push("/protocol/new");
+  router.replace("/(tabs)/protocols");
+  router.navigate({ pathname: "/protocol/[id]", params: { id } });
+  router.push(\`/protocol/\${id}?from=today\`);
+  router.push(\`/\${tab}\`);
+  router.push(tab);
+  router.back();
+  const list = ["/a"]; list.push("/nowhere");
+  return (
+    <>
+      <Link href="/settings">Settings</Link>
+      <Link href={{ pathname: "/paywall" }}>Premium</Link>
+      <Link href="https://example.com">Site</Link>
+      <Redirect href="/" />
+    </>
+  );
+}`;
+    expect(check(source, "error")).toEqual([]);
+  });
+
+  it("reports broken links in Link, Redirect, objects and template literals too", () => {
+    const source = `import { Link, Redirect, router } from "expo-router";
+export default function Today({ id }: { id: string }) {
+  router.navigate({ pathname: "/protocols/[id]", params: { id } });
+  router.push(\`/protocols/\${id}\`);
+  return (
+    <>
+      <Link href="/setting">Settings</Link>
+      <Redirect href={"/onboard"} />
+    </>
+  );
+}`;
+    expect(check(source, "error").map((i) => i.line)).toEqual([3, 4, 7, 8]);
+  });
+
+  it("trusts screens that are still being written and apps with a catch-all route", () => {
+    const source = `import { router } from "expo-router";
+export default function Today() { return router.push("/journal"); }`;
+    expect(
+      validateFile("app/(tabs)/index.tsx", source, {
+        paths,
+        routes: new Set([...paths, "app/(tabs)/journal.tsx"]),
+        links: "error",
+      }).filter((i) => i.rule === "routes/link"),
+    ).toEqual([]);
+    expect(
+      validateFile("app/(tabs)/index.tsx", source, {
+        paths: new Set([...paths, "app/[...rest].tsx"]),
+        links: "error",
+      }).filter((i) => i.rule === "routes/link"),
+    ).toEqual([]);
+  });
+});
