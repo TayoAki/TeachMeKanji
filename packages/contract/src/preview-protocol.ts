@@ -31,6 +31,13 @@ export type ParentToFrame =
       appearance?: "light" | "dark" | null;
       /** Double-click on text edits it in place (editors only); the frame sends "text-edit". */
       editText?: boolean;
+      /**
+       * Honor `<Stack.Protected guard>` like a phone: a screen whose guard is false (the app
+       * before onboarding is finished, onboarding after) redirects to the first allowed one. The
+       * AI tester turns it on to use the app from a fresh install; the builder's preview leaves
+       * it off so it opens on the app itself.
+       */
+      guards?: boolean;
     }
   | { type: "set-theme"; themeId: string }
   | { type: "set-appearance"; appearance: "light" | "dark" | null }
