@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { loadProject } from "@appbuilder/contract/node";
 import { createModuleSystem } from "./loader";
 import { SAMPLE_PHOTO_BASE64 } from "./shims/device-features";
+import { notifications, resetNotifications } from "./shims/native-capabilities";
 import { vendorModules } from "./vendor";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
@@ -41,5 +42,82 @@ describe("camera, photos, location and push in the preview (template helpers)", 
     expect(
       typeof (modules.require("data/location.ts") as { useLocation: unknown }).useLocation,
     ).toBe("function");
+  });
+});
+
+describe("alarms on dates (template helpers)", () => {
+  interface Alarm {
+    id: string;
+    hour: number;
+    minute: number;
+    days: number[];
+    dates?: string[];
+    title: string;
+    body: string;
+    href: string;
+  }
+  const { setAlarms, nextRing } = modules.require("data/alarms.ts") as {
+    setAlarms: (alarms: Alarm[]) => Promise<boolean>;
+    nextRing: (alarms: Alarm[]) => Date | null;
+  };
+  /** A Date's local day, as "YYYY-MM-DD". */
+  const ymd = (d: Date) =>
+    [d.getFullYear(), d.getMonth() + 1, d.getDate()]
+      .map((n) => String(n).padStart(2, "0"))
+      .join("-");
+  /** The local date `offset` days from today. */
+  const day = (offset: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    return ymd(d);
+  };
+  const scheduledDates = async () =>
+    (await notifications.getAllScheduledNotificationsAsync()).map((n) => {
+      const at = new Date(n.trigger!.date as Date);
+      return `${n.trigger!.type} ${ymd(at)} ${at.getHours()}:${at.getMinutes()}`;
+    });
+
+  it("rings at hour:minute on each date for schedules that aren't weekly, skipping past dates", async () => {
+    resetNotifications();
+    const cycle: Alarm = {
+      id: "p1",
+      hour: 8,
+      minute: 30,
+      days: [1],
+      dates: [day(-2), day(3), day(1)],
+      title: "BPC-157",
+      body: "Your 8:30 dose is due.",
+      href: "/log-dose",
+    };
+    expect(await setAlarms([cycle])).toBe(true);
+    // Dates replace days: no weekly Monday ring.
+    expect(await scheduledDates()).toEqual([`date ${day(1)} 8:30`, `date ${day(3)} 8:30`]);
+    const next = nextRing([cycle])!;
+    expect(`${ymd(next)} ${next.getHours()}:${next.getMinutes()}`).toBe(`${day(1)} 8:30`);
+    expect(nextRing([{ ...cycle, dates: [day(-1)] }])).toBeNull();
+    resetNotifications();
+  });
+
+  it("keeps the soonest 48 dated rings, within what phones keep, replacing the ones before", async () => {
+    resetNotifications();
+    const daily = (id: string, hour: number): Alarm => ({
+      id,
+      hour,
+      minute: 0,
+      days: [],
+      dates: Array.from({ length: 30 }, (_, i) => day(i + 1)),
+      title: id,
+      body: "",
+      href: "/",
+    });
+    await setAlarms([daily("a", 8), daily("b", 20)]);
+    const first = await scheduledDates();
+    expect(first).toHaveLength(48);
+    expect(first[0]).toBe(`date ${day(1)} 8:0`);
+    expect(first.at(-1)).toBe(`date ${day(24)} 20:0`);
+    // Calling it again replaces them rather than adding more.
+    await setAlarms([daily("a", 8)]);
+    expect(await scheduledDates()).toHaveLength(30);
+    resetNotifications();
   });
 });
