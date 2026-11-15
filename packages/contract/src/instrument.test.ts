@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { instrumentForSelection, parseFid } from "./instrument";
+import { transpile } from "./transpile";
 
 describe("instrumentForSelection", () => {
   const source = `import { View, Text } from "react-native";
@@ -19,6 +20,17 @@ export default function S() {
     expect(fids).toHaveLength(2);
     expect(source.slice(fids[0]!.start, fids[0]!.end)).toMatch(/^<View[\s\S]*<\/View>$/);
     expect(source.slice(fids[1]!.start, fids[1]!.end)).toBe("<Text>Hello</Text>");
+  });
+
+  it("tags elements with type arguments after them, so the file still compiles", () => {
+    const typed = `import { SectionList } from "react-native";
+export default function Vials() {
+  return <SectionList<number, string> sections={[]} renderItem={() => null} />;
+}
+`;
+    const out = instrumentForSelection("app/(tabs)/inventory.tsx", typed);
+    expect(out).toContain("<SectionList<number, string> dataSet={{ fid:");
+    expect(transpile("app/(tabs)/inventory.tsx", out).ok).toBe(true);
   });
 
   it("does not tag custom components", () => {

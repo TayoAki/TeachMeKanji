@@ -33,10 +33,11 @@ export function instrumentForSelection(path: string, source: string): string {
         a.type === "JSXAttribute" && a.name.type === "JSXIdentifier" && a.name.name === "dataSet",
     );
     if (hasDataSet || node.start == null || node.end == null || opening.name.end == null) return;
-    out.appendLeft(
-      opening.name.end,
-      ` dataSet={{ fid: ${JSON.stringify(fid(path, node.start, node.end))} }}`,
-    );
+    // After any type arguments (<SectionList<Vial, Group>), or the element no longer parses.
+    const typed = opening as { typeArguments?: { end?: number | null } | null };
+    const legacy = opening as { typeParameters?: { end?: number | null } | null };
+    const after = typed.typeArguments?.end ?? legacy.typeParameters?.end ?? opening.name.end;
+    out.appendLeft(after, ` dataSet={{ fid: ${JSON.stringify(fid(path, node.start, node.end))} }}`);
   });
   return out.toString();
 }
