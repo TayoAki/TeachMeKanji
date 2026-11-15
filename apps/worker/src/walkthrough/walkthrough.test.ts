@@ -141,6 +141,39 @@ export default function Onboarding() {
     }
   });
 
+  it("reads numbers once they've finished counting up, not halfway", async ({ skip }) => {
+    if (!(await canRenderScreens())) skip();
+    const files = {
+      ...(await fixtureProject("habit-tracker")),
+      "app/(tabs)/index.tsx": `import { useState } from "react";
+import { Pressable, Text, View } from "react-native";
+import { CountUp } from "../../components/motion";
+
+export default function Units() {
+  const [units, setUnits] = useState<number | null>(null);
+  return (
+    <View>
+      <Pressable accessibilityRole="button" onPress={() => setUnits(10)}>
+        <Text>Work it out</Text>
+      </Pressable>
+      {units === null ? null : (
+        <CountUp value={units} duration={4000} format={(n) => \`\${n.toFixed(1)} units\`} />
+      )}
+    </View>
+  );
+}
+`,
+    };
+    const session = await AppSession.open(files);
+    try {
+      const home = await session.observe();
+      await session.tap(home.controls.find((c) => c.name === "Work it out")!.ref);
+      expect((await session.observe()).text).toContain("10.0 units");
+    } finally {
+      await session.close();
+    }
+  });
+
   it("lists the controls on screen, and keeps what the app saved when it's relaunched", async ({
     skip,
   }) => {
