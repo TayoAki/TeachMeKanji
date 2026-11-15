@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "Closetcast",
+    "slug": "closetcast",
+    "scheme": "closetcast",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to use the camera to photograph your clothes and outfits.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to use the photos you choose: your clothes, outfits and looks to scan.",
+          "cameraPermission": "Allow $(PRODUCT_NAME) to use the camera to photograph your clothes and outfits."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to dress you for today's weather."
+        }
+      ],
+      "expo-notifications"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}
