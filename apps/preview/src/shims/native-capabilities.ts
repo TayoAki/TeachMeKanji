@@ -28,6 +28,8 @@ interface Scheduled {
 }
 type Listener = (notification: unknown) => void;
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
+/** What's scheduled and hasn't fired (repeating ones stay), as a phone lists it. */
+const pending = new Map<string, Scheduled>();
 const received = new Set<Listener>();
 const tapped = new Set<Listener>();
 const DAY = 24 * 60 * 60 * 1000;
@@ -65,12 +67,15 @@ function arm(id: string, request: Scheduled) {
     id,
     setTimeout(() => {
       timers.delete(id);
+      const repeats = Boolean(
+        request.trigger && ["daily", "weekly"].includes(String(request.trigger.type)),
+      );
+      if (!repeats) pending.delete(id);
       if ((globalThis as { __appbuilderStill?: boolean }).__appbuilderStill) return;
       const notification = { date: Date.now(), request: { identifier: id, ...request } };
       received.forEach((listener) => listener(notification));
       // Repeating triggers go off again next time.
-      if (request.trigger && ["daily", "weekly"].includes(String(request.trigger.type)))
-        arm(id, request);
+      if (repeats) arm(id, request);
     }, delay),
   );
 }
@@ -79,6 +84,7 @@ function arm(id: string, request: Scheduled) {
 export function resetNotifications(): void {
   timers.forEach((timer) => clearTimeout(timer));
   timers.clear();
+  pending.clear();
   received.clear();
   tapped.clear();
 }
@@ -93,18 +99,22 @@ export const notifications = {
   setNotificationChannelAsync: async () => null,
   scheduleNotificationAsync: async (request: Scheduled) => {
     const id = `preview-notification-${++nextId}`;
+    pending.set(id, request);
     arm(id, request);
     return id;
   },
   cancelScheduledNotificationAsync: async (id: string) => {
     clearTimeout(timers.get(id));
     timers.delete(id);
+    pending.delete(id);
   },
   cancelAllScheduledNotificationsAsync: async () => {
     timers.forEach((timer) => clearTimeout(timer));
     timers.clear();
+    pending.clear();
   },
-  getAllScheduledNotificationsAsync: async () => [],
+  getAllScheduledNotificationsAsync: async () =>
+    [...pending].map(([identifier, { content, trigger }]) => ({ identifier, content, trigger })),
   addNotificationReceivedListener: (listener: Listener) => {
     received.add(listener);
     return { remove: () => received.delete(listener) };

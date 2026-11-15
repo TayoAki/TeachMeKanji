@@ -67,7 +67,13 @@ export class AppSession {
     return withRenderer(async () => {
       const context = await (
         await getBrowser()
-      ).newContext({ viewport: DEVICE, deviceScaleFactor: 1 });
+      ).newContext({
+        viewport: DEVICE,
+        deviceScaleFactor: 1,
+        // Reduce Motion, as a person can turn on: numbers and screens show their final state
+        // at once, so the tester never reads a value halfway through counting up.
+        reducedMotion: "reduce",
+      });
       const page = await context.newPage();
       await page.setContent(runtimePage(), { waitUntil: "load" });
       // The worker runs through tsx, which names functions with a __name() helper the page lacks.

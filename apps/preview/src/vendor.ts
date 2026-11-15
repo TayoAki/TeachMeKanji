@@ -1,6 +1,6 @@
 import * as React from "react";
-import * as JSXRuntime from "react/jsx-runtime";
 import * as ReactNative from "react-native";
+import { jsxRuntime } from "./a11y-state";
 import AsyncStorage from "./shims/async-storage";
 import * as ExpoRouter from "./shims/expo-router";
 import { Image } from "./shims/expo-image";
@@ -38,7 +38,7 @@ function esm(namespace: object, defaultExport?: unknown): Record<string, unknown
  */
 export const vendorModules: Readonly<Record<string, unknown>> = {
   react: esm(React, React),
-  "react/jsx-runtime": JSXRuntime,
+  "react/jsx-runtime": jsxRuntime,
   "react-native": esm(ReactNative),
   "expo-router": esm({
     Stack: ExpoRouter.Stack,

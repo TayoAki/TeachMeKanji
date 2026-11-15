@@ -15,6 +15,13 @@ export interface Alarm {
   minute: number;
   /** The days it repeats, 0 (Sunday) to 6 (Saturday). [] rings once, at the next hour:minute. */
   days: number[];
+  /**
+   * Or the dates it rings on, "YYYY-MM-DD" in the phone's time, for schedules that aren't weekly
+   * (every few days, on and off cycles, chosen dates): it rings at hour:minute on each, and days
+   * is ignored. Past dates are skipped. Phones keep a limited number of scheduled notifications,
+   * so give about the next two weeks and call setAlarms again when the app opens.
+   */
+  dates?: string[];
   title: string;
   body: string;
   /** The screen that opens when it rings, e.g. `/ring/${id}`. */
@@ -63,7 +70,26 @@ export async function requestAlarmPermission(): Promise<boolean> {
   return true;
 }
 
-/** The next time an alarm rings after `from`. */
+/**
+ * Dated rings scheduled at most, soonest first: iOS keeps 64 scheduled notifications per app,
+ * and the daily habit's nudges need some of them.
+ */
+const MAX_DATED = 48;
+
+/** When an alarm with dates rings after `from`, soonest first. */
+function datedTimes(alarm: Alarm, from: Date): Date[] {
+  return (alarm.dates ?? [])
+    .map((day) => {
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+      return m
+        ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), alarm.hour, alarm.minute, 0, 0)
+        : null;
+    })
+    .filter((at): at is Date => at !== null && at > from)
+    .sort((a, b) => a.getTime() - b.getTime());
+}
+
+/** The next time an alarm without dates rings after `from`. */
 function nextTime(alarm: Alarm, from: Date): Date {
   for (let ahead = 0; ahead <= 7; ahead++) {
     const at = new Date(from);
@@ -82,8 +108,8 @@ function nextTime(alarm: Alarm, from: Date): Date {
 export function nextRing(alarms: Alarm[], from: Date = new Date()): Date | null {
   let soonest: Date | null = null;
   for (const alarm of alarms) {
-    const at = nextTime(alarm, from);
-    if (!soonest || at < soonest) soonest = at;
+    const at = alarm.dates ? (datedTimes(alarm, from)[0] ?? null) : nextTime(alarm, from);
+    if (at && (!soonest || at < soonest)) soonest = at;
   }
   return soonest;
 }
@@ -122,7 +148,25 @@ export function setAlarms(alarms: Alarm[]): Promise<boolean> {
       previous.map((id) => Notifications.cancelScheduledNotificationAsync(id).catch(() => {})),
     );
     const scheduled: string[] = [];
+    const now = new Date();
+    const dated = alarms
+      .flatMap((alarm) => datedTimes(alarm, now).map((at) => ({ alarm, at })))
+      .sort((a, b) => a.at.getTime() - b.at.getTime())
+      .slice(0, MAX_DATED);
+    for (const { alarm, at } of dated)
+      scheduled.push(
+        await Notifications.scheduleNotificationAsync({
+          content: content(alarm),
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: at,
+            channelId: CHANNEL,
+            ...delivery,
+          },
+        }),
+      );
     for (const alarm of alarms) {
+      if (alarm.dates) continue;
       const triggers: Notifications.NotificationTriggerInput[] = alarm.days.length
         ? alarm.days.map((day) => ({
             type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
