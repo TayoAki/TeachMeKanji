@@ -78,9 +78,15 @@ theme/types.ts               template  — the Theme type every pack must satisf
 theme/active.ts              template  — active theme id store (the preview switches it)
 theme/ThemeProvider.tsx      template  — context + useTheme(), active pack by id
 data/schema.ts               generated — entity types from the plan's data model
-data/seed.ts                 generated — realistic seed data
+data/seed.ts                 generated — realistic seed data; `starter` lists the reference
+                                         collections real installs start with (the user's own
+                                         records are examples for the preview and Expo Go only)
 data/repo.ts                 template  — Repository<T> interface + useCollection hooks
 data/local.ts                template  — AsyncStorage implementation
+data/alarms.ts               template  — setAlarms(): alarms on chosen days, ringing with the
+                                         ringtone and opening their own screen
+data/notifications.ts        template  — the shared notification handler; a notification's
+                                         data.href opens that screen
 data/remote.ts               template  — App Cloud implementation of the same repository
 data/auth.ts                 template  — useAuth(): App Cloud accounts (sign up / in / out)
 data/backend.ts              platform  — App Cloud URL and ImageKit endpoint; never model-written
@@ -271,6 +277,17 @@ creates a `restore` version so history stays linear.
   differs. It runs inside the build's reserve and stops when that is spent. Mascot poses are drawn
   on one canvas at one scale and shown with `<Mascot>` from the motion kit (breathes, bounces
   into a new pose, wiggles on tap).
+- **Walkthrough (end of every build):** before the app is handed over, the worker uses it like
+  a person would (`apps/worker/src/walkthrough/`). `TEST_MODEL` (Haiku) writes up to 8 test
+  cases from the plan (onboarding, the core loop end to end, saved data surviving a relaunch,
+  the paywall's test purchase, settings, each main screen's action), then for each one reads the
+  screen in the preview runtime's `app` mode in headless Chrome (a screenshot, the numbered
+  controls and the text) and answers with one action at a time as JSON (tap, type, scroll, wait,
+  relaunch, done), up to `WALKTHROUGH_STEPS` (14). The cases run in order on one session's saved
+  data; errors the app throws fail a case; what needs a real phone (a camera photo, the
+  microphone) is "blocked", never passed. Failures get one free repair and a full re-test, kept
+  only when more cases pass and none that passed breaks. The build's chat message lists the
+  results. `WALKTHROUGH=0` turns it off; it never fails a saved build.
 - **Motion:** each screen's build call also gets the direction's motion plan for that screen
   (its moments, and the signature interaction on its screen) and builds it with the platform's
   motion kit, `components/motion.tsx` (template-owned): `Appear`, `Stagger`, `PressScale`,
@@ -385,7 +402,12 @@ users can undo.
   [04-phase-0-results.md](04-phase-0-results.md)). Known v0 limits: screens below the top of
   a stack unmount (state resets on back), no transitions, no modals.
 - **Storage:** the frame has an opaque origin, so `localStorage` throws; AsyncStorage is an
-  in-memory shim, reset on every load.
+  in-memory shim, reset on every load. The builder's interactive frame (`keepState`) keeps what
+  the app wrote and the screen it's on across loads (a new version, a theme, opening a screen
+  from the canvas), like an app that stays installed; in-app navigation never reloads the frame.
+  Only "Reload preview" starts the app fresh.
+- **Notifications:** scheduled reminders and alarms fire while the preview is open (an alarm a
+  minute away rings and opens its screen); still renders never fire them.
 - **Handshake:** the frame posts `ready` at startup and again in reply to the parent's
   `hello`, because the frame can finish loading before the parent page hydrates.
 - **Modes:**

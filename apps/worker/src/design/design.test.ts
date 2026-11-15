@@ -124,6 +124,17 @@ describe("design-first pipeline (offline)", () => {
     );
     expect(files["theme/tokens.ts"]).toContain('export const defaultThemeId = "lagoon"');
   });
+
+  it("sets it too when the model typed the declaration", () => {
+    const plan = { themes: [{ id: "lagoon" }, { id: "midnight" }] } as never;
+    const files = withPlanDefaultTheme(
+      {
+        "theme/tokens.ts": `export const themes = [{ id: "lagoon" }, { id: "midnight" }];\nexport const defaultThemeId: string = "midnight";\n`,
+      },
+      plan,
+    );
+    expect(files["theme/tokens.ts"]).toContain('export const defaultThemeId = "lagoon"');
+  });
 });
 
 describe("run costs beyond tokens", () => {

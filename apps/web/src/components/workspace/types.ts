@@ -15,6 +15,13 @@ export interface ChatMessage {
     versionId?: string | null;
     /** For an AI edit: the version before it, which "Undo this edit" restores. */
     undoVersionId?: string | null;
+    /** A build's walkthrough: what the AI tried in the preview and how it went. */
+    test?: Array<{
+      title: string;
+      status: "pass" | "fail" | "blocked";
+      observed: string;
+      fixed?: boolean;
+    }>;
   };
   createdAt: string;
 }

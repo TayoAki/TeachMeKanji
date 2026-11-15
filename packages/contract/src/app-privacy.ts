@@ -69,7 +69,7 @@ export function readAppDataPractices(files: ProjectFiles): AppDataPractices {
     photos: uses(/\bpickPhoto\s*\(/),
     location: uses(/\buseLocation\s*\(/),
     push: cloud && uses(/\bregisterForPush\s*\(/),
-    reminders: uses(/\buseReminder\s*\(/),
+    reminders: uses(/\b(useReminder|setAlarms)\s*\(/),
     purchases: payments.iosApiKey !== "" || payments.androidApiKey !== "",
     supportChat: readSupportChat(files).appId !== "",
     appName: appInfoField(files, "name"),

@@ -322,7 +322,7 @@ export function withPlanDefaultTheme(files: ProjectFiles, plan: AppPlan): Projec
   const tokens = files["theme/tokens.ts"];
   if (!id || !tokens || !tokens.includes(`"${id}"`)) return files;
   const fixed = tokens.replace(
-    /export const defaultThemeId\s*=\s*["'][^"']*["']/,
+    /export const defaultThemeId(?:\s*:\s*\w+)?\s*=\s*["'][^"']*["']/,
     `export const defaultThemeId = "${id}"`,
   );
   return fixed === tokens ? files : { ...files, "theme/tokens.ts": fixed };

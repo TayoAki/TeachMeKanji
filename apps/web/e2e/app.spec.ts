@@ -57,12 +57,28 @@ test("from idea to published app", async ({ page, browser }) => {
   const app = page.frameLocator('iframe[data-frame-id="app"]');
   await expect(app.getByText("Expenses", { exact: true }).first()).toBeVisible();
   await expect(page.getByTestId("bottom-bar")).toContainText("Version 1");
+  // Before it's handed over, the app was used like a person would, and the chat says how it went.
+  await expect(page.getByText(/I tested 2 things a person does in the app.*2 work/)).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByTestId("walkthrough")).toContainText("Open the app");
   await expect(page.getByTestId("workspace-credits")).toHaveText("50 credits"); // plan 1 + revise 1 + build 8
 
   // Navigate inside the app preview.
   await app.getByRole("tab", { name: /Insights/ }).click();
   await expect(page.getByTestId("app-href")).toHaveText("/insights");
   await app.getByRole("tab", { name: /Expenses/ }).click();
+
+  // The preview keeps the app's data while it moves between screens, like a phone does: an
+  // expense ticked off is still ticked after switching tabs.
+  const done = app.getByText(/ of 6 done/);
+  const before = await done.innerText();
+  await app.getByRole("checkbox").first().click();
+  await expect(done).not.toHaveText(before);
+  const ticked = await done.innerText();
+  await app.getByRole("tab", { name: /Insights/ }).click();
+  await app.getByRole("tab", { name: /Expenses/ }).click();
+  await expect(done).toHaveText(ticked);
 
   // Chat edit -> new version, live in the preview.
   await page.getByLabel("Message the agent").fill('change "Expenses" to "Spending"');
@@ -72,6 +88,8 @@ test("from idea to published app", async ({ page, browser }) => {
   });
   await expect(app.getByText("Spending", { exact: true }).first()).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId("bottom-bar")).toContainText("Version 2");
+  // A new version reloads the app with its data.
+  await expect(done).toHaveText(ticked);
 
   // Instant theme switch, no regeneration; the pick is then saved into the app as a version.
   await page.getByTestId("theme-harbor").click();
@@ -123,6 +141,34 @@ test("from idea to published app", async ({ page, browser }) => {
   await page.getByTestId("open-device").click();
   await expect(page.getByTestId("device-dialog")).toContainText("aren't turned on");
   await page.keyboard.press("Escape");
+
+  // A running phone preview: its long exps:// address wraps, and nothing spills out of the dialog.
+  const deviceApi = "**/api/projects/*/device";
+  await page.route(deviceApi, (route) =>
+    route.fulfill({
+      json: {
+        available: true,
+        expoAccount: null,
+        session: {
+          status: "running",
+          url: "exps://8da5f9740fa60908f48460fb.dev.compressjpegnow.com",
+          error: null,
+        },
+      },
+    }),
+  );
+  await page.getByTestId("open-device").click();
+  await expect(page.getByTestId("connect-expo")).toBeVisible();
+  const dialogBox = (await page.getByRole("dialog").boundingBox())!;
+  for (const part of [
+    page.getByTestId("connect-expo"),
+    page.locator("code", { hasText: "exps://" }),
+  ]) {
+    const box = (await part.boundingBox())!;
+    expect(box.x + box.width).toBeLessThanOrEqual(dialogBox.x + dialogBox.width);
+  }
+  await page.keyboard.press("Escape");
+  await page.unroute(deviceApi);
 
   // Publish to the web and show in the community gallery.
   await page.getByTestId("open-publish").click();
@@ -316,6 +362,7 @@ test("the builder switches between night and day", async ({ page }) => {
   await expect(html).not.toHaveClass(/\bdark\b/);
   await page.reload();
   await expect(html).not.toHaveClass(/\bdark\b/);
+  await expect(page.getByRole("button", { name: "Switch to night mode" })).toBeVisible();
   await page.getByTestId("rail-theme").click();
   await expect(html).toHaveClass(/\bdark\b/);
 });

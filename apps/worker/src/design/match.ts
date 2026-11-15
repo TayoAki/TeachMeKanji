@@ -68,7 +68,8 @@ export async function compareScreen(input: {
 }): Promise<ScreenMatch & { usage: UsageTotals }> {
   const response = await input.createMessage({
     model: input.model,
-    max_tokens: 4000,
+    // Room for the model's thinking as well as the score and gaps (only what's used is billed).
+    max_tokens: 16_000,
     output_config: {
       effort: "medium",
       format: {

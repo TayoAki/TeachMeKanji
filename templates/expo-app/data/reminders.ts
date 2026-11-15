@@ -6,19 +6,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 import { useEffect, useState } from "react";
 import { Platform } from "react-native";
+// Reminders that arrive while the app is open show too.
+import "./notifications";
 
 const KEY = "app:reminder";
 const CHANNEL = "reminders";
-
-// Show reminders that arrive while the app is open, too.
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-});
 
 interface Saved {
   enabled: boolean;

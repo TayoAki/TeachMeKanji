@@ -108,7 +108,8 @@ export default async function AppPrivacyPage({ params }: PageProps<"/apps/[proje
   if (p.reminders)
     collected.push(
       <>
-        <strong>Reminders</strong> you set are scheduled on your phone; we don&rsquo;t receive them.
+        <strong>Reminders and alarms</strong> you set are scheduled on your phone; we don&rsquo;t
+        receive them.
       </>,
     );
   if (p.purchases)

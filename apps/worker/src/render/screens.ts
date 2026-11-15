@@ -40,7 +40,7 @@ export function canvasHref(screen: ScreenRoute): string {
 }
 
 let browser: Promise<Browser> | null = null;
-async function getBrowser(): Promise<Browser> {
+export async function getBrowser(): Promise<Browser> {
   browser ??= chromium
     .launch({
       executablePath: process.env.VIDEO_BROWSER_EXECUTABLE || undefined,
@@ -55,9 +55,9 @@ async function getBrowser(): Promise<Browser> {
   return browser;
 }
 
-/** True when this worker can render screens: the preview runtime is built and Chrome starts. */
-export async function canRenderScreens(): Promise<boolean> {
-  if (process.env.MATCH_STEP === "0" || !existsSync(RUNTIME)) return false;
+/** True when this worker can run apps in a browser: the preview runtime is built, Chrome starts. */
+export async function canRunApps(): Promise<boolean> {
+  if (!existsSync(RUNTIME)) return false;
   try {
     await getBrowser();
     return true;
@@ -66,7 +66,13 @@ export async function canRenderScreens(): Promise<boolean> {
   }
 }
 
-function page(): string {
+/** True when the mockup check and regression renders may run (MATCH_STEP=0 turns them off). */
+export async function canRenderScreens(): Promise<boolean> {
+  return process.env.MATCH_STEP !== "0" && (await canRunApps());
+}
+
+/** A page that runs the preview runtime directly (no iframe) and records what it posts. */
+export function runtimePage(): string {
   const runtime = readFileSync(RUNTIME, "utf8").replace(/<!--/g, "\\x3C!--");
   const font = existsSync(FONT) ? readFileSync(FONT).toString("base64") : "";
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
@@ -83,12 +89,17 @@ html,body,#root{height:100%;margin:0}#root{display:flex;flex-direction:column}</
 // One render at a time per worker: parallel builds would otherwise each drive Chrome at once.
 let queue: Promise<unknown> = Promise.resolve();
 
+/** Run work that drives Chrome after any render or walkthrough already running. */
+export function withRenderer<T>(work: () => Promise<T>): Promise<T> {
+  const run = queue.then(work);
+  queue = run.catch(() => {});
+  return run;
+}
+
 export async function renderScreens(
   ...args: Parameters<typeof renderScreensNow>
 ): Promise<RenderedScreen[]> {
-  const run = queue.then(() => renderScreensNow(...args));
-  queue = run.catch(() => {});
-  return run;
+  return withRenderer(() => renderScreensNow(...args));
 }
 
 async function renderScreensNow(
@@ -114,7 +125,7 @@ async function renderScreensNow(
   });
   try {
     const tab = await context.newPage();
-    await tab.setContent(page(), { waitUntil: "load" });
+    await tab.setContent(runtimePage(), { waitUntil: "load" });
     const out: RenderedScreen[] = [];
     for (const screen of targets) {
       await tab.evaluate(

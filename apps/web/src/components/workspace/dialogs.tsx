@@ -242,7 +242,7 @@ export function ExportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-[min(56rem,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle>Export</DialogTitle>
           <DialogDescription>
@@ -692,7 +692,7 @@ export function DeviceDialog({ open, onOpenChange, projectId }: DialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className="sm:max-w-[min(42rem,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle>Open on your phone</DialogTitle>
           <DialogDescription>
@@ -715,7 +715,9 @@ export function DeviceDialog({ open, onOpenChange, projectId }: DialogProps) {
                 alt="QR code to open the app in Expo Go"
                 className="size-60 rounded-lg border"
               />
-              <code className="max-w-full truncate text-xs">{session.url}</code>
+              <code className="max-w-full text-center text-xs break-all select-all">
+                {session.url}
+              </code>
               {session.error ? (
                 <p className="text-center text-xs text-destructive">{session.error}</p>
               ) : null}
@@ -805,7 +807,8 @@ function SupportChat({ projectId }: { projectId: string }) {
       api<SupportChatState>(`/api/projects/${projectId}/support-chat`, { quiet: true })
         .then((s) => {
           setState(s);
-          setAppId(s.managed ? "" : s.appId);
+          // Never over what the owner is typing (a second load can land after they start).
+          setAppId((typed) => (typed.trim() ? typed : s.managed ? "" : s.appId));
           setOwn(Boolean(s.appId) && !s.managed);
         })
         .catch(() => {}),

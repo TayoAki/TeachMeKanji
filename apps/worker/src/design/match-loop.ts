@@ -25,7 +25,7 @@ import {
 import { generateFiles } from "../generation/generate-files";
 import type { HandlerContext } from "../handlers/context";
 import { getDetailImageModel } from "../images/client";
-import { BudgetExceeded, freeCalls } from "../llm";
+import { BudgetExceeded, Cancelled, freeCalls } from "../llm";
 import { platformUrl } from "../platform-url";
 import { canRenderScreens, renderScreens } from "../render/screens";
 import { compareScreen, fixRequest, MATCH_ROUNDS, MATCH_TARGET, type ScreenMatch } from "./match";
@@ -251,7 +251,9 @@ export async function matchMockups(
           });
           continue;
         }
-        const candidate = withAppStructure({ ...next, ...result.files });
+        const merged: ProjectFiles = { ...next, ...result.files };
+        for (const path of result.deletes) delete merged[path];
+        const candidate = withAppStructure(merged);
         const issues = validateProject(candidate);
         if (hasErrors(issues)) {
           await ctx.emit("step", {
@@ -279,8 +281,14 @@ export async function matchMockups(
       await check(fixed);
     }
   } catch (error) {
-    if (!(error instanceof BudgetExceeded)) throw error;
-    stopped = "The build's credit reserve ran out, so the last checked version stands.";
+    // The build is already saved: a check that can't finish never fails it.
+    if (error instanceof Cancelled) throw error;
+    if (error instanceof BudgetExceeded)
+      stopped = "The build's credit reserve ran out, so the last checked version stands.";
+    else {
+      console.error("match check stopped:", error);
+      stopped = "The mockup check couldn't finish, so the last checked version stands.";
+    }
   }
 
   return {
