@@ -121,3 +121,40 @@ describe("alarms on dates (template helpers)", () => {
     resetNotifications();
   });
 });
+
+describe("kept photos (template helpers)", () => {
+  const { keepPhoto, photoUri, keptName, forgetPhoto } = modules.require("data/photos.ts") as {
+    keepPhoto: (p: {
+      uri: string;
+      base64: string | null;
+      width: number;
+      height: number;
+    }) => Promise<{
+      uri: string;
+    }>;
+    photoUri: (uri: string) => string;
+    keptName: (uri: string) => string | null;
+    forgetPhoto: (uri: string) => void;
+  };
+
+  it("finds a kept photo by its name, wherever the documents folder has moved", () => {
+    expect(
+      keptName("file:///var/mobile/Containers/Data/Application/1F0A/Documents/photos/lx8k2a9.jpg"),
+    ).toBe("lx8k2a9.jpg");
+    expect(keptName("file:///data/user/0/app/files/photos/a1.png")).toBe("a1.png");
+    // Picked photos still in the cache, and web URLs, aren't kept ones.
+    expect(
+      keptName(
+        "file:///var/mobile/Containers/Data/Application/1F0A/Library/Caches/ImagePicker/x.jpg",
+      ),
+    ).toBeNull();
+    expect(keptName("https://example.com/photos/x.jpg")).toBeNull();
+  });
+
+  it("leaves photos as they are in the preview, which has no files", async () => {
+    const photo = { uri: "data:image/png;base64,AAAA", base64: "AAAA", width: 1, height: 1 };
+    expect(await keepPhoto(photo)).toEqual(photo);
+    expect(photoUri(photo.uri)).toBe(photo.uri);
+    expect(() => forgetPhoto(photo.uri)).not.toThrow();
+  });
+});
