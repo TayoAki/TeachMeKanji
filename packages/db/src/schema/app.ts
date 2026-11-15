@@ -214,7 +214,9 @@ export type RunKind =
   /** Design the app before building it: direction, mascot and a mockup of every screen. */
   | "design"
   /** Redraw one mockup (or the mascot) from the user's note. */
-  | "mockup";
+  | "mockup"
+  /** Submit the app's version for App Review (with a pre-order), in App Store Connect. */
+  | "store_submit";
 export type RunStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
 
 export const agentRun = pgTable(

@@ -15,6 +15,16 @@ export const HOSTING_USD_PER_USER_MONTH = 2;
 export const PAYMENT_FEE_RATE = 0.029 + 0.007;
 export const PAYMENT_FEE_FIXED_USD = 0.3;
 
+/**
+ * Factory mode (FACTORY_MODE=1): App Builder is the team's own app factory, not a product sold
+ * to others. There are no plans, prices or credit limits: everyone gets the highest plan's
+ * limits, nothing is blocked for credits, and runs still record what they cost. Pricing,
+ * checkout and the marketing funnel are off, and new accounts need an invite link.
+ */
+export function factoryMode(): boolean {
+  return (process.env.FACTORY_MODE || "") === "1";
+}
+
 export type PlanId = "free" | "builder" | "pro";
 export type PaidPlanId = Exclude<PlanId, "free">;
 export const PAID_PLANS: readonly PaidPlanId[] = ["builder", "pro"];
@@ -146,6 +156,7 @@ export const RUN_CREDITS: Record<string, { reserve: number; minimum: number }> =
   native_build: { reserve: 0, minimum: 0 },
   payments_setup: { reserve: 40, minimum: 1 },
   store_listing: { reserve: 8, minimum: 1 },
+  store_submit: { reserve: 0, minimum: 0 },
   promo_storyboard: { reserve: 6, minimum: 1 },
   // No model: a few minutes of the worker's CPU, well under a credit.
   promo_render: { reserve: 1, minimum: 1 },

@@ -29,6 +29,7 @@ export * from "./rules";
 export * from "./changes";
 export * from "./connectors";
 export * from "./store-listing";
+export * from "./store-assets";
 export * from "./store-check";
 export * from "./promo-video";
 export * from "./design";

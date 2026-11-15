@@ -4,7 +4,7 @@
  * collections of JSON records. Generated apps reach it through data/remote.ts and
  * data/auth.ts in the template.
  */
-import { randomBytes, randomInt, scrypt, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, randomInt, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { and, count, desc, eq, gt, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { schema, type Database } from "@appbuilder/db";
@@ -169,6 +169,35 @@ export async function signUpApp(
     throw error;
   }
   return { user, token: await createSession(db, user) };
+}
+
+/**
+ * The demo account App Review signs in with (apps with email accounts), which goes into the
+ * review notes. Its password is derived from the server's secret, so it stays the same however
+ * often the app is sent: a version already in review keeps a login that works.
+ */
+export async function ensureReviewAccount(
+  db: Database,
+  projectId: string,
+): Promise<{ email: string; password: string }> {
+  const email = `app-review+${projectId.toLowerCase()}@example.com`;
+  const secret = process.env.ENCRYPTION_KEY || process.env.BETTER_AUTH_SECRET || "";
+  if (!secret) throw new Error("ENCRYPTION_KEY is needed for App Review's demo account.");
+  const password = createHmac("sha256", secret)
+    .update(`app-review:${projectId}`)
+    .digest("base64url")
+    .slice(0, 20);
+  const passwordHash = await hashPassword(password);
+  const [existing] = await db
+    .select({ id: appUser.id })
+    .from(appUser)
+    .where(and(eq(appUser.projectId, projectId), eq(appUser.email, email)));
+  if (existing) await db.update(appUser).set({ passwordHash }).where(eq(appUser.id, existing.id));
+  else
+    await db
+      .insert(appUser)
+      .values({ id: newId("au"), projectId, email, name: "App Review", passwordHash });
+  return { email, password };
 }
 
 export async function signInApp(

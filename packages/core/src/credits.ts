@@ -1,6 +1,6 @@
 import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import { schema, type Database } from "@appbuilder/db";
-import { compPlanFor, isPlanId, PLANS, type PlanId } from "./billing";
+import { compPlanFor, factoryMode, isPlanId, PLANS, type PlanId } from "./billing";
 
 const { agentRun, creditLedger, projectVersion, subscription } = schema;
 
@@ -30,6 +30,8 @@ export async function creditBalance(db: Executor, userId: string): Promise<numbe
 }
 
 export async function userPlan(db: Executor, userId: string): Promise<PlanId> {
+  // The team's own factory: everyone has every feature.
+  if (factoryMode()) return "pro";
   const [row] = await db.select().from(subscription).where(eq(subscription.userId, userId));
   if (
     row &&
@@ -50,8 +52,17 @@ export async function userPlan(db: Executor, userId: string): Promise<PlanId> {
   return "free";
 }
 
-/** Give a new user their sign-up credits once (idempotent). */
+/**
+ * What a user can spend now: their balance, or no limit in factory mode (where the ledger still
+ * records what runs and in-app AI cost, as a spend log, and may go below zero).
+ */
+export async function spendableCredits(db: Executor, userId: string): Promise<number> {
+  return factoryMode() ? Number.POSITIVE_INFINITY : creditBalance(db, userId);
+}
+
+/** Give a new user their sign-up credits once (idempotent). None in factory mode. */
 export async function ensureSignupGrant(db: Database, userId: string): Promise<void> {
+  if (factoryMode()) return;
   await db
     .insert(creditLedger)
     .values({
@@ -90,7 +101,7 @@ export async function reserveCredits(
   if (amount <= 0) return;
   await lockUser(tx, userId);
   const balance = await creditBalance(tx, userId);
-  if (balance < amount) throw new InsufficientCredits(balance, amount);
+  if (balance < amount && !factoryMode()) throw new InsufficientCredits(balance, amount);
   await tx.insert(creditLedger).values({ userId, delta: -amount, reason: "reserve", runId });
 }
 

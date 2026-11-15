@@ -10,10 +10,12 @@ import {
   ensureSignupGrant,
   invitesNeedVerifiedEmail,
   revokeAssistantAccess,
+  signUpAllowed,
 } from "@appbuilder/core";
 import { getDb, schema } from "@appbuilder/db";
 import { ipAddressOptions } from "./client-ip";
 import { emailConfigured, sendEmail } from "./email";
+import { inviteTokenFrom } from "./invite-cookie";
 
 const socialProviders: Parameters<typeof betterAuth>[0]["socialProviders"] = {};
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
@@ -131,7 +133,20 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
-        // Every new account starts with the free plan's credits.
+        // Factory mode is invite-only: a new account (email or Google) needs the invite link
+        // its owner opened. Accounts made outside a request (scripts) aren't checked.
+        before: async (_user, ctx) => {
+          if (!ctx) return;
+          const token = inviteTokenFrom(
+            ctx.headers?.get("cookie") ?? ctx.request?.headers.get("cookie"),
+          );
+          if (!(await signUpAllowed(getDb(), token)))
+            throw new APIError("FORBIDDEN", {
+              message:
+                "App Builder is invite-only. Open the invite link a teammate sent you first.",
+            });
+        },
+        // Every new account starts with the free plan's credits (none in factory mode).
         after: async (user) => {
           await ensureSignupGrant(getDb(), user.id);
         },

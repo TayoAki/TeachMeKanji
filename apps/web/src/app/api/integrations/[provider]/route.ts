@@ -9,13 +9,14 @@ import {
   expoAccount,
   parseAppStoreConnectKey,
   parsePlayServiceAccount,
+  parseReviewProfile,
   StoreKeyError,
 } from "@appbuilder/core";
 import { schema } from "@appbuilder/db";
 import { db, HttpError, readJson, requireViewer, route } from "@/lib/server";
 
 /** Store submission keys: JSON, larger than a token. */
-const STORE_KEYS = new Set(["app-store-connect", "play-console"]);
+const STORE_KEYS = new Set(["app-store-connect", "play-console", "app-review-profile"]);
 
 /** Expo, the store keys, and every connector that takes a pasted token. */
 function knownProvider(provider: string): boolean {
@@ -50,6 +51,10 @@ async function describeToken(provider: string, token: string): Promise<string> {
     if ((await checkAppStoreConnectKey(key)) === false)
       throw new HttpError(400, "Apple refused this key. Check the key ID, issuer ID and .p8 file.");
     return `Key ${key.keyId} · team ${key.teamId}`;
+  }
+  if (provider === "app-review-profile") {
+    const profile = parseStoreKey(() => parseReviewProfile(token));
+    return `${profile.firstName} ${profile.lastName} · © ${profile.copyrightHolder}`;
   }
   if (provider === "play-console") {
     const key = parseStoreKey(() => parsePlayServiceAccount(token));

@@ -31,4 +31,5 @@ export * from "./admin-report";
 export * from "./backup";
 export * from "./store-credentials";
 export * from "./app-store-metadata";
+export * from "./store-assets";
 export * from "./design";

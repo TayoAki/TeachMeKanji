@@ -3,6 +3,7 @@ import {
   activeRun,
   canSeeSource,
   creditBalance,
+  factoryMode,
   getCurrentFiles,
   latestPlan,
   listMessages,
@@ -10,6 +11,7 @@ import {
   userPlan,
   versionNumbers,
 } from "@appbuilder/core";
+import { FactoryProvider } from "@/components/factory";
 import { Workspace } from "@/components/workspace/workspace";
 import type { ProjectState } from "@/components/workspace/types";
 import { workspaceDesign } from "@/lib/design";
@@ -54,7 +56,8 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[id]"
       : null,
     messages: source ? await listMessages(db(), id) : [],
     activeRun: run ? { id: run.id, kind: run.kind, status: run.status } : null,
-    credits: viewer ? await creditBalance(db(), viewer.id) : null,
+    // No credits to show in factory mode.
+    credits: viewer && !factoryMode() ? await creditBalance(db(), viewer.id) : null,
     plan_tier: viewer ? await userPlan(db(), viewer.id) : null,
     // Mockups before the build: editors see and approve them; viewers never do.
     ...(access === "owner" || access === "editor"
@@ -63,10 +66,12 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[id]"
   }) as unknown as ProjectState;
 
   return (
-    <Workspace
-      initial={initial}
-      user={viewer ? { name: viewer.name, email: viewer.email, image: viewer.image } : null}
-    />
+    <FactoryProvider factory={factoryMode()}>
+      <Workspace
+        initial={initial}
+        user={viewer ? { name: viewer.name, email: viewer.email, image: viewer.image } : null}
+      />
+    </FactoryProvider>
   );
 }
 

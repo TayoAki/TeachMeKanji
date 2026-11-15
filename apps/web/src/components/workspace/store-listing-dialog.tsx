@@ -7,6 +7,7 @@ import { Check, Copy, Download, Images, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import {
   buildRouteTree,
+  frameStoreShot,
   hostedAppPages,
   readAppPrivacyUrl,
   screens as listScreens,
@@ -59,6 +60,8 @@ export function StoreListingDialog({
   canEdit: boolean;
 }) {
   const [listing, setListing] = useState<StoreListing | null>(null);
+  // The icon and screenshots the worker made for App Store Connect, with the listing.
+  const [made, setMade] = useState<MadeAssets | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const [shots, setShots] = useState<Shot[]>([]);
   const [capturing, setCapturing] = useState<string | null>(null);
@@ -75,7 +78,11 @@ export function StoreListingDialog({
     if (!open) return;
     let alive = true;
     latestListing(projectId)
-      .then((found) => alive && found && setListing(found))
+      .then((found) => {
+        if (!alive || !found) return;
+        setListing(found.listing);
+        setMade(found.made);
+      })
       .catch(() => {});
     return () => {
       alive = false;
@@ -84,7 +91,10 @@ export function StoreListingDialog({
 
   const progress = useRunStream(runId, async (p) => {
     const found = p.status === "done" ? await latestListing(projectId) : null;
-    if (found) setListing(found);
+    if (found) {
+      setListing(found.listing);
+      setMade(found.made);
+    }
     setRunId(null);
   });
 
@@ -100,6 +110,17 @@ export function StoreListingDialog({
     if (!listing) return;
     const zip = new JSZip();
     zip.file("listing.txt", listingText(listing, links));
+    // What goes to App Store Connect: the icon and the 6.9" screenshots the worker made.
+    if (made) {
+      const fetchPng = async (file: string) =>
+        (await fetch(assetUrl(projectId, made.runId, file))).arrayBuffer();
+      if (made.icon) zip.file("icon.png", await fetchPng(made.icon));
+      for (const [index, shot] of made.shots.entries())
+        zip.file(
+          `app-store-connect/${String(index + 1).padStart(2, "0")}-${slug(shot.caption)}.png`,
+          await fetchPng(shot.file),
+        );
+    }
     for (const [index, shot] of shots.entries()) {
       const name = `${String(index + 1).padStart(2, "0")}-${slug(shot.caption)}.png`;
       zip.file(`${SIZES.appStore.folder}/${name}`, shot.appStore.split(",")[1]!, { base64: true });
@@ -183,7 +204,11 @@ export function StoreListingDialog({
               >
                 {capturing ? <Loader2 className="animate-spin" /> : <Images />} Make screenshots
               </Button>
-              <Button variant="outline" onClick={download} disabled={!shots.length}>
+              <Button
+                variant="outline"
+                onClick={download}
+                disabled={!shots.length && !made?.shots.length}
+              >
                 <Download /> Download all
               </Button>
               {canEdit ? (
@@ -192,6 +217,35 @@ export function StoreListingDialog({
                 </Button>
               ) : null}
             </div>
+
+            {made && (made.icon || made.shots.length || made.note) ? (
+              <div className="space-y-2 rounded-lg border p-3" data-testid="listing-made">
+                <p className="text-xs text-muted-foreground">
+                  For App Store Connect: Send to TestFlight builds the app with this icon and
+                  uploads these screenshots (6.9&Prime; iPhone).{made.note ? ` ${made.note}` : ""}
+                </p>
+                <div className="flex gap-3 overflow-x-auto">
+                  {made.icon ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={assetUrl(projectId, made.runId, made.icon)}
+                      alt="App icon"
+                      className="size-20 shrink-0 rounded-[22%] border"
+                      data-testid="listing-icon"
+                    />
+                  ) : null}
+                  {made.shots.map((shot) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={shot.file}
+                      src={assetUrl(projectId, made.runId, shot.file)}
+                      alt={shot.caption}
+                      className="h-40 shrink-0 rounded-md border"
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             {shots.length ? (
               <div className="grid grid-cols-3 gap-3 sm:grid-cols-5" data-testid="listing-shots">
@@ -336,81 +390,21 @@ export function Capturer({
   );
 }
 
-/** A store screenshot: the caption over the theme's color, the screen in a rounded frame. */
-async function frame(
+/** A store screenshot at `size`, framed the same way the worker frames the ones it uploads. */
+function frame(
   png: string,
   caption: string,
   size: { width: number; height: number },
   theme: PreviewTheme | undefined,
 ): Promise<string> {
-  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("Couldn't read the screenshot."));
-    img.src = png;
+  return frameStoreShot({
+    png,
+    caption,
+    width: size.width,
+    height: size.height,
+    primary: theme?.colors.primary ?? "#111827",
+    onPrimary: theme?.colors.onPrimary ?? "#ffffff",
   });
-  const canvas = document.createElement("canvas");
-  canvas.width = size.width;
-  canvas.height = size.height;
-  const ctx = canvas.getContext("2d")!;
-  const primary = theme?.colors.primary ?? "#111827";
-  const onPrimary = theme?.colors.onPrimary ?? "#ffffff";
-  ctx.fillStyle = primary;
-  ctx.fillRect(0, 0, size.width, size.height);
-  const shade = ctx.createLinearGradient(0, 0, 0, size.height);
-  shade.addColorStop(0, "rgba(255,255,255,0.10)");
-  shade.addColorStop(1, "rgba(0,0,0,0.18)");
-  ctx.fillStyle = shade;
-  ctx.fillRect(0, 0, size.width, size.height);
-
-  // Caption: up to three lines, centered.
-  const fontSize = Math.round(size.width * 0.068);
-  ctx.font = `700 ${fontSize}px system-ui, -apple-system, "Segoe UI", sans-serif`;
-  ctx.fillStyle = onPrimary;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "top";
-  const lines = wrap(ctx, caption, size.width * 0.84).slice(0, 3);
-  const top = size.height * 0.055;
-  lines.forEach((line, i) => ctx.fillText(line, size.width / 2, top + i * fontSize * 1.18));
-
-  // The screen, scaled to fit under the caption.
-  const areaTop = top + lines.length * fontSize * 1.18 + size.height * 0.035;
-  const maxHeight = size.height - areaTop - size.height * 0.04;
-  const scale = Math.min((size.width * 0.82) / image.width, maxHeight / image.height);
-  const w = image.width * scale;
-  const h = image.height * scale;
-  const x = (size.width - w) / 2;
-  const radius = w * 0.09;
-  ctx.save();
-  ctx.shadowColor = "rgba(0,0,0,0.35)";
-  ctx.shadowBlur = size.width * 0.04;
-  ctx.shadowOffsetY = size.width * 0.012;
-  ctx.beginPath();
-  ctx.roundRect(x, areaTop, w, h, radius);
-  ctx.fillStyle = "#000";
-  ctx.fill();
-  ctx.restore();
-  ctx.save();
-  ctx.beginPath();
-  ctx.roundRect(x, areaTop, w, h, radius);
-  ctx.clip();
-  ctx.drawImage(image, x, areaTop, w, h);
-  ctx.restore();
-  return canvas.toDataURL("image/png");
-}
-
-function wrap(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
-  const lines: string[] = [];
-  let line = "";
-  for (const word of text.split(/\s+/).filter(Boolean)) {
-    const next = line ? `${line} ${word}` : word;
-    if (ctx.measureText(next).width > maxWidth && line) {
-      lines.push(line);
-      line = word;
-    } else line = next;
-  }
-  if (line) lines.push(line);
-  return lines;
 }
 
 function slug(text: string): string {
@@ -445,10 +439,42 @@ function listingText(
   ].join("\n");
 }
 
-/** The listing the last successful store_listing run wrote. */
-async function latestListing(projectId: string): Promise<StoreListing | null> {
+interface MadeAssets {
+  runId: string;
+  icon: string | null;
+  shots: Array<{ screen: string; caption: string; file: string }>;
+  note: string;
+}
+
+function assetUrl(projectId: string, runId: string, file: string): string {
+  return `/api/projects/${projectId}/store-assets/${runId}/${file}`;
+}
+
+/** The listing the last successful store_listing run wrote, and the assets it made. */
+async function latestListing(
+  projectId: string,
+): Promise<{ listing: StoreListing; made: MadeAssets } | null> {
   const { runs } = await api<{
-    runs: Array<{ id: string; status: string; output: { listing?: StoreListing } | null }>;
+    runs: Array<{
+      id: string;
+      status: string;
+      output: {
+        listing?: StoreListing;
+        icon?: string | null;
+        shots?: MadeAssets["shots"];
+        assetsNote?: string;
+      } | null;
+    }>;
   }>(`/api/projects/${projectId}/runs?kind=store_listing`, { quiet: true });
-  return runs.find((r) => r.status === "succeeded" && r.output?.listing)?.output?.listing ?? null;
+  const run = runs.find((r) => r.status === "succeeded" && r.output?.listing);
+  if (!run?.output?.listing) return null;
+  return {
+    listing: run.output.listing,
+    made: {
+      runId: run.id,
+      icon: run.output.icon ?? null,
+      shots: run.output.shots ?? [],
+      note: run.output.assetsNote ?? "",
+    },
+  };
 }

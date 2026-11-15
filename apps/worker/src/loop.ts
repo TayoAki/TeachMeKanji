@@ -27,6 +27,7 @@ import {
   runBudgetUsd,
   updateProject,
   type Run,
+  factoryMode,
 } from "@appbuilder/core";
 import { schema, type Database } from "@appbuilder/db";
 import { AgentError } from "./agents/agents";
@@ -36,6 +37,7 @@ import { handleBuild, handleEdit, handlePlan } from "./handlers/agent-runs";
 import { handlePaymentsSetup } from "./handlers/payments-setup";
 import { handlePromoRender, handlePromoStoryboard } from "./handlers/promo-video";
 import { handleStoreListing } from "./handlers/store-listing";
+import { handleStoreSubmit } from "./store/asc";
 import type { HandlerContext, HandlerResult } from "./handlers/context";
 import { handleGitHubPush } from "./handlers/github";
 import { handleNativeBuild } from "./handlers/native-build";
@@ -52,6 +54,7 @@ const HANDLERS: Record<Run["kind"], (ctx: HandlerContext) => Promise<HandlerResu
   native_build: handleNativeBuild,
   payments_setup: handlePaymentsSetup,
   store_listing: handleStoreListing,
+  store_submit: handleStoreSubmit,
   promo_storyboard: handlePromoStoryboard,
   promo_render: handlePromoRender,
   design: handleDesign,
@@ -250,8 +253,9 @@ export async function runWorker(
           backingUp = true;
           void backupIfDue(getStorage()).finally(() => (backingUp = false));
         }
-        // The funnel's launch emails that are due (only when a real email provider is set).
-        if (emailProviderSet())
+        // The funnel's launch emails that are due (only when a real email provider is set, and
+        // never in factory mode, which has no funnel).
+        if (emailProviderSet() && !factoryMode())
           await sendDueFunnelEmails(db, {
             appUrl: (process.env.APP_PUBLIC_URL || process.env.BETTER_AUTH_URL || "").replace(
               /\/$/,

@@ -89,7 +89,9 @@ export function AuthForm({
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {mode === "sign-up"
-            ? `You start with ${signupCredits} free credits.`
+            ? signupCredits
+              ? `You start with ${signupCredits} free credits.`
+              : "Join your team's App Builder."
             : "Sign in to keep building."}
         </p>
       </div>

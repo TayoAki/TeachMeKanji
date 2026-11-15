@@ -1,9 +1,16 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Database } from "@appbuilder/db";
 import { canEdit, projectAccess } from "./authz";
-import { acceptInvite, createInvite, InviteInvalid, peekInvite } from "./invites";
+import { acceptInvite, createInvite, InviteInvalid, peekInvite, signUpAllowed } from "./invites";
 import { revokeAssistantAccess } from "./assistants";
-import { creditBalance, ensureSignupGrant, InsufficientCredits, settleUndo } from "./credits";
+import {
+  creditBalance,
+  ensureSignupGrant,
+  InsufficientCredits,
+  settleUndo,
+  spendableCredits,
+  userPlan,
+} from "./credits";
 import { decryptSecret, encryptSecret } from "./crypto";
 import {
   addMessage,
@@ -66,6 +73,37 @@ describe("core (Postgres)", () => {
     const rejected = runs.find((r) => r.status === "rejected") as PromiseRejectedResult;
     expect(rejected.reason).toBeInstanceOf(InsufficientCredits);
     expect(await creditBalance(db, u.id)).toBe(20);
+  });
+
+  it("factory mode: no plans or credit limits, runs still record their cost, sign-up needs an invite", async () => {
+    const before = process.env.FACTORY_MODE;
+    process.env.FACTORY_MODE = "1";
+    try {
+      const u = await makeUser(db);
+      await ensureSignupGrant(db, u.id);
+      expect(await creditBalance(db, u.id)).toBe(0);
+      expect(await userPlan(db, u.id)).toBe("pro");
+      expect(await spendableCredits(db, u.id)).toBe(Number.POSITIVE_INFINITY);
+      // Runs aren't blocked; the ledger still records what they hold, as a spend log.
+      const p = await createProject(db, { ownerId: u.id, prompt: "a", platforms: "both" });
+      await enqueueRun(db, { projectId: p.id, userId: u.id, kind: "design" });
+      expect(await creditBalance(db, u.id)).toBe(-40);
+
+      // New accounts need a valid, unused invite link.
+      expect(await signUpAllowed(db, null)).toBe(false);
+      expect(await signUpAllowed(db, "not-a-real-token")).toBe(false);
+      const { token } = await createInvite(db, {
+        projectId: p.id,
+        role: "editor",
+        createdBy: u.id,
+      });
+      expect(await signUpAllowed(db, token)).toBe(true);
+    } finally {
+      if (before === undefined) delete process.env.FACTORY_MODE;
+      else process.env.FACTORY_MODE = before;
+    }
+    // Outside factory mode nothing changes.
+    expect(await signUpAllowed(db, null)).toBe(true);
   });
 
   it("allows one agent run per project, even under concurrent requests", async () => {

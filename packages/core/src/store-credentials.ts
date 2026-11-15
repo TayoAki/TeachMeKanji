@@ -57,6 +57,56 @@ export function parseAppStoreConnectKey(raw: string): AppStoreConnectKey {
   return key as AppStoreConnectKey;
 }
 
+/**
+ * Who App Review contacts about the team's apps, and the copyright holder every app's listing
+ * names (Settings → Phone builds, saved encrypted like the keys).
+ */
+export interface ReviewProfile {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+  /** The person or company that owns the apps, e.g. "Example LLC" (the year is added). */
+  copyrightHolder: string;
+}
+
+export function parseReviewProfile(raw: string): ReviewProfile {
+  let parsed: Partial<ReviewProfile>;
+  try {
+    parsed = JSON.parse(raw) as Partial<ReviewProfile>;
+  } catch {
+    throw new StoreKeyError("That isn't a complete App Review contact.");
+  }
+  const profile = {
+    firstName: String(parsed.firstName ?? "")
+      .trim()
+      .slice(0, 60),
+    lastName: String(parsed.lastName ?? "")
+      .trim()
+      .slice(0, 60),
+    phone: String(parsed.phone ?? "")
+      .trim()
+      .slice(0, 30),
+    email: String(parsed.email ?? "")
+      .trim()
+      .slice(0, 120),
+    copyrightHolder: String(parsed.copyrightHolder ?? "")
+      .trim()
+      .slice(0, 120),
+  };
+  if (!profile.firstName || !profile.lastName)
+    throw new StoreKeyError("App Review needs a contact's first and last name.");
+  if (!/^\+?[0-9][0-9 ().-]{6,}$/.test(profile.phone))
+    throw new StoreKeyError(
+      "Give a phone number App Review can call, with the country code (+1 …).",
+    );
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email))
+    throw new StoreKeyError("The contact email doesn't look like an email address.");
+  if (!profile.copyrightHolder)
+    throw new StoreKeyError("Name the copyright holder: you or your company.");
+  return profile;
+}
+
 export function parsePlayServiceAccount(raw: string): PlayServiceAccount {
   let parsed: Partial<PlayServiceAccount>;
   try {
