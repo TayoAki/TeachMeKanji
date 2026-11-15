@@ -174,6 +174,49 @@ export default function Units() {
     }
   });
 
+  it("sees which option is chosen, from the app's accessibilityState", async ({ skip }) => {
+    if (!(await canRenderScreens())) skip();
+    const files = {
+      ...(await fixtureProject("habit-tracker")),
+      "app/(tabs)/index.tsx": `import { useState } from "react";
+import { Pressable, Text, View } from "react-native";
+
+const KINDS = ["Every day", "Chosen weekdays"];
+
+export default function Schedule() {
+  const [kind, setKind] = useState(KINDS[0]);
+  return (
+    <View accessibilityRole="radiogroup">
+      {KINDS.map((k) => (
+        <Pressable
+          key={k}
+          accessibilityRole="radio"
+          accessibilityState={{ checked: kind === k }}
+          onPress={() => setKind(k)}
+        >
+          <Text>{k}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+`,
+    };
+    const session = await AppSession.open(files);
+    try {
+      const radios = (await session.observe()).controls.filter((c) => c.role === "radio");
+      expect(radios.map((c) => [c.name, c.checked])).toEqual([
+        ["Every day", true],
+        ["Chosen weekdays", false],
+      ]);
+      await session.tap(radios[1]!.ref);
+      const after = (await session.observe()).controls.filter((c) => c.role === "radio");
+      expect(after.map((c) => c.checked)).toEqual([false, true]);
+    } finally {
+      await session.close();
+    }
+  });
+
   it("lists the controls on screen, and keeps what the app saved when it's relaunched", async ({
     skip,
   }) => {
