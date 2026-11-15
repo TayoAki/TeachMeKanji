@@ -287,7 +287,20 @@ creates a `restore` version so history stays linear.
   data; errors the app throws fail a case; what needs a real phone (a camera photo, the
   microphone) is "blocked", never passed. Failures get one free repair and a full re-test, kept
   only when more cases pass and none that passed breaks. The build's chat message lists the
-  results. `WALKTHROUGH=0` turns it off; it never fails a saved build.
+  results. `WALKTHROUGH=0` turns it off; it never fails a saved build. Every chat edit that
+  changes files is tested the same way before its version is saved: 2 to 4 cases on the change
+  itself, the core loop and what the change could break (with the request in the repair, so the
+  fix keeps the change); the edit's chat message reports them.
+- **Launch prototypes:** the first version of an app goes to App Review to open App Store
+  pre-orders, so it is small and every feature works. The planner lists in `leftOut` what the
+  idea asks for that the platform can't really do (no audio, motion sensors, widgets…), with what
+  it does instead; the plan card shows it before the build. The viral loop is built in:
+  the share moment card (`useShareImage`), `inviteFriends()` and `noteWin()` from the template's
+  `data/growth.ts` (Apple's own rating prompt after the third success, at most every four
+  months). Invites link to the app's page, `/apps/<projectId>`, which says "Coming soon to the
+  App Store" until the owner saves the App Store ID under Send to the stores, then links to the
+  App Store page (where it can be pre-ordered). The preview shows a "Share sheet" overlay for
+  anything an app shares.
 - **Motion:** each screen's build call also gets the direction's motion plan for that screen
   (its moments, and the signature interaction on its screen) and builds it with the platform's
   motion kit, `components/motion.tsx` (template-owned): `Appear`, `Stagger`, `PressScale`,

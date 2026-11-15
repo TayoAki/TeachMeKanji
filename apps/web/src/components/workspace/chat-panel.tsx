@@ -115,6 +115,19 @@ function PlanCard({
           </li>
         ))}
       </ol>
+      {plan.leftOut?.length ? (
+        <div className="mt-3 rounded-lg bg-muted/60 p-2 text-xs" data-testid="plan-left-out">
+          <p className="font-medium">Left out, so App Review only sees what works:</p>
+          <ul className="mt-1 space-y-1 text-muted-foreground">
+            {plan.leftOut.map((l, i) => (
+              <li key={i}>
+                <span className="text-foreground">{l.feature}</span>: {l.reason}.{" "}
+                {l.instead ? `Instead: ${l.instead}.` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {plan.collections.length ? (
         <p className="mt-3 text-xs text-muted-foreground">
           Data:{" "}

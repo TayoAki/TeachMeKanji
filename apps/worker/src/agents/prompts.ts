@@ -22,7 +22,9 @@ Every app has four parts, in this order in "screens":
 4. Settings: role "settings", path app/settings.tsx, kind "stack". Its purpose names the preferences that matter for this app.
 
 Rules for the plan:
-- Plan only what the app can really do: its data (on the device, or App Cloud accounts when enabled), its screens, the platform's purchases, one daily local reminder at a time the user picks, sharing a card as an image, taking a photo with the camera or picking one from the library, scanning a barcode or QR code, the person's current location (coordinates and the place name), notifications the owner sends to everyone who opted in (App Cloud apps), and AI features: a small, fast AI that answers a question, explains, gives feedback, suggests, or describes what is in a photo (one request at a time, a few seconds each; the owner's credits pay for it). It can't use contacts, health data, audio, video, Bluetooth, maps or background tracking, so don't plan features, onboarding steps or premium perks that need them.
+- This first version is a launch prototype: it goes to App Review to open App Store pre-orders, and Apple rejects an app that shows a feature that doesn't work or promises one it doesn't have. So plan a small app whose every feature really works, not a long list.
+- Plan only what the app can really do: its data (on the device, or App Cloud accounts when enabled), its screens, the platform's purchases, one daily local reminder at a time the user picks, alarms at set times on chosen days (they ring once with the phone's ringtone, like a notification, even when the app is closed, and open the alarm's own screen), sharing a card as an image, inviting friends with a link, Apple's own rating prompt, taking a photo with the camera or picking one from the library, scanning a barcode or QR code, the person's current location (coordinates and the place name), notifications the owner sends to everyone who opted in (App Cloud apps), and AI features: a small, fast AI that answers a question, explains, gives feedback, suggests, or describes what is in a photo, including checking that a photo shows something (one request at a time, a few seconds each; the owner's credits pay for it). It can't record or play audio (no custom or looping sounds, no voice), play video, count steps or motion, or use contacts, health data, Bluetooth, maps, widgets or background tracking, so don't plan features, onboarding steps or premium perks that need them.
+- leftOut: every feature the user's idea asks for that the app can't really do this way, each with the reason in plain words and what the plan does instead (for example "Read a verse aloud" → no microphone → "read it on screen, then tap I'm up"). [] when nothing is left out. Never plan a stand-in that only pretends (a fake timer for pushups, a button that claims to verify).
 - Habit and learning apps usually benefit from the daily reminder (a reason to come back) and from sharing the share moment as an image.
 - Every screen must be useful with local data. Define 1 to 3 collections (snake_case names, plural) with realistic fields; "id" is implicit, don't list it.
 - Give every screen a concise purpose that says what it shows and what the user can do there, and an Ionicons icon name.
@@ -250,13 +252,15 @@ ${bullet(features)}
   if (screen.role === "settings") {
     return `This is Settings, a stack screen: set the title with <Stack.Screen options={{ title: "Settings" }} /> and use the navigator's header (no custom title text). Grouped sections with small uppercase headers and rows separated by hairlines, in a ScrollView:
 - Subscription: the status from usePurchases() (premium with activeOffer, or an "Upgrade to Premium" row calling openPaywall()), "Restore Purchases" (restorePurchases(), showing the outcome) and "Manage subscription" opening https://apps.apple.com/account/subscriptions on iOS or https://play.google.com/store/account/subscriptions on Android (Platform.OS, Linking.openURL).
-- Preferences that matter for this app (${screen.purpose}). Show onboarding answers (useAppState().answers${answerKeys.length ? `: ${answerKeys.join(", ")}` : ""}) with a "Change" action that calls resetOnboarding(). Use a Switch only for something that really changes the app. If the app has a daily reminder, a "Daily reminder" row with a Switch (useReminder().enable / disable) and the time (setTime), and a note when permission was denied. An "Appearance" row with three choices (System, Light, Dark) from useAppearance() in theme/ThemeProvider.
+- Preferences that matter for this app (${screen.purpose}). Show onboarding answers (useAppState().answers${answerKeys.length ? `: ${answerKeys.join(", ")}` : ""}) with a "Change" action that calls resetOnboarding(). Use a Switch only for something that really changes the app. If the app has a daily reminder, a "Daily reminder" row with a Switch (useReminder().enable / disable) and the time (setTime), and a note when permission was denied. An "Appearance" row with three choices (System, Light, Dark) from useAppearance() in theme/ThemeProvider. An "Invite friends" row that calls inviteFriends() from data/growth.
 - Support and legal: Contact support (mailto:appInfo.supportEmail), Privacy Policy and Terms of Use (appInfo), each hidden when empty.
 - About: the app name and "Version " + appInfo.version.
 - "Replay onboarding" calling resetOnboarding().`;
   }
   const isHome = screen.path === "app/(tabs)/index.tsx";
-  const lines = [`Core loop of this app: ${plan.coreLoop || plan.summary}`];
+  const lines = [
+    `Core loop of this app: ${plan.coreLoop || plan.summary}. Where this screen completes it (a task done, a day kept), call noteWin() from data/growth right after the success.`,
+  ];
   if (isHome)
     lines.push(
       'This is the home screen: put the core action one tap away near the top, and a settings button in the top-right corner (Ionicons "settings-outline", accessibilityLabel "Settings") that opens /settings.',
@@ -267,7 +271,7 @@ ${bullet(features)}
     );
   if (plan.shareMoment)
     lines.push(
-      `Share moment: ${plan.shareMoment}. If it belongs on this screen, design it as a polished card worth posting (real data, not empty placeholders), wrapped in <View ref={ref} collapsable={false}> from useShareImage() (components/share), with a Share button that calls share({ message }) to share it as an image.`,
+      `Share moment: ${plan.shareMoment}. If it belongs on this screen, design it as a polished card worth posting (real data, not empty placeholders), wrapped in <View ref={ref} collapsable={false}> from useShareImage() (components/share), with a Share button that calls share({ message }) to share it as an image, and next to it an invite (inviteFriends(message) from data/growth) whose copy says why a friend makes this better.`,
     );
   if (answerKeys.length)
     lines.push(

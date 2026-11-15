@@ -86,6 +86,10 @@ test("from idea to published app", async ({ page, browser }) => {
   await expect(page.getByText("Changed “Expenses” to “Spending”.")).toBeVisible({
     timeout: 30_000,
   });
+  // The change was tried in the preview like a person would before it was saved.
+  await expect(
+    page.getByText(/I tried the change in the web preview, 2 cases: 2 work/),
+  ).toBeVisible();
   await expect(app.getByText("Spending", { exact: true }).first()).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId("bottom-bar")).toContainText("Version 2");
   // A new version reloads the app with its data.
@@ -856,4 +860,37 @@ test("support chat: connecting Hire Shelby installs its SDK for store builds and
   expect(
     JSON.parse(after["package.json"]!).dependencies["@hireshelby/react-native"],
   ).toBeUndefined();
+});
+
+test("launch prototypes: the plan says what it left out, and invites lead to the app's page", async ({
+  page,
+}) => {
+  await signUp(page, "Grower");
+  await page
+    .getByLabel("Describe your app")
+    .fill("A gratitude journal that reads your entries aloud");
+  await page.getByTestId("prompt-submit").click();
+  await page.waitForURL(/\/projects\//);
+  const projectId = page.url().split("/projects/")[1]!;
+  // What the app can't really do is named on the plan, not built as a pretend feature.
+  await expect(page.getByTestId("plan-left-out")).toContainText("Voice and custom sounds", {
+    timeout: 30_000,
+  });
+  await page.getByTestId("confirm-build").click({ timeout: 30_000 });
+  await expect(page.getByTestId("status")).toHaveText("Ready", { timeout: 60_000 });
+
+  // Invite friends shares a link to the app's own page (the preview shows the share sheet).
+  const settings = page
+    .getByTestId("canvas-screen")
+    .filter({ hasText: "settings.tsx" })
+    .frameLocator("iframe");
+  await settings.getByText("Invite friends").click();
+  await expect(settings.getByRole("dialog", { name: "Share sheet" })).toContainText(
+    `/apps/${projectId}`,
+  );
+
+  // The page says it's coming to the App Store until the app has its App Store record.
+  await page.goto(`/apps/${projectId}`);
+  await expect(page.getByTestId("app-page-name")).toBeVisible();
+  await expect(page.getByTestId("app-page-soon")).toHaveText("Coming soon to the App Store.");
 });

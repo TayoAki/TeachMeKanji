@@ -149,6 +149,21 @@ function respond(params: Params): string {
 /** Two test cases from the plan in the request (offline mode can't judge what matters most). */
 function fakeTestCases(request: string) {
   const plan = /"appName": "([^"]+)"/.exec(request)?.[1] ?? "the app";
+  if (request.includes("This test follows a change"))
+    return {
+      cases: [
+        {
+          title: "Try the change",
+          goal: "Open the screen the change was about and use it.",
+          expect: "The change shows and works.",
+        },
+        {
+          title: "Open the app",
+          goal: `Open ${plan} and look at the first screen.`,
+          expect: "The first screen shows the app's content.",
+        },
+      ],
+    };
   return {
     cases: [
       {
@@ -367,6 +382,16 @@ function fakePlan(request: string): AppPlan {
     angle: `Built for logging in seconds, not managing a spreadsheet`,
     coreLoop: `Add a ${d.singular} in two taps and see the running total`,
     shareMoment: `A monthly summary card of your ${d.collection}`,
+    // Like the real planner: what the idea asks for that apps can't really do.
+    leftOut: /\b(aloud|voice|custom sounds?)\b/i.test(idea)
+      ? [
+          {
+            feature: "Voice and custom sounds",
+            reason: "apps can't record or play audio",
+            instead: "on-screen steps and the phone's own ringtone",
+          },
+        ]
+      : [],
     onboarding: {
       steps: [
         {
@@ -1112,6 +1137,7 @@ import { Stack } from "expo-router";
 import { SupportButton } from "${root}components/support";
 import { appInfo } from "${root}data/app-info";
 import { useAppState } from "${root}data/app-state";
+import { inviteFriends } from "${root}data/growth";
 import { usePurchases } from "${root}data/purchases";
 import { useAppearance, useTheme } from "${root}theme/ThemeProvider";
 
@@ -1142,6 +1168,9 @@ export default function SettingsScreen() {
         <Text style={label}>{status === "restoring" ? "Restoring…" : "Restore Purchases"}</Text>
       </Pressable>
       {error ? <Text style={{ color: theme.colors.danger }}>{error}</Text> : null}
+      <Pressable accessibilityRole="button" onPress={() => inviteFriends()} style={row}>
+        <Text style={label}>Invite friends</Text>
+      </Pressable>
       <Pressable accessibilityRole="button" onPress={() => Linking.openURL(MANAGE_URL)} style={row}>
         <Text style={label}>Manage subscription</Text>
       </Pressable>

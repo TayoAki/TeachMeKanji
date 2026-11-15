@@ -75,6 +75,8 @@ export const IMPORTABLE_MODULES: Readonly<Record<string, readonly string[] | "*"
   ],
   // Used through <Lottie> and <Celebrate> from components/lottie (see PLATFORM_ONLY_MODULES).
   "lottie-react-native": ["default"],
+  // Apple's rating prompt, used through noteWin() from data/growth (see PLATFORM_ONLY_MODULES).
+  "expo-store-review": ["hasAction", "isAvailableAsync", "requestReview"],
   // Hire Shelby support chat, only in data/support-chat.ts (written by the platform) and used
   // through useSupport() from components/support.
   "@hireshelby/react-native": ["HireShelby", "useUnreadCount"],
@@ -115,6 +117,8 @@ export const PLATFORM_ONLY_MODULES: Readonly<Record<string, string>> = {
     'Play an animation with <Lottie name="success" | "confetti" | "loading" | "heart" | "sparkle" /> or <Celebrate trigger={…} /> from components/lottie.',
   "@hireshelby/react-native":
     "Offer help with useSupport() or <SupportButton /> from components/support.",
+  "expo-store-review":
+    "Call noteWin() from data/growth after each success of the core loop; it asks for a rating at the right time.",
 };
 
 /** AsyncStorage may only be used by the data layer, never directly by screens. */

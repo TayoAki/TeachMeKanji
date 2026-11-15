@@ -25,5 +25,6 @@ export const EXPO_SDK = {
     "react-native-svg": "15.16.0",
     "expo-haptics": "~58.0.7",
     "lottie-react-native": "~7.5.0",
+    "expo-store-review": "~58.0.2",
   },
 } as const;

@@ -60,6 +60,13 @@ export interface PlanTheme {
   primary: string;
 }
 
+/** Something the idea asked for that the app can't really do, and what it does instead. */
+export interface PlanLeftOut {
+  feature: string;
+  reason: string;
+  instead: string;
+}
+
 export interface AppPlan {
   appName: string;
   summary: string;
@@ -76,6 +83,11 @@ export interface AppPlan {
   screens: PlanScreen[];
   collections: PlanCollection[];
   themes: PlanTheme[];
+  /**
+   * What the idea asked for that the app can't really do, so it isn't in the plan. An app that
+   * shows a feature that doesn't work is rejected by App Review. Older plans have none.
+   */
+  leftOut?: PlanLeftOut[];
 }
 
 /** JSON schema for structured outputs (every object closed, every property required). */
@@ -94,9 +106,23 @@ export const APP_PLAN_JSON_SCHEMA = {
     "screens",
     "collections",
     "themes",
+    "leftOut",
   ],
   properties: {
     appName: { type: "string" },
+    leftOut: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["feature", "reason", "instead"],
+        properties: {
+          feature: { type: "string" },
+          reason: { type: "string" },
+          instead: { type: "string" },
+        },
+      },
+    },
     summary: { type: "string" },
     audience: { type: "string" },
     angle: { type: "string" },
@@ -446,6 +472,14 @@ export function normalizePlan(
       screens: [structure.onboarding!, structure.paywall!, ...kept, structure.settings!],
       themes,
       collections,
+      leftOut: (Array.isArray(input.leftOut) ? input.leftOut : [])
+        .map((l) => ({
+          feature: cleanText(l?.feature),
+          reason: cleanText(l?.reason),
+          instead: cleanText(l?.instead),
+        }))
+        .filter((l) => l.feature)
+        .slice(0, 8),
     },
     fixes,
   };

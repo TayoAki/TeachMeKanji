@@ -23,6 +23,7 @@ import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "./shims/safe-
 import { StatusBar } from "./shims/status-bar";
 import { Ionicons } from "./shims/vector-icons";
 import * as haptics from "./shims/haptics";
+import * as storeReview from "./shims/store-review";
 import * as svg from "./shims/svg";
 import LottieView from "./shims/lottie";
 import * as hireShelby from "./shims/hireshelby";
@@ -68,6 +69,7 @@ export const vendorModules: Readonly<Record<string, unknown>> = {
   "react-native-purchases": esm(purchasesSdk, purchasesSdk),
   "react-native-svg": esm(svg, svg.Svg),
   "expo-haptics": esm(haptics),
+  "expo-store-review": esm(storeReview),
   "lottie-react-native": esm({ LottieView }, LottieView),
   "@hireshelby/react-native": esm(hireShelby, hireShelby.HireShelby),
 };
