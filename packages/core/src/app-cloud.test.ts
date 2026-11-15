@@ -12,6 +12,7 @@ import {
   putRecords,
   sessionUser,
   signInApp,
+  ensureReviewAccount,
   signOutApp,
   signUpApp,
   requestAppPasswordReset,
@@ -62,6 +63,26 @@ describe("App Cloud (Postgres)", () => {
       { id: "e1", title: "Tea", value: 3 },
     ]);
     expect(await listRecords(db, b.user, "expenses")).toEqual([]);
+  });
+
+  it("gives App Review a demo login that keeps working however often the app is sent", async () => {
+    const before = process.env.ENCRYPTION_KEY;
+    process.env.ENCRYPTION_KEY = "test-secret-for-review-accounts";
+    try {
+      const p = await cloudProject();
+      const first = await ensureReviewAccount(db, p.id);
+      const again = await ensureReviewAccount(db, p.id);
+      expect(again).toEqual(first);
+      expect(first.email).toBe(`app-review+${p.id.toLowerCase()}@example.com`);
+      const signedIn = await signInApp(db, p.id, first);
+      expect(signedIn.user.name).toBe("App Review");
+      // Another app gets its own password.
+      const other = await ensureReviewAccount(db, (await cloudProject()).id);
+      expect(other.password).not.toBe(first.password);
+    } finally {
+      if (before === undefined) delete process.env.ENCRYPTION_KEY;
+      else process.env.ENCRYPTION_KEY = before;
+    }
   });
 
   it("upgrades an anonymous user on sign-up, so their data stays theirs", async () => {
