@@ -359,6 +359,61 @@ export function readStoreSettings(files: ProjectFiles): StoreSettings {
   return { ...ids, ascAppId };
 }
 
+/** Where a store build finds the assets App Builder made (written into the build folder only). */
+export const STORE_BUILD_ASSETS = {
+  icon: "assets/store-icon.png",
+  adaptiveIcon: "assets/store-adaptive-icon.png",
+  splash: "assets/store-splash.png",
+} as const;
+
+/**
+ * app.json for a store build: the app's icon (iOS and Android's adaptive icon on the theme's
+ * color) and a splash screen with the icon when App Builder drew one, and the export compliance
+ * answer (the app only uses the system's HTTPS, which is exempt), so App Store Connect never
+ * stops the build to ask. Only the build gets this; the app's own files don't change.
+ */
+export function withStoreBuild(
+  files: ProjectFiles,
+  options: { icon: boolean; background: string },
+): ProjectFiles {
+  const parsed = JSON.parse(files["app.json"] ?? '{"expo":{}}') as {
+    expo: {
+      icon?: string;
+      ios?: Record<string, unknown> & { infoPlist?: Record<string, unknown> };
+      android?: Record<string, unknown>;
+      plugins?: unknown[];
+    };
+  };
+  const e = parsed.expo;
+  e.ios = {
+    ...e.ios,
+    infoPlist: { ...e.ios?.infoPlist, ITSAppUsesNonExemptEncryption: false },
+  };
+  if (options.icon) {
+    e.icon = `./${STORE_BUILD_ASSETS.icon}`;
+    e.android = {
+      ...e.android,
+      adaptiveIcon: {
+        foregroundImage: `./${STORE_BUILD_ASSETS.adaptiveIcon}`,
+        backgroundColor: options.background,
+      },
+    };
+    e.plugins = [
+      ...(e.plugins ?? []).filter((p) => (Array.isArray(p) ? p[0] : p) !== "expo-splash-screen"),
+      [
+        "expo-splash-screen",
+        {
+          image: `./${STORE_BUILD_ASSETS.splash}`,
+          imageWidth: 200,
+          resizeMode: "contain",
+          backgroundColor: options.background,
+        },
+      ],
+    ];
+  }
+  return { ...files, "app.json": JSON.stringify(parsed, null, 2) + "\n" };
+}
+
 /** Write the store settings into app.json (the identifiers, and the App Store Connect app id). */
 export function withStoreSettings(files: ProjectFiles, settings: StoreSettings): ProjectFiles {
   const parsed = JSON.parse(files["app.json"] ?? '{"expo":{}}') as {

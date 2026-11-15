@@ -112,6 +112,8 @@ async function renderScreensNow(
     storage?: Record<string, string>;
     /** A taller canvas shows more of a long screen (the match check uses one). */
     height?: number;
+    /** Pixels per point (2 by default; store screenshots use 3, the phone's own). */
+    scale?: number;
   } = {},
 ): Promise<RenderedScreen[]> {
   if (!existsSync(RUNTIME)) throw new RenderUnavailable("The preview runtime isn't built.");
@@ -121,7 +123,7 @@ async function renderScreensNow(
     await getBrowser()
   ).newContext({
     viewport: { width: DEVICE.width, height: options.height ?? DEVICE.height },
-    deviceScaleFactor: 2,
+    deviceScaleFactor: options.scale ?? 2,
   });
   try {
     const tab = await context.newPage();

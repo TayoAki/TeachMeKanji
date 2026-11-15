@@ -37,6 +37,7 @@ import { handleBuild, handleEdit, handlePlan } from "./handlers/agent-runs";
 import { handlePaymentsSetup } from "./handlers/payments-setup";
 import { handlePromoRender, handlePromoStoryboard } from "./handlers/promo-video";
 import { handleStoreListing } from "./handlers/store-listing";
+import { handleStoreSubmit } from "./store/asc";
 import type { HandlerContext, HandlerResult } from "./handlers/context";
 import { handleGitHubPush } from "./handlers/github";
 import { handleNativeBuild } from "./handlers/native-build";
@@ -53,6 +54,7 @@ const HANDLERS: Record<Run["kind"], (ctx: HandlerContext) => Promise<HandlerResu
   native_build: handleNativeBuild,
   payments_setup: handlePaymentsSetup,
   store_listing: handleStoreListing,
+  store_submit: handleStoreSubmit,
   promo_storyboard: handlePromoStoryboard,
   promo_render: handlePromoRender,
   design: handleDesign,

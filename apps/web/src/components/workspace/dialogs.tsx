@@ -777,7 +777,7 @@ export function DeviceDialog({ open, onOpenChange, projectId }: DialogProps) {
 
 interface StoreState {
   settings: { ios: string; android: string; ascAppId: string; supportEmail: string };
-  keys: { expo: boolean; appStore: boolean; play: boolean };
+  keys: { expo: boolean; appStore: boolean; play: boolean; review: boolean };
 }
 
 /** One click from the latest version to TestFlight or Google Play's internal testing. */
@@ -1036,6 +1036,151 @@ function ReviewCheck({
   );
 }
 
+/**
+ * Submit for review: once Apple has processed the TestFlight build, attach it, make the app
+ * available everywhere (as a pre-order until the date, when one is picked) and send it to App
+ * Review. Shows what's done, Apple's reasons when it refuses, and what only App Store Connect's
+ * website can do, with the App Privacy answers to click in.
+ */
+function ReviewSubmit({
+  projectId,
+  keys,
+  ready,
+}: {
+  projectId: string;
+  keys: StoreState["keys"];
+  ready: boolean;
+}) {
+  const [date, setDate] = useState("");
+  const [runId, setRunId] = useState<string | null>(null);
+  const submit = async () => {
+    try {
+      const r = await api<{ runId: string }>(`/api/projects/${projectId}/store-submit`, {
+        method: "POST",
+        json: { preOrderDate: date || null },
+      });
+      setRunId(r.runId);
+    } catch {
+      // api() showed why.
+    }
+  };
+  return (
+    <div className="space-y-2 rounded-lg border p-3" data-testid="store-review-submit">
+      <p className="text-sm font-medium">Submit for review</p>
+      <p className="text-xs text-muted-foreground">
+        After Send to TestFlight, once Apple has processed the build (10 to 30 minutes): it&rsquo;s
+        attached to the version, the app is made available everywhere and sent to App Review. With a
+        release date, the app goes up for pre-order and downloads on that day.
+      </p>
+      {!keys.review ? (
+        <p className="text-xs text-amber-700">
+          Add the App Review contact in{" "}
+          <Link href="/settings#integrations" className="underline">
+            Settings → Phone builds
+          </Link>{" "}
+          first: App Review needs a name, phone and email.
+        </p>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          aria-label="Pre-order release date"
+          className="h-8 w-44 text-xs"
+        />
+        <Button
+          size="sm"
+          onClick={submit}
+          disabled={!keys.appStore || !ready || Boolean(runId)}
+          data-testid="submit-review"
+        >
+          {date ? "Submit with pre-order" : "Submit for review"}
+        </Button>
+      </div>
+      {runId ? (
+        <RunStatus
+          runId={runId}
+          render={(o) => <SubmitOutcome output={o} onDone={() => setRunId(null)} />}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function SubmitOutcome({
+  output,
+  onDone,
+}: {
+  output: Record<string, unknown>;
+  onDone: () => void;
+}) {
+  const list = (key: string) => (Array.isArray(output[key]) ? (output[key] as string[]) : []);
+  const privacy = Array.isArray(output.privacy)
+    ? (output.privacy as Array<{ dataType: string; purpose: string; linkedToUser: boolean }>)
+    : [];
+  return (
+    <div className="space-y-2 text-xs" data-testid="submit-outcome">
+      <p className="font-medium">
+        {output.submitted ? "Submitted to App Review." : "Not submitted yet."}
+      </p>
+      <ul className="space-y-1">
+        {list("done").map((d) => (
+          <li key={d} className="flex gap-1.5">
+            <CircleCheck className="mt-0.5 size-3.5 shrink-0 text-emerald-600" /> {d}
+          </li>
+        ))}
+        {list("problems").map((p) => (
+          <li key={p} className="flex gap-1.5">
+            <CircleX className="mt-0.5 size-3.5 shrink-0 text-destructive" /> {p}
+          </li>
+        ))}
+      </ul>
+      <p className="font-medium">Left for you in App Store Connect:</p>
+      <ul className="list-disc space-y-1 pl-4 text-muted-foreground">
+        {list("manual").map((m) => (
+          <li key={m}>{m}</li>
+        ))}
+      </ul>
+      {privacy.length ? (
+        <table className="w-full text-left" data-testid="privacy-answers">
+          <thead className="text-muted-foreground">
+            <tr>
+              <th className="font-normal">Data type</th>
+              <th className="font-normal">Purpose</th>
+              <th className="font-normal">Linked to the person</th>
+            </tr>
+          </thead>
+          <tbody>
+            {privacy.map((p) => (
+              <tr key={p.dataType}>
+                <td>{p.dataType}</td>
+                <td>{p.purpose}</td>
+                <td>{p.linkedToUser ? "Yes" : "No"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
+      <div className="flex gap-2">
+        {typeof output.appStoreConnectUrl === "string" ? (
+          <a
+            href={output.appStoreConnectUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="underline"
+          >
+            Open in App Store Connect
+          </a>
+        ) : null}
+        <button type="button" className="underline" onClick={onDone}>
+          Submit again
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** The pages App Builder hosts for the app: what the store listings link to. */
 function AppPages({ projectId }: { projectId: string }) {
   // Rendered in a dialog, so only in the browser.
@@ -1228,6 +1373,11 @@ function StoreSubmit({
           </Button>
         </div>
       )}
+      <ReviewSubmit
+        projectId={projectId}
+        keys={state.keys}
+        ready={Boolean(state.settings.ascAppId)}
+      />
       <ReviewCheck projectId={projectId} platform={checkPlatform} onAskAI={onAskAI} />
       {!state.keys.appStore || !state.keys.play ? (
         <p className="text-xs text-muted-foreground">

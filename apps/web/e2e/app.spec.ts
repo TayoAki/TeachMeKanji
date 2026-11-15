@@ -526,11 +526,11 @@ test("store builds: keys are checked before saving, identifiers live in app.json
   const store = async () =>
     (await (await page.request.get(`/api/projects/${projectId}/store`)).json()) as {
       settings: { ios: string; android: string; ascAppId: string; supportEmail: string };
-      keys: { expo: boolean; appStore: boolean; play: boolean };
+      keys: { expo: boolean; appStore: boolean; play: boolean; review: boolean };
     };
   const before = await store();
   expect(before.settings.ios).toMatch(/^com\.appbuilder\.[a-z0-9]+$/);
-  expect(before.keys).toEqual({ expo: false, appStore: false, play: false });
+  expect(before.keys).toEqual({ expo: false, appStore: false, play: false, review: false });
   const put = (data: object) => page.request.put(`/api/projects/${projectId}/store`, { data });
   expect((await put({ ios: "not an id", android: "com.me.water" })).status()).toBe(400);
   expect(
@@ -590,6 +590,21 @@ test("store builds: keys are checked before saving, identifiers live in app.json
   await play.getByLabel("Google Play service account key").fill('{"type": "authorized_user"}');
   await play.getByRole("button", { name: "Save key" }).click();
   await expect(page.getByText("That isn't a Google service account key")).toBeVisible();
+
+  // The App Review contact (and copyright holder) is checked before it's saved, then filled in
+  // App Store Connect by every Send to TestFlight.
+  const contact = page.getByTestId("integration-app-review-profile");
+  await contact.getByLabel("Contact first name").fill("Ada");
+  await contact.getByLabel("Contact last name").fill("Lovelace");
+  await contact.getByLabel("Contact phone").fill("call me");
+  await contact.getByLabel("Contact email").fill("ada@example.com");
+  await contact.getByLabel("Copyright holder").fill("Example LLC");
+  await contact.getByRole("button", { name: "Save contact" }).click();
+  await expect(page.getByText("Give a phone number App Review can call")).toBeVisible();
+  await contact.getByLabel("Contact phone").fill("+1 555 010 0000");
+  await contact.getByRole("button", { name: "Save contact" }).click();
+  await expect(contact).toContainText("Connected · Ada Lovelace · © Example LLC");
+  expect((await store()).keys.review).toBe(true);
 });
 
 test("store listing: copy within the stores' limits, framed screenshots, one zip", async ({
@@ -603,6 +618,24 @@ test("store listing: copy within the stores' limits, framed screenshots, one zip
   const listing = page.getByTestId("listing");
   await expect(listing).toContainText("Track it in seconds", { timeout: 30_000 });
   await expect(listing).toContainText("19/30"); // the subtitle's length against the limit
+
+  // The worker drew the icon and framed the real screens for App Store Connect (6.9" iPhone).
+  const made = page.getByTestId("listing-made");
+  await expect(page.getByTestId("listing-icon")).toBeVisible();
+  const icon = await page
+    .getByTestId("listing-icon")
+    .evaluate((img: HTMLImageElement) =>
+      img.decode().then(() => [img.naturalWidth, img.naturalHeight]),
+    );
+  expect(icon).toEqual([1024, 1024]);
+  const madeShots = made.locator("img:not([data-testid=listing-icon])");
+  await expect(madeShots.first()).toBeVisible();
+  const shotSize = await madeShots
+    .first()
+    .evaluate((img: HTMLImageElement) =>
+      img.decode().then(() => [img.naturalWidth, img.naturalHeight]),
+    );
+  expect(shotSize).toEqual([1320, 2868]);
 
   // Each screenshot is the real screen, rendered and captured, framed with its caption.
   await page.getByTestId("listing-screenshots").click();

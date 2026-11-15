@@ -494,18 +494,41 @@ SDK ≤ 55, while store Expo Go runs only the latest SDK (58). See
   3. Credentials must exist before the first build: the Android keystore is generated and
      backed up (or managed by EAS), and **iOS requires the user's Apple Developer
      credentials**, collected in an onboarding step.
-- **The pages every app gets, and App Store Connect filled in:** one template per page, filled
-  with the app's own files: `/apps/<projectId>` (the app's page: invites and the Marketing
-  URL), `/apps/<projectId>/privacy` (the privacy policy, from what the app uses) and
-  `/apps/<projectId>/support` (the Support URL: the support email set under Send to the stores,
-  the in-app chat when connected, and answers about purchases, refunds, account deletion,
-  notifications and data). App Review needs real contact details there, so the review check
-  fails without a support email. Send to TestFlight then fills the app's App Store Connect record
-  with the owner's App Store Connect key (`fillAppStoreConnect` in `packages/core`): the Privacy
-  Policy, Support and Marketing URLs, and any empty subtitle, description, keywords and
-  promotional text from the Store listing step. Only editable records change, a link only when
-  it's empty or one of the platform's own, and text the owner typed is never replaced. Google
-  Play's links are copied from the Store listing dialog.
+- **The pages every app gets:** one template per page, filled with the app's own files:
+  `/apps/<projectId>` (the app's page: invites and the Marketing URL), `/apps/<projectId>/privacy`
+  (the privacy policy, from what the app uses) and `/apps/<projectId>/support` (the Support URL:
+  the support email set under Send to the stores, the in-app chat when connected, and answers
+  about purchases, refunds, account deletion, notifications and data). App Review needs real
+  contact details there, so the review check fails without a support email.
+- **Store assets (the Store listing step):** after the listing text, the worker draws the app's
+  icon with the image model (1024 px, flattened: no transparency) and renders the screens the
+  listing captions in headless Chrome at 3x, framed with `frameStoreShot` (the same framing as
+  the dialog's zip) at 1320 x 2868 (6.9" iPhone). They're kept in storage under the run
+  (`projects/<id>/store/<runId>/`, served to editors by `/api/projects/<id>/store-assets/...`).
+  A store build writes the icon, Android's adaptive icon (the icon in the middle two thirds on
+  the theme's color) and a splash screen (`expo-splash-screen`) into the build folder only, and
+  answers export compliance in Info.plist (`ITSAppUsesNonExemptEncryption: false`).
+- **App Store Connect, filled in (Send to TestFlight):** with the owner's App Store Connect key
+  and their App Review contact (Settings → Phone builds: name, phone, email and the copyright
+  holder, saved encrypted), `fillAppStoreConnect` in `packages/core` fills the record: the
+  Privacy Policy, Support and Marketing URLs; the listing's subtitle, description, keywords and
+  promotional text; the primary category; the age-rating answers (`ageRatingAnswers`: nothing
+  applies, health topics for health apps); the content rights; the copyright; App Review's
+  contact, notes (`reviewNotes`) and, for apps with accounts, a demo account App Builder creates
+  in App Cloud with a fresh password each time; a free price; and the screenshots, uploaded to
+  the app's asset library and placed on the version at the size Apple's reference data asks
+  for. Only editable records change, a link only when it's empty or one of the platform's own,
+  and nothing the owner typed or chose is replaced; each part runs on its own.
+- **Submit for review (a `store_submit` run):** once Apple has processed the build,
+  `submitForReview` attaches the newest valid build of the app's version (setting the App Store
+  version's number to match), makes the app available in every territory (as a pre-order with
+  its release date, 2 to 180 days ahead, which needs a manual release), and submits it; a
+  refusal shows Apple's reasons (`meta.associatedErrors`). What Apple's API can't do is listed
+  for the owner: the App Privacy answers (`privacyAnswers`, shown as a table to click in), the EU
+  trader status, the Regulated Medical Devices question for health apps, and, for a pre-order,
+  "Release This Version" after approval. Creating the app record in App Store Connect stays
+  manual too (Apple has no API for it). Google Play's links are copied from the Store listing
+  dialog.
 - **Web publish:** `npx expo export --platform web`, then `eas deploy` with the user's
   token. Store the URL per version, and republish from a newer version.
 

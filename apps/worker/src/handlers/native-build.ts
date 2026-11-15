@@ -16,14 +16,14 @@ import { existsSync } from "node:fs";
 import { chmod, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
-import { and, desc, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
-  hostedAppPages,
-  readAppPrivacyUrl,
   readStoreSettings,
   readSupportChat,
+  STORE_BUILD_ASSETS,
   withAppIdentifiers,
-  type StoreListing,
+  withStoreBuild,
+  type AppPlan,
 } from "@appbuilder/contract";
 import {
   commitVersion,
@@ -31,6 +31,10 @@ import {
   decryptSecret,
   exportBundle,
   fillAppStoreConnect,
+  getStorage,
+  latestPlan,
+  latestStoreAssets,
+  storeAssetKey,
   getCurrentFiles,
   parseAppStoreConnectKey,
   parsePlayServiceAccount,
@@ -40,9 +44,11 @@ import {
 import { schema } from "@appbuilder/db";
 import { AgentError } from "../agents/agents";
 import { ensureRuntime } from "../device";
-import { platformUrl, withHostedLegalLinks } from "../platform-url";
+import { withHostedLegalLinks } from "../platform-url";
 import { withIncludedSupportChat } from "../support-chat";
 import { childEnv, materialize } from "../project";
+import { appStoreFill } from "../store/asc";
+import { adaptiveForeground, primaryOf } from "../store/assets";
 import type { HandlerContext, HandlerResult } from "./context";
 import { integrationToken } from "./github";
 
@@ -88,23 +94,6 @@ async function storeKey(ctx: HandlerContext, provider: "app-store-connect" | "pl
   return decryptSecret(row.encryptedToken);
 }
 
-/** The listing the last successful Store listing run wrote, if any. */
-async function latestListing(ctx: HandlerContext): Promise<StoreListing | null> {
-  const [row] = await ctx.db
-    .select({ output: schema.agentRun.output })
-    .from(schema.agentRun)
-    .where(
-      and(
-        eq(schema.agentRun.projectId, ctx.run.projectId),
-        eq(schema.agentRun.kind, "store_listing"),
-        eq(schema.agentRun.status, "succeeded"),
-      ),
-    )
-    .orderBy(desc(schema.agentRun.createdAt))
-    .limit(1);
-  return (row?.output as { listing?: StoreListing } | null)?.listing ?? null;
-}
-
 export async function handleNativeBuild(ctx: HandlerContext): Promise<HandlerResult> {
   const input = ctx.run.input as {
     platform: "android" | "ios";
@@ -140,10 +129,19 @@ export async function handleNativeBuild(ctx: HandlerContext): Promise<HandlerRes
       base = withChat;
     }
   }
+  // The icon the Store listing step drew goes into the build, with the splash screen.
+  const made = await latestStoreAssets(ctx.db, ctx.run.projectId);
+  const icon = made?.icon
+    ? ((await getStorage().get(storeAssetKey(ctx.run.projectId, made.runId, made.icon)))?.data ??
+      null)
+    : null;
+  const plan = (await latestPlan(ctx.db, ctx.run.projectId))?.data as AppPlan | undefined;
+  const background = primaryOf(plan ?? null, project?.activeThemeId ?? null);
   const files = withHostedLegalLinks(
     withAppIdentifiers(base, ctx.run.projectId),
     ctx.run.projectId,
   );
+  const buildFiles = withStoreBuild(files, { icon: Boolean(icon), background });
 
   // Store submission: the keys, and where the build goes.
   const env: Record<string, string> = {};
@@ -191,10 +189,19 @@ export async function handleNativeBuild(ctx: HandlerContext): Promise<HandlerRes
   const dir = dataDir("builds", ctx.run.id);
   await mkdir(dir, { recursive: true });
   try {
-    const bundle = exportBundle(project!.name, files);
+    const bundle = exportBundle(project!.name, buildFiles);
     const easJson = JSON.parse(bundle["eas.json"]!) as { submit: Record<string, unknown> };
     easJson.submit = { production: submit };
     await materialize({ ...bundle, "eas.json": JSON.stringify(easJson, null, 2) + "\n" }, dir);
+    if (icon) {
+      await mkdir(join(dir, "assets"), { recursive: true });
+      await writeFile(join(dir, STORE_BUILD_ASSETS.icon), icon);
+      await writeFile(join(dir, STORE_BUILD_ASSETS.splash), icon);
+      await writeFile(
+        join(dir, STORE_BUILD_ASSETS.adaptiveIcon),
+        await adaptiveForeground(icon, background),
+      );
+    }
     for (const secret of secrets) {
       await writeFile(join(dir, secret.name), secret.content);
       await chmod(join(dir, secret.name), 0o600);
@@ -233,15 +240,13 @@ export async function handleNativeBuild(ctx: HandlerContext): Promise<HandlerRes
     const build = builds[0];
     let listing: { filled: string[]; note: string } | null = null;
     if (appStore) {
-      await ctx.emit("step", { label: "Filling in the app's App Store Connect links" });
-      const pages = hostedAppPages(platformUrl(), ctx.run.projectId);
-      listing = await fillAppStoreConnect(appStore.key, appStore.ascAppId, {
-        privacyPolicyUrl: readAppPrivacyUrl(files) || pages.privacyUrl,
-        supportUrl: pages.supportUrl,
-        marketingUrl: pages.marketingUrl,
-        listing: await latestListing(ctx),
-        platformOrigin: platformUrl(),
-      });
+      await ctx.emit("step", { label: "Filling in the app's App Store Connect record" });
+      const { fill, missing } = await appStoreFill(ctx, files, made);
+      const filled = await fillAppStoreConnect(appStore.key, appStore.ascAppId, fill);
+      listing = {
+        filled: filled.filled,
+        note: [filled.note, ...missing].filter(Boolean).join(" "),
+      };
     }
     return {
       output: {

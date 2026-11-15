@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Apple, KeyRound, Loader2, Play } from "lucide-react";
+import { Apple, KeyRound, Loader2, Play, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,10 @@ export function StoreKeys({
     <>
       <AppStoreConnectKey
         connected={integrations.find((i) => i.provider === "app-store-connect")}
+        onChanged={onChanged}
+      />
+      <ReviewProfile
+        connected={integrations.find((i) => i.provider === "app-review-profile")}
         onChanged={onChanged}
       />
       <PlayConsoleKey
@@ -178,6 +182,66 @@ function AppStoreConnectKey({
         }}
       >
         {busy ? <Loader2 className="animate-spin" /> : <KeyRound />} Save key
+      </Button>
+    </Card>
+  );
+}
+
+/** Who App Review calls about the team's apps, and who owns them (the listing's copyright). */
+function ReviewProfile({
+  connected,
+  onChanged,
+}: {
+  connected: Connection | undefined;
+  onChanged: () => void;
+}) {
+  const [profile, setProfile] = useState({
+    firstName: "",
+    lastName: "",
+    phone: "",
+    email: "",
+    copyrightHolder: "",
+  });
+  const [busy, setBusy] = useState(false);
+  const field = (name: keyof typeof profile, label: string, placeholder: string) => (
+    <Input
+      placeholder={placeholder}
+      value={profile[name]}
+      onChange={(e) => setProfile({ ...profile, [name]: e.target.value })}
+      aria-label={label}
+    />
+  );
+  return (
+    <Card
+      testId="integration-app-review-profile"
+      icon={<UserRound className="size-5" />}
+      title="App Review contact"
+      connected={connected}
+      help="Who Apple's App Review calls or emails about your apps, and who owns them (each listing's copyright). Send to TestFlight fills them in App Store Connect."
+      onDisconnect={() => disconnect("app-review-profile", onChanged)}
+    >
+      <div className="grid grid-cols-2 gap-2">
+        {field("firstName", "Contact first name", "First name")}
+        {field("lastName", "Contact last name", "Last name")}
+        {field("phone", "Contact phone", "Phone, with country code (+1 …)")}
+        {field("email", "Contact email", "Email")}
+      </div>
+      {field("copyrightHolder", "Copyright holder", "Copyright holder (you or your company)")}
+      <Button
+        className="justify-self-start"
+        disabled={busy || Object.values(profile).some((v) => !v.trim())}
+        onClick={async () => {
+          setBusy(true);
+          await save(
+            "app-review-profile",
+            JSON.stringify(profile),
+            "App Review contact",
+            onChanged,
+          );
+          setBusy(false);
+        }}
+      >
+        {busy ? <Loader2 className="animate-spin" /> : <KeyRound />} Save contact
       </Button>
     </Card>
   );

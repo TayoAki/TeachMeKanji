@@ -26,7 +26,12 @@ export const GET = route(
           .where(
             and(
               eq(schema.integration.userId, viewer.id),
-              inArray(schema.integration.provider, ["expo", "app-store-connect", "play-console"]),
+              inArray(schema.integration.provider, [
+                "expo",
+                "app-store-connect",
+                "play-console",
+                "app-review-profile",
+              ]),
             ),
           )
       : [];
@@ -36,7 +41,12 @@ export const GET = route(
         ...readStoreSettings(withAppIdentifiers(files, id)),
         supportEmail: readAppDataPractices(files).supportEmail,
       },
-      keys: { expo: has("expo"), appStore: has("app-store-connect"), play: has("play-console") },
+      keys: {
+        expo: has("expo"),
+        appStore: has("app-store-connect"),
+        play: has("play-console"),
+        review: has("app-review-profile"),
+      },
     });
   },
 );

@@ -171,6 +171,29 @@ export async function signUpApp(
   return { user, token: await createSession(db, user) };
 }
 
+/**
+ * The demo account App Review signs in with (apps with email accounts): created once per app,
+ * with a fresh password each time the app is submitted, which goes into the review notes.
+ */
+export async function ensureReviewAccount(
+  db: Database,
+  projectId: string,
+): Promise<{ email: string; password: string }> {
+  const email = `app-review+${projectId.toLowerCase()}@example.com`;
+  const password = randomBytes(12).toString("base64url");
+  const passwordHash = await hashPassword(password);
+  const [existing] = await db
+    .select({ id: appUser.id })
+    .from(appUser)
+    .where(and(eq(appUser.projectId, projectId), eq(appUser.email, email)));
+  if (existing) await db.update(appUser).set({ passwordHash }).where(eq(appUser.id, existing.id));
+  else
+    await db
+      .insert(appUser)
+      .values({ id: newId("au"), projectId, email, name: "App Review", passwordHash });
+  return { email, password };
+}
+
 export async function signInApp(
   db: Database,
   projectId: string,
