@@ -98,4 +98,26 @@ describe("the App Review check", () => {
     expect(status(written)["privacy-policy"]).toBe("pass");
     expect(status(written)["support"]).toBe("pass");
   });
+
+  it("fails a privacy link that can't open on a phone, and warns when sample data reaches real installs", () => {
+    const withPrivacy = (url: string) => ({
+      ...app,
+      "data/app-info.ts": app["data/app-info.ts"].replace("https://example.com/privacy", url),
+    });
+    expect(status(withPrivacy("http://localhost:3000/apps/p_old/privacy"))["privacy-policy"]).toBe(
+      "fail",
+    );
+    expect(status(withPrivacy("http://example.com/privacy"))["privacy-policy"]).toBe("fail");
+    expect(status(app)["privacy-policy"]).toBe("pass");
+
+    // Without a starter list every collection in data/seed.ts reaches a real install: App Review
+    // sees streaks and history nobody earned.
+    const seed = `export const seed = { habits: [{ id: "h1" }], checkins: [{ id: "c1" }] };`;
+    expect(status({ ...app, "data/seed.ts": seed })["first-launch"]).toBe("warn");
+    expect(
+      status({ ...app, "data/seed.ts": `${seed}\nexport const starter: string[] = ["habits"];` })[
+        "first-launch"
+      ],
+    ).toBe("pass");
+  });
 });

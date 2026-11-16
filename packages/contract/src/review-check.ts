@@ -134,13 +134,17 @@ export function reviewCheck(files: ProjectFiles, context: ReviewContext): Review
 
   // Privacy and support (5.1.1(i), 1.5).
   const privacyUrl = infoField("privacyUrl");
+  // A link copied from a local test (localhost) or a plain-http one doesn't open on a phone.
+  const privacyOpens = /^https:\/\/(?!(localhost|127\.0\.0\.1|0\.0\.0\.0)[:/])/.test(privacyUrl);
   add({
     id: "privacy-policy",
     title: "A privacy policy link",
-    status: pass(Boolean(privacyUrl)),
-    detail: privacyUrl
-      ? "The app links its privacy policy; use the same link in App Store Connect and Play Console."
-      : "The app has no privacy policy link. Ask the AI to rebuild Settings, or set appInfo.privacyUrl: every app needs one.",
+    status: pass(privacyOpens),
+    detail: !privacyUrl
+      ? "The app has no privacy policy link. Ask the AI to rebuild Settings, or set appInfo.privacyUrl: every app needs one."
+      : privacyOpens
+        ? "The app links its privacy policy; use the same link in App Store Connect and Play Console."
+        : `The privacy link is ${privacyUrl}, which won't open on a phone. Make any change to the app (the platform then sets its hosted privacy page), or set your own https link.`,
     guideline: "App Store 5.1.1(i) · Google Play User Data",
   });
   // The store listing's Support URL is the hosted support page, which shows the support email:
@@ -178,6 +182,23 @@ export function reviewCheck(files: ProjectFiles, context: ReviewContext): Review
     guideline: "App Store 2.1 · 2.3.3",
     fix: placeholder.length
       ? `Replace the placeholder or unfinished content in ${placeholder.join(", ")} with the real feature.`
+      : undefined,
+  });
+  // Sample data is for trying the app (the preview, Expo Go); without a starter list every
+  // collection in data/seed.ts also reaches a real install, so App Review sees made-up history.
+  const seedSource = files["data/seed.ts"] ?? "";
+  const seedsEverything =
+    /export const seed\b/.test(seedSource) && !/export const starter\b/.test(seedSource);
+  add({
+    id: "first-launch",
+    title: "A new install starts with the person's own data",
+    status: seedsEverything ? "warn" : "pass",
+    detail: seedsEverything
+      ? "data/seed.ts has no starter list, so a real install shows the sample records (streaks, history, progress nobody earned)."
+      : "A real install starts with reference content only; sample records stay in the preview.",
+    guideline: "App Store 2.1 · 2.3.1",
+    fix: seedsEverything
+      ? "In data/seed.ts add `export const starter: string[] = [...]` listing only reference content collections (catalogs, lessons); the person's own records start empty, with friendly empty states."
       : undefined,
   });
   add({

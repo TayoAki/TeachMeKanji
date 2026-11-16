@@ -123,11 +123,27 @@ export function withLegalLinks(
   let next = source;
   for (const [name, url] of Object.entries(links)) {
     next = next.replace(
-      new RegExp(`(["']?${name}["']?\\s*:\\s*)(["'])\\2`),
-      (_match, key: string) => `${key}${JSON.stringify(url)}`,
+      new RegExp(`(["']?${name}["']?\\s*:\\s*)(["'])([^"'\\n]*)\\2`),
+      (match, key: string, _quote: string, value: string) =>
+        value === "" || isStaleLegalLink(value, url) ? `${key}${JSON.stringify(url)}` : match,
     );
   }
   return next === source ? files : { ...files, [APP_INFO_FILE]: next };
+}
+
+/**
+ * A link that can't be this app's: one on a local machine (copied from a local test project) or
+ * the platform's hosted page of another app. The owner's own site is never stale.
+ */
+function isStaleLegalLink(value: string, hosted: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  if (/^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])$/.test(url.hostname)) return true;
+  return /^\/apps\/[^/]+\/(privacy|terms|support)\/?$/.test(url.pathname) && value !== hosted;
 }
 
 /**

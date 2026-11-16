@@ -27,5 +27,7 @@ export const EXPO_SDK = {
     "lottie-react-native": "~7.5.0",
     "expo-store-review": "~58.0.2",
     "expo-file-system": "~58.0.13",
+    "expo-speech": "~58.0.4",
+    "expo-keep-awake": "~58.0.4",
   },
 } as const;

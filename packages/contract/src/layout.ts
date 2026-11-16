@@ -30,6 +30,7 @@ export const TEMPLATE_FILES = [
   "components/motion.tsx",
   "components/lottie.tsx",
   "data/photos.ts",
+  "data/speech.ts",
   "data/location.ts",
   "data/push.ts",
   "data/ai.ts",

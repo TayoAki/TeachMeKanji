@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { loadProject } from "@appbuilder/contract/node";
 import { createModuleSystem } from "./loader";
 import { SAMPLE_PHOTO_BASE64 } from "./shims/device-features";
@@ -280,5 +280,33 @@ describe("support chat in a free app (template components/support.tsx)", () => {
     // A free app: an offer tapped in the chat would open /paywall, which doesn't exist.
     expect(supportPaywalls(false)).toEqual([]);
     expect(supportPaywalls(true).length).toBeGreaterThan(0);
+  });
+});
+
+describe("speech (template data/speech.ts)", () => {
+  it("says a cue and reports when it's done, even where nothing can speak, and stops on request", async () => {
+    vi.useFakeTimers();
+    try {
+      const { speak, stopSpeaking, isSpeaking } = modules.require("data/speech.ts") as {
+        speak: (text: string, options?: { onDone?: () => void }) => void;
+        stopSpeaking: () => void;
+        isSpeaking: () => Promise<boolean>;
+      };
+      const done = vi.fn();
+      speak("Round two. Jab, cross, hook.", { onDone: done });
+      expect(await isSpeaking()).toBe(true);
+      vi.advanceTimersByTime(10_000);
+      expect(done).toHaveBeenCalledTimes(1);
+      expect(await isSpeaking()).toBe(false);
+
+      // A paused timer stops the cue: it never reports done.
+      const cut = vi.fn();
+      speak("Rest. Next: round three.", { onDone: cut });
+      stopSpeaking();
+      vi.advanceTimersByTime(10_000);
+      expect(cut).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

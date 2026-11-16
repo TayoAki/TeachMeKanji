@@ -83,4 +83,24 @@ describe("hosted app privacy policy", () => {
     );
     expect(withLegalLinks({}, links)).toEqual({});
   });
+
+  it("replaces a link copied from a local or another app's hosted page", () => {
+    // An app imported from a local test kept http://localhost:3000/apps/<that project>/privacy, a
+    // dead link in the store build and the first thing App Review would tap.
+    const links = legalLinksFor("https://app.example.com", "p1");
+    for (const stale of [
+      "http://localhost:3000/apps/p_old/privacy",
+      "http://127.0.0.1:3000/privacy",
+      "https://app.example.com/apps/p_other/privacy",
+    ]) {
+      expect(
+        withLegalLinks({ "data/app-info.ts": info(stale) }, links)["data/app-info.ts"],
+      ).toContain('"privacyUrl": "https://app.example.com/apps/p1/privacy"');
+    }
+    // This app's own hosted page and the owner's own site stay as they are.
+    for (const kept of ["https://app.example.com/apps/p1/privacy", "https://mine.example/privacy"])
+      expect(
+        withLegalLinks({ "data/app-info.ts": info(kept) }, links)["data/app-info.ts"],
+      ).toContain(`"privacyUrl": "${kept}"`);
+  });
 });
