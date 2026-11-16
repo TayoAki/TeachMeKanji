@@ -261,3 +261,24 @@ describe("App Cloud data (template data/remote.ts)", () => {
     }
   });
 });
+
+describe("support chat in a free app (template components/support.tsx)", () => {
+  const structure = (paywall: boolean) =>
+    `export const appStructure = { onboarding: true, paywall: ${paywall}, settings: true };\n`;
+  const supportPaywalls = (paywall: boolean) =>
+    (
+      createModuleSystem(
+        { ...project, "data/app-structure.ts": structure(paywall) },
+        vendorModules,
+        {
+          instrument: false,
+        },
+      ).require("components/support.tsx") as { supportPaywalls: () => { id: string }[] }
+    ).supportPaywalls();
+
+  it("offers nothing to the support team when the app has no paywall to open", () => {
+    // A free app: an offer tapped in the chat would open /paywall, which doesn't exist.
+    expect(supportPaywalls(false)).toEqual([]);
+    expect(supportPaywalls(true).length).toBeGreaterThan(0);
+  });
+});

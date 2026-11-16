@@ -7,6 +7,7 @@
 import { useEffect } from "react";
 import { Linking, Pressable, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { appInfo } from "../data/app-info";
+import { appStructure } from "../data/app-structure";
 import { monetization } from "../data/monetization";
 import { openPaywall, usePurchases } from "../data/purchases";
 import { supportChatClient } from "../data/support";
@@ -104,6 +105,16 @@ export function SupportButton({
   );
 }
 
+/** The offers the support team may send: none in a free app (one without a paywall). */
+export function supportPaywalls(): Array<{ id: string; title: string; source: "app" }> {
+  if (!appStructure.paywall) return [];
+  return monetization.offers.map((offer) => ({
+    id: offer.id.replace(/[^A-Za-z0-9_.-]/g, "-").slice(0, 64) || "premium",
+    title: `${offer.label} ${offer.price}`.slice(0, 60),
+    source: "app",
+  }));
+}
+
 /**
  * Called once by the root layout: sets the chat up in the app's own colors, tells the team which
  * paywalls exist (they can send offers for them), opens the paywall when someone taps one, and
@@ -124,14 +135,10 @@ export function useSupportSetup(): void {
         title: "Support",
       },
     });
-    chat.sdk.reportPaywalls(
-      monetization.offers.map((offer) => ({
-        id: offer.id.replace(/[^A-Za-z0-9_.-]/g, "-").slice(0, 64) || "premium",
-        title: `${offer.label} ${offer.price}`.slice(0, 60),
-        source: "app",
-      })),
-    );
-    chat.sdk.setPaywallHandler(() => openPaywall());
+    const paywalls = supportPaywalls();
+    chat.sdk.reportPaywalls(paywalls);
+    // A free app has no paywall to open: an offer tapped in the chat would lead nowhere.
+    if (paywalls.length) chat.sdk.setPaywallHandler(() => openPaywall());
   }, [theme]);
   useEffect(() => {
     if (chat?.sdk.isSupported) chat.sdk.setMetadata({ plan: isPremium ? "premium" : "free" });
