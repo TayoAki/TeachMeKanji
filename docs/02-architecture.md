@@ -87,6 +87,8 @@ data/alarms.ts               template  — setAlarms(): alarms on chosen days, r
                                          ringtone and opening their own screen
 data/notifications.ts        template  — the shared notification handler; a notification's
                                          data.href opens that screen
+data/speech.ts               template  — speak() with the phone's voice (expo-speech) and
+                                         <KeepAwake /> (expo-keep-awake) for timers and narration
 data/remote.ts               template  — App Cloud implementation of the same repository
 data/auth.ts                 template  — useAuth(): App Cloud accounts (sign up / in / out)
 data/backend.ts              platform  — App Cloud URL and ImageKit endpoint; never model-written

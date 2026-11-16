@@ -77,7 +77,7 @@ ${JSON.stringify(
   const what = change
     ? `This test follows a change the owner just asked for: "${change.slice(0, 600)}"
 Write 2 to 4 test cases: the change itself working end to end through the app's screens first, then the core loop and anything the change could have broken.`
-    : `Write ${MAX_CASES - 4} to ${MAX_CASES} test cases in the order a new user meets them. Cover: the first launch and onboarding (when there is one); the core loop end to end (create or do the main thing and see it where it should appear); that what the user saves is still there after leaving the screen and after relaunching the app; the paywall (closing it works, and a purchase in the preview's test mode unlocks what it promises); settings that change the app; the daily habit when there is one (doing today's action marks today done and the streak shows 1, and doing it again doesn't count twice); the viral loop (sharing the app's best moment, inviting a friend); and every main screen's main action.`;
+    : `Write ${MAX_CASES - 4} to ${MAX_CASES} test cases in the order a new user meets them. Cover: the first launch and onboarding (when there is one); the core loop end to end (create or do the main thing and see it where it should appear); that what the user saves is still there after leaving the screen and after relaunching the app; the paywall when there is one (closing it works, and a purchase in the preview's test mode unlocks what it promises); settings that change the app; the daily habit when there is one (doing today's action marks today done and the streak shows 1, and doing it again doesn't count twice); the viral loop (sharing the app's best moment, inviting a friend); and every main screen's main action.`;
   return `${app}
 Routes in the build: ${routes.join(", ")}
 
@@ -117,7 +117,7 @@ Answer with one action at a time:
 - wait: seconds (at most 15), for something due soon (an alarm set a few seconds away, data arriving).
 - relaunch: close and reopen the app, to check that something was saved.
 - done: result "pass" when you saw the expected result; "fail" when a control did nothing, showed the wrong thing, lost what was saved, crashed, or the goal can't be reached through the app; "blocked" when it needs something the preview can't do (a real camera photo, the microphone, an email inbox, a store purchase). observed says exactly what happened and on which screen, in one or two sentences.
-Errors the app threw count as a failure. Purchases in the preview are test purchases: they should unlock what the paywall promises. Sharing in the preview shows "Share sheet: …" with what would be shared for a few seconds: seeing it, with the right message and link, means sharing works. Fill fields an unused action doesn't need with -1, "" or "none".`;
+Errors the app threw count as a failure. Purchases in the preview are test purchases: they should unlock what the paywall promises. Sharing in the preview shows "Share sheet: …" with what would be shared for a few seconds: seeing it, with the right message and link, means sharing works. The preview starts with the app's sample records so it can be tried (a real install starts without them): progress, streaks or history that were there before you did anything are sample data, not a bug, so judge only what you create and change. The cases run one after another on the same phone, so onboarding only shows until it is finished once. Fill fields an unused action doesn't need with -1, "" or "none".`;
 
 const ACTION_SCHEMA = {
   type: "object",

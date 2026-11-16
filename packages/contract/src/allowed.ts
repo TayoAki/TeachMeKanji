@@ -79,6 +79,9 @@ export const IMPORTABLE_MODULES: Readonly<Record<string, readonly string[] | "*"
   "expo-file-system": ["Directory", "File", "Paths"],
   // Apple's rating prompt, used through noteWin() from data/growth (see PLATFORM_ONLY_MODULES).
   "expo-store-review": ["hasAction", "isAvailableAsync", "requestReview"],
+  // The phone's voice and a screen that stays on, used through data/speech (see PLATFORM_ONLY_MODULES).
+  "expo-speech": ["speak", "stop", "isSpeakingAsync"],
+  "expo-keep-awake": ["useKeepAwake"],
   // Hire Shelby support chat, only in data/support-chat.ts (written by the platform) and used
   // through useSupport() from components/support.
   "@hireshelby/react-native": ["HireShelby", "useUnreadCount"],
@@ -124,6 +127,10 @@ export const PLATFORM_ONLY_MODULES: Readonly<Record<string, string>> = {
     "Offer help with useSupport() or <SupportButton /> from components/support.",
   "expo-store-review":
     "Call noteWin() from data/growth after each success of the core loop; it asks for a rating at the right time.",
+  "expo-speech":
+    "Say something aloud with speak(text, { rate, onDone }) and stopSpeaking() from data/speech.",
+  "expo-keep-awake":
+    "Keep the screen on while a timer or session runs by rendering <KeepAwake /> from data/speech.",
 };
 
 /** AsyncStorage may only be used by the data layer, never directly by screens. */

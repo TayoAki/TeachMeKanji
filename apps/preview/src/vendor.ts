@@ -24,6 +24,8 @@ import { StatusBar } from "./shims/status-bar";
 import { Ionicons } from "./shims/vector-icons";
 import * as fileSystem from "./shims/file-system";
 import * as haptics from "./shims/haptics";
+import * as keepAwake from "./shims/keep-awake";
+import * as speech from "./shims/speech";
 import * as storeReview from "./shims/store-review";
 import * as svg from "./shims/svg";
 import LottieView from "./shims/lottie";
@@ -72,6 +74,8 @@ export const vendorModules: Readonly<Record<string, unknown>> = {
   "react-native-svg": esm(svg, svg.Svg),
   "expo-haptics": esm(haptics),
   "expo-store-review": esm(storeReview),
+  "expo-speech": esm(speech),
+  "expo-keep-awake": esm(keepAwake),
   "lottie-react-native": esm({ LottieView }, LottieView),
   "@hireshelby/react-native": esm(hireShelby, hireShelby.HireShelby),
 };
