@@ -6,10 +6,8 @@ import { FlatList, ScrollView, Text, View, useWindowDimensions } from "react-nat
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Appear, PressScale, SkeletonList } from "../../components/motion";
 import { Body, Button, Chip, Display, Eyebrow, ItemArt } from "../../components/ui";
-import { track } from "../../data/analytics";
-import { usePurchases } from "../../data/purchases";
 import { useCollection } from "../../data/repo";
-import { CATEGORIES, FREE_LIMITS, type Category, type Item } from "../../data/schema";
+import { CATEGORIES, type Category, type Item } from "../../data/schema";
 import { useTheme } from "../../theme/ThemeProvider";
 
 const COLUMNS = 3;
@@ -19,7 +17,6 @@ export default function Closet() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { items, loading } = useCollection<Item>("items");
-  const { isPremium, openPaywall } = usePurchases();
   const [filter, setFilter] = useState<Category | "all">("all");
 
   const shown = useMemo(
@@ -29,16 +26,10 @@ export default function Closet() {
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     [items, filter],
   );
-  const atLimit = !isPremium && items.length >= FREE_LIMITS.items;
   const gap = theme.spacing.sm;
   const tile = Math.floor((width - theme.spacing.lg * 2 - gap * (COLUMNS - 1)) / COLUMNS);
 
   function add() {
-    if (atLimit) {
-      track("paywall_locked", { feature: "closet_size" });
-      openPaywall();
-      return;
-    }
     router.push("/add-item");
   }
 
@@ -50,7 +41,6 @@ export default function Closet() {
         <View style={{ gap: 4 }}>
           <Eyebrow>
             {loading ? "Your closet" : `${items.length} piece${items.length === 1 ? "" : "s"}`}
-            {!isPremium && !loading ? ` · free holds ${FREE_LIMITS.items}` : ""}
           </Eyebrow>
           <Display>Closet</Display>
         </View>
@@ -93,25 +83,6 @@ export default function Closet() {
           />
         ))}
       </ScrollView>
-      {atLimit ? (
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: theme.spacing.sm,
-            padding: theme.spacing.md,
-            borderRadius: theme.radius.md,
-            backgroundColor: theme.colors.surfaceAlt,
-          }}
-        >
-          <Ionicons name="lock-closed-outline" size={18} color={theme.colors.text} />
-          <Text
-            style={{ flex: 1, fontSize: theme.font.size.caption + 2, color: theme.colors.text }}
-          >
-            Your closet is full on the free plan. Premium holds every piece you own.
-          </Text>
-        </View>
-      ) : null}
     </View>
   );
 

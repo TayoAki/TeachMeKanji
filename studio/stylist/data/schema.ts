@@ -108,15 +108,6 @@ export const OCCASIONS: { id: Occasion; label: string }[] = [
 export const WARMTH_LABELS: Record<Warmth, string> = { 1: "Light", 2: "Mid-weight", 3: "Warm" };
 export const FORMALITY_LABELS: Record<Formality, string> = { 1: "Casual", 2: "Smart", 3: "Dressy" };
 
-/** What the free plan includes; Premium removes every limit. */
-export const FREE_LIMITS = {
-  items: 15,
-  /** New outfit options a day, after the first. */
-  rerollsPerDay: 2,
-  scansPerDay: 1,
-  ratingsPerDay: 1,
-};
-
 export function categoryLabel(id: Category): string {
   return CATEGORIES.find((c) => c.id === id)?.label ?? "Item";
 }

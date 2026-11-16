@@ -30,7 +30,7 @@ import { useHabit } from "../data/habit";
 import { useLocation } from "../data/location";
 import { nudges } from "../data/nudges";
 import { useCollection } from "../data/repo";
-import type { Item, Occasion } from "../data/schema";
+import { newLook, type Item, type Look, type Occasion } from "../data/schema";
 import { useTheme } from "../theme/ThemeProvider";
 
 const STEPS = [
@@ -59,6 +59,7 @@ export default function Onboarding() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const items = useCollection<Item>("items");
+  const looks = useCollection<Look>("looks");
   const habit = useHabit();
   const location = useLocation();
 
@@ -147,14 +148,26 @@ export default function Onboarding() {
       const on = await habit.enableNudges(nudges);
       track("morning_outfit_nudge", { on });
     }
+    // The outfit shown on the last step is today's outfit, so Today opens on the same one.
+    if (demo) {
+      await looks.add(
+        newLook("outfit", {
+          title: demo.title,
+          note: demo.why,
+          itemIds: demo.outfit.map((i) => i.id),
+          occasion,
+          weather: { tempC: temp, label: tempC === null ? "Seasonal estimate" : "Today's weather" },
+        }),
+      );
+    }
     await completeOnboarding();
   }
 
   const offered = useMemo(() => basics.filter((b) => wearCodes(wear).includes(b.wear)), [wear]);
   const temp = tempC ?? seasonalTempC(new Date(), place?.latitude);
   const occasion: Occasion = "everyday";
+  // The first outfit (shown on the "outfit" step, saved as today's when onboarding finishes).
   const demo = useMemo(() => {
-    if (step !== "outfit") return null;
     const outfit = pickOutfit(items.items, {
       tempC: temp,
       rainChance: 0,
@@ -177,7 +190,7 @@ export default function Onboarding() {
         seed: 7,
       }),
     };
-  }, [step, items.items, temp, occasion, styles, wear]);
+  }, [items.items, temp, occasion, styles, wear]);
 
   const canContinue =
     (step === "wear" && wear !== "") ||

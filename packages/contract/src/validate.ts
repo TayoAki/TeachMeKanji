@@ -314,13 +314,15 @@ export function validateStructureScreens(files: ProjectFiles): Issue[] {
     "Show Terms and Privacy links on the paywall (appInfo.termsUrl and appInfo.privacyUrl).",
     "warning",
   );
-  need(
-    STRUCTURE_SCREENS.settings,
-    /\brestorePurchases\b/,
-    "structure/settings-restore",
-    "Settings should show the subscription status with a Restore Purchases action.",
-    "warning",
-  );
+  // A free app (no paywall) sells nothing, so there is nothing to restore.
+  if (files[STRUCTURE_SCREENS.paywall] !== undefined)
+    need(
+      STRUCTURE_SCREENS.settings,
+      /\brestorePurchases\b/,
+      "structure/settings-restore",
+      "Settings should show the subscription status with a Restore Purchases action.",
+      "warning",
+    );
   need(
     STRUCTURE_SCREENS.settings,
     /\bappInfo\b/,

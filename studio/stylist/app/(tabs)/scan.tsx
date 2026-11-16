@@ -7,15 +7,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GarmentArt } from "../../components/GarmentArt";
 import { Lottie } from "../../components/lottie";
 import { Appear, Float, PressScale, Stagger } from "../../components/motion";
-import { useAllowance, useProfile } from "../../components/profile";
+import { useProfile } from "../../components/profile";
 import { matchInCloset, rateFit, scanLook } from "../../components/stylist";
 import { Body, Button, Card, Chip, Display, Eyebrow } from "../../components/ui";
 import { track } from "../../data/analytics";
 import { setAnswer } from "../../data/app-state";
 import { keepPhoto, pickPhoto } from "../../data/photos";
-import { usePurchases } from "../../data/purchases";
 import { useCollection } from "../../data/repo";
-import { FREE_LIMITS, newLook, shortDay, type Item, type Look } from "../../data/schema";
+import { newLook, shortDay, type Item, type Look } from "../../data/schema";
 import { useTheme } from "../../theme/ThemeProvider";
 
 type Mode = "shop" | "rate";
@@ -47,8 +46,6 @@ export default function Scan() {
   const looks = useCollection<Look>("looks");
   const items = useCollection<Item>("items");
   const profile = useProfile();
-  const allowance = useAllowance();
-  const { openPaywall } = usePurchases();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,15 +54,9 @@ export default function Scan() {
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, 6);
   const copy = COPY[mode];
-  const allowed = mode === "shop" ? allowance.canScan : allowance.canRate;
 
   async function start(source: "library" | "camera") {
     if (busy) return;
-    if (!allowed) {
-      track("paywall_locked", { feature: mode === "shop" ? "scan" : "rating" });
-      openPaywall();
-      return;
-    }
     setError(null);
     const photo = await pickPhoto({ source });
     if (!photo) return;
@@ -224,19 +215,6 @@ export default function Scan() {
                 icon={mode === "shop" ? "camera-outline" : "image-outline"}
                 onPress={() => void start(mode === "shop" ? "camera" : "library")}
               />
-              {!allowance.isPremium ? (
-                <Text
-                  style={{
-                    fontSize: theme.font.size.caption + 1,
-                    color: theme.colors.textMuted,
-                    textAlign: "center",
-                  }}
-                >
-                  {allowed
-                    ? `${mode === "shop" ? FREE_LIMITS.scansPerDay : FREE_LIMITS.ratingsPerDay} free ${mode === "shop" ? "scan" : "rating"} a day. Premium is unlimited.`
-                    : `Today's free ${mode === "shop" ? "scan" : "rating"} is used. Premium is unlimited.`}
-                </Text>
-              ) : null}
             </View>
           )}
           {error ? (

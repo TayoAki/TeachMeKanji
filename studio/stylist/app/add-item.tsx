@@ -13,9 +13,8 @@ import { Body, Button, Card, Eyebrow, ItemArt } from "../components/ui";
 import { track } from "../data/analytics";
 import { setAnswer } from "../data/app-state";
 import { keepPhoto, pickPhoto, type Photo } from "../data/photos";
-import { usePurchases } from "../data/purchases";
 import { useCollection } from "../data/repo";
-import { FREE_LIMITS, type Item } from "../data/schema";
+import { type Item } from "../data/schema";
 import { useTheme } from "../theme/ThemeProvider";
 
 const BLANK: ItemFields = { name: "", category: "top", colors: [], warmth: 2, formality: 1 };
@@ -25,13 +24,10 @@ export default function AddItem() {
   const insets = useSafeAreaInsets();
   const items = useCollection<Item>("items");
   const profile = useProfile();
-  const { isPremium, openPaywall } = usePurchases();
   const [photo, setPhoto] = useState<Photo | null>(null);
   const [fields, setFields] = useState<ItemFields | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
-  const full = !isPremium && items.items.length >= FREE_LIMITS.items;
 
   async function choose(source: "camera" | "library") {
     const picked = await pickPhoto({ source });
@@ -58,11 +54,6 @@ export default function AddItem() {
 
   async function save() {
     if (!fields || !fields.name.trim() || !fields.colors.length) return;
-    if (full) {
-      track("paywall_locked", { feature: "closet_size" });
-      openPaywall();
-      return;
-    }
     setSaving(true);
     const kept = photo ? await keepPhoto(photo) : null;
     await items.add({
@@ -183,17 +174,6 @@ export default function AddItem() {
             gap: theme.spacing.xs,
           }}
         >
-          {full ? (
-            <Text
-              style={{
-                fontSize: theme.font.size.caption + 1,
-                color: theme.colors.textMuted,
-                textAlign: "center",
-              }}
-            >
-              The free plan holds {FREE_LIMITS.items} pieces. Premium holds them all.
-            </Text>
-          ) : null}
           <Button
             label="Save to my closet"
             disabled={!fields.name.trim() || !fields.colors.length}

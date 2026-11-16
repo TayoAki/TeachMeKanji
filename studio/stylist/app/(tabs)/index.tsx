@@ -6,7 +6,7 @@ import { ScrollView, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Celebrate } from "../../components/lottie";
 import { Appear, PressScale, Skeleton, Stagger } from "../../components/motion";
-import { useAllowance, useProfile } from "../../components/profile";
+import { useProfile } from "../../components/profile";
 import {
   aiOutfit,
   describeOutfit,
@@ -28,7 +28,6 @@ import {
 import { fetchWeather, formatTemp, seasonalTempC, type Weather } from "../../components/weather";
 import { track } from "../../data/analytics";
 import { useHabit } from "../../data/habit";
-import { usePurchases } from "../../data/purchases";
 import { useCollection } from "../../data/repo";
 import {
   OCCASIONS,
@@ -60,9 +59,7 @@ export default function Today() {
   const items = useCollection<Item>("items");
   const looks = useCollection<Look>("looks");
   const profile = useProfile();
-  const allowance = useAllowance();
   const habit = useHabit();
-  const { openPaywall } = usePurchases();
   const now = new Date();
   const today = dayKey(now);
 
@@ -111,11 +108,6 @@ export default function Today() {
 
   async function makeOutfit(reroll: boolean) {
     if (busy) return;
-    if (reroll && !allowance.canReroll) {
-      track("paywall_locked", { feature: "new_option" });
-      openPaywall();
-      return;
-    }
     setBusy(true);
     setNotice(null);
     const recentIds = new Set(
@@ -167,7 +159,6 @@ export default function Today() {
         weather: { tempC, label: weather?.label ?? "Seasonal estimate" },
       }),
     );
-    if (reroll) await allowance.countReroll();
     track("outfit_made", { source: plan.source, occasion, reroll });
     setBusy(false);
   }
@@ -358,18 +349,6 @@ export default function Today() {
                       />
                     </View>
                   )}
-                  {!current.worn && !allowance.isPremium ? (
-                    <Text
-                      style={{
-                        fontSize: theme.font.size.caption + 1,
-                        color: theme.colors.textMuted,
-                      }}
-                    >
-                      {allowance.rerollsLeft > 0
-                        ? `${allowance.rerollsLeft} more option${allowance.rerollsLeft === 1 ? "" : "s"} today on the free plan.`
-                        : "Premium gives you a new option whenever you want one."}
-                    </Text>
-                  ) : null}
                 </Appear>
               )}
               {notice ? <Body muted>{notice}</Body> : null}
