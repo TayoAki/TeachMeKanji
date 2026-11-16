@@ -1,8 +1,5 @@
-// What the person told us in onboarding (and changed in Settings), and today's free-plan usage.
+// What the person told us in onboarding (and changed in Settings).
 import { setAnswer, useAppState } from "../data/app-state";
-import { usePurchases } from "../data/purchases";
-import { useCollection } from "../data/repo";
-import { FREE_LIMITS, dayKey, type Look } from "../data/schema";
 import { defaultUnit, type Place } from "./weather";
 
 export const WEAR_OPTIONS = [
@@ -52,26 +49,4 @@ export function wearCodes(wear: string): ("w" | "m" | "a")[] {
   if (wear === "womenswear") return ["w", "a"];
   if (wear === "menswear") return ["m", "a"];
   return ["w", "m", "a"];
-}
-
-/** How much of today's free allowance is used, and whether more is allowed. */
-export function useAllowance() {
-  const { isPremium } = usePurchases();
-  const { answers } = useAppState();
-  const looks = useCollection<Look>("looks");
-  const today = dayKey();
-  const scans = looks.items.filter((l) => l.kind === "shop" && l.date === today).length;
-  const ratings = looks.items.filter((l) => l.kind === "rate" && l.date === today).length;
-  const rerolls = answers.rerollDay === today ? Number(answers.rerolls ?? "0") : 0;
-  return {
-    isPremium,
-    canScan: isPremium || scans < FREE_LIMITS.scansPerDay,
-    canRate: isPremium || ratings < FREE_LIMITS.ratingsPerDay,
-    canReroll: isPremium || rerolls < FREE_LIMITS.rerollsPerDay,
-    rerollsLeft: Math.max(0, FREE_LIMITS.rerollsPerDay - rerolls),
-    async countReroll() {
-      await setAnswer("rerollDay", today);
-      await setAnswer("rerolls", String(rerolls + 1));
-    },
-  };
 }

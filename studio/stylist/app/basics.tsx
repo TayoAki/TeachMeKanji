@@ -9,9 +9,8 @@ import { useProfile, wearCodes } from "../components/profile";
 import { Body, Button, Eyebrow, SelectTile } from "../components/ui";
 import { track } from "../data/analytics";
 import { basics } from "../data/content/basics";
-import { usePurchases } from "../data/purchases";
 import { useCollection } from "../data/repo";
-import { CATEGORIES, FREE_LIMITS, type Item } from "../data/schema";
+import { CATEGORIES, type Item } from "../data/schema";
 import { useTheme } from "../theme/ThemeProvider";
 
 export default function Basics() {
@@ -20,7 +19,6 @@ export default function Basics() {
   const { width } = useWindowDimensions();
   const profile = useProfile();
   const items = useCollection<Item>("items");
-  const { isPremium, openPaywall } = usePurchases();
   const [picked, setPicked] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -31,16 +29,10 @@ export default function Basics() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [profile.wear, items.items],
   );
-  const room = isPremium ? Infinity : FREE_LIMITS.items - items.items.length;
   const tile = Math.floor((width - theme.spacing.lg * 2 - theme.spacing.sm * 2) / 3);
 
   async function save() {
     if (!picked.length) return;
-    if (picked.length > room) {
-      track("paywall_locked", { feature: "closet_size" });
-      openPaywall();
-      return;
-    }
     setSaving(true);
     const now = new Date().toISOString();
     for (const id of picked) {

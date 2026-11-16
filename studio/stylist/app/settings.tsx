@@ -1,4 +1,4 @@
-// Settings: your style and city, the morning outfit, appearance, Premium, help and your data.
+// Settings: your style and city, the morning outfit, appearance, help and your data.
 import { Stack } from "expo-router";
 import { useEffect, useState } from "react";
 import { Linking, ScrollView, Switch, Text, TextInput, View } from "react-native";
@@ -14,7 +14,6 @@ import { useHabit } from "../data/habit";
 import { useLocation } from "../data/location";
 import { nudges } from "../data/nudges";
 import { forgetPhoto } from "../data/photos";
-import { usePurchases } from "../data/purchases";
 import { useCollection } from "../data/repo";
 import type { Item, Look } from "../data/schema";
 import { useAppearance, useTheme } from "../theme/ThemeProvider";
@@ -26,7 +25,6 @@ export default function Settings() {
   const habit = useHabit();
   const location = useLocation();
   const [appearance, setAppearance] = useAppearance();
-  const { isPremium, activeOffer, restorePurchases, openPaywall, status } = usePurchases();
   const items = useCollection<Item>("items");
   const looks = useCollection<Look>("looks");
   const [city, setCity] = useState("");
@@ -229,27 +227,6 @@ export default function Settings() {
               />
             ))}
           </View>
-        </View>
-
-        <View style={section}>
-          <Eyebrow>Premium</Eyebrow>
-          <Card>
-            <Body>
-              {isPremium
-                ? `You have Premium${activeOffer ? ` (${activeOffer.label})` : ""}. Thank you.`
-                : "You're on the free plan."}
-            </Body>
-            {isPremium ? (
-              <Body muted>Manage or cancel it in your App Store or Google Play subscriptions.</Body>
-            ) : (
-              <Button label="See Premium" onPress={openPaywall} />
-            )}
-            <Button
-              label={status === "restoring" ? "Restoring…" : "Restore Purchases"}
-              kind="text"
-              onPress={() => void restorePurchases()}
-            />
-          </Card>
         </View>
 
         <View style={section}>

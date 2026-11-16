@@ -144,6 +144,15 @@ describe("four-part app structure", () => {
       "structure/onboarding-complete",
     ]);
   });
+
+  it("asks Settings for Restore Purchases only when the app sells something", () => {
+    const restore = (files: Record<string, string>) =>
+      validateStructureScreens(files).some((i) => i.rule === "structure/settings-restore");
+    const settings = "export default function S() { return appInfo.version; }";
+    // A free app (no paywall) has nothing to restore.
+    expect(restore({ "app/settings.tsx": settings })).toBe(false);
+    expect(restore({ "app/settings.tsx": settings, "app/paywall.tsx": "purchase(id)" })).toBe(true);
+  });
 });
 
 describe("incremental content", () => {
