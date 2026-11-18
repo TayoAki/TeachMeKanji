@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { schema, type Database } from "@appbuilder/db";
-import { adminUser, adminUsers } from "./admin-report";
+import { adminRevenue, adminUser, adminUsers } from "./admin-report";
 import { newId } from "./ids";
 import { createProject } from "./projects";
 import { runCostUsd } from "./runs";
@@ -108,5 +108,66 @@ describe("the operator's users report", () => {
       lastRunAt: null,
     });
     expect((await adminUsers(db, { search: "%" })).users).toEqual([]);
+  });
+});
+
+describe("the operator's revenue figures", () => {
+  it("sums recorded invoices, prices older ones from their credit grant, and takes costs off", async () => {
+    if (!handle) return;
+    // Other tests share this database, so measure the change this test makes.
+    const before = await adminRevenue(db, 30);
+    const payer = await makeUser(db, "Payer");
+    const early = await makeUser(db, "Early");
+    const project = await createProject(db, { ownerId: payer.id, prompt: "a", platforms: "both" });
+    const invoice = newId("in");
+    await db.insert(schema.payment).values([
+      { id: invoice, userId: payer.id, plan: "builder", amountCents: 1000 }, // $10 after a discount
+      { id: newId("in"), userId: payer.id, plan: "builder", amountCents: 900, currency: "eur" },
+      {
+        id: newId("in"),
+        userId: payer.id,
+        plan: "builder",
+        amountCents: 2000,
+        paidAt: new Date(Date.now() - 60 * 86_400_000),
+      },
+    ]);
+    await db.insert(schema.creditLedger).values([
+      // The recorded invoice's own grant: not counted a second time.
+      {
+        userId: payer.id,
+        delta: 99,
+        reason: "monthly",
+        externalId: `invoice:${invoice}`,
+        note: "Builder monthly credits",
+      },
+      // Paid before payments were recorded: counted at Pro's list price.
+      {
+        userId: early.id,
+        delta: 610,
+        reason: "monthly",
+        externalId: `invoice:${newId("in")}`,
+        note: "Pro monthly credits",
+      },
+    ]);
+    await db
+      .insert(schema.subscription)
+      .values({ userId: payer.id, plan: "builder", status: "active" });
+    await run(project.id, payer.id, { costUsd: "1.2500" });
+
+    const after = await adminRevenue(db, 30);
+    expect(after.revenueUsd - before.revenueUsd).toBeCloseTo(10 + 200, 4);
+    expect(after.invoices - before.invoices).toBe(2);
+    expect(after.estimatedInvoices - before.estimatedInvoices).toBe(1);
+    expect(after.otherCurrencyInvoices - before.otherCurrencyInvoices).toBe(1);
+    expect(after.aiCostUsd - before.aiCostUsd).toBeCloseTo(1.25, 4);
+    expect(after.mrrUsd - before.mrrUsd).toBe(20);
+    expect(after.paymentFeesUsd - before.paymentFeesUsd).toBeCloseTo(210 * 0.036 + 2 * 0.3, 4);
+    expect(after.profitUsd).toBeCloseTo(
+      after.revenueUsd - after.aiCostUsd - after.paymentFeesUsd - after.hostingUsd,
+      6,
+    );
+    // The older invoice shows only in a window that reaches it; all time leaves hosting out.
+    expect((await adminRevenue(db, null)).hostingUsd).toBe(0);
+    expect((await adminUser(db, payer.id))!.user.paidUsd).toBeCloseTo(30, 4);
   });
 });

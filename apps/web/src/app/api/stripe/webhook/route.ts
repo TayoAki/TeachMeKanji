@@ -6,7 +6,7 @@ import { schema } from "@appbuilder/db";
 import { db, HttpError, route } from "@/lib/server";
 import { planForPrice, stripe, STRIPE_APP_TAG } from "@/lib/stripe";
 
-const { subscription } = schema;
+const { subscription, payment } = schema;
 
 async function setPlan(userId: string, patch: Partial<typeof subscription.$inferInsert>) {
   await db()
@@ -99,6 +99,23 @@ export const POST = route(async (request: Request) => {
         ...(customer ? { stripeCustomerId: customer } : {}),
         ...(periodEnd ? { currentPeriodEnd: new Date(periodEnd * 1000) } : {}),
       });
+      // What was collected, for the operator's revenue figures: every paid invoice for our
+      // prices (first, renewal, proration), once per invoice id.
+      if (invoice.id) {
+        const paidAt = invoice.status_transitions?.paid_at;
+        await db()
+          .insert(payment)
+          .values({
+            id: invoice.id,
+            userId,
+            plan,
+            amountCents: invoice.amount_paid ?? 0,
+            currency: invoice.currency || "usd",
+            billingReason: invoice.billing_reason ?? null,
+            ...(paidAt ? { paidAt: new Date(paidAt * 1000) } : {}),
+          })
+          .onConflictDoNothing();
+      }
       // Monthly credits only for the first invoice and renewals (not prorations or manual
       // invoices); the invoice id makes the grant idempotent.
       if (
