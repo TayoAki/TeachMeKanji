@@ -23,9 +23,15 @@ export function researchForPlanner(research: ResearchBrief): string {
     .slice(0, 5)
     .map((c) => `- ${c.name}: ${c.complaints.slice(0, 2).join("; ")}`)
     .join("\n");
-  return `Market research (from the web, for this idea):\n${research.brief}${
-    complaints ? `\nWhat users of competing apps complain about:\n${complaints}` : ""
-  }\nUse it to choose the features and the angle; the user's own words still win.`;
+  const market = research.brief
+    ? `Market research (from the web, for this idea):\n${research.brief}${
+        complaints ? `\nWhat users of competing apps complain about:\n${complaints}` : ""
+      }\nUse it to choose the features and the angle; the user's own words still win.`
+    : "";
+  const references = research.references
+    ? `How real apps handle these moments (from the owner's design library):\n${research.references}\nUse these patterns for the onboarding steps, the screens and what each shows; never another app's name, branding or exact copy.`
+    : "";
+  return [market, references].filter(Boolean).join("\n\n");
 }
 
 // --- Design direction ------------------------------------------------------------------------
@@ -39,6 +45,8 @@ What the app's code can do: React Native and Expo; solid colors, linear gradient
 Use the plan's first theme for the mockups: "${theme?.name ?? "the first theme"}", primary ${theme?.primary ?? "(choose one)"}, ${theme?.dark ? "dark" : "light"}. Keep palette.primary equal to that primary.
 
 Mascot: set mascot.use to true only if a character truly fits this app (habit, learning, wellness and kids' apps often; finance, tools and utilities rarely). With a mascot, give 3 poses (the first is the neutral one every other pose is drawn from) and use it in the screen briefs where it helps. Without one, set use to false and leave the other mascot fields empty.
+
+When the research has references from real apps, build on their proven layouts and flows as patterns; never copy another app's name, branding, illustrations or exact copy.
 
 Give exactly one screen brief per plan screen, in the plan's order, with its exact path. A brief lists, top to bottom, every element on the screen with its real copy and realistic data. For onboarding, show the most important step.`;
 }

@@ -585,6 +585,17 @@ available yet".
   call under a row lock (rotating refresh tokens); a refused refresh drops the connection.
   Problems (not connected, can't refresh, the call failed) become notes in the chat reply and
   never fail the run.
+- **Design references (Mobbin):** a connector with `referenceTools` is a library of real apps'
+  screens. When the run's user has one connected, a new plan (not a revision; never offline)
+  first studies how real apps handle the idea's key moments (`apps/worker/src/design/
+  references.ts`, `RESEARCH_MODEL`): onboarding, the daily screen, progress, settings, and a
+  paywall only when the idea involves paying. Only the listed search tools are enabled
+  (`mcp_toolset` with `default_config.enabled: false`), since Mobbin's server can also save,
+  comment and create collections. The brief (patterns in its own words, never another app's
+  name, branding or exact copy; at most `REFERENCES_MAX` characters) is saved as
+  `research.references` on the plan, so the planner, the visual direction and revisions use it.
+  Nothing happens when none is connected; a failure becomes a chat note. `DESIGN_REFERENCES=0`
+  turns it off. An idea that names Mobbin reads it the usual way instead.
 - `CONNECTOR_<ID>_URL` points a connector at another server (the e2e suite uses a local
   stand-in MCP + OAuth server, `apps/web/e2e/mock-mcp-server.mjs`).
 

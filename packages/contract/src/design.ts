@@ -22,6 +22,11 @@ export interface ResearchBrief {
   signatureInteractionIdeas: string[];
   /** At most ~900 characters: the features and angle the planner should use. */
   brief: string;
+  /**
+   * How real apps handle this app's key flows, read from the owner's design library (Mobbin):
+   * patterns for the planner and the designer to learn from, never to copy.
+   */
+  references?: string;
 }
 
 const strings = (value: unknown, max: number, each = 200): string[] =>
@@ -48,15 +53,21 @@ export function normalizeResearch(raw: unknown): ResearchBrief | null {
         .filter((c) => c.name)
         .slice(0, 8)
     : [];
-  if (!brief && competitors.length === 0) return null;
+  const references =
+    typeof r.references === "string" ? r.references.trim().slice(0, REFERENCES_MAX) : "";
+  if (!brief && competitors.length === 0 && !references) return null;
   return {
     competitors,
     mustHaveFeatures: strings(r.mustHaveFeatures, 10),
     differentiators: strings(r.differentiators, 6),
     signatureInteractionIdeas: strings(r.signatureInteractionIdeas, 4),
     brief,
+    ...(references ? { references } : {}),
   };
 }
+
+/** The longest references brief kept with a plan's research (about 700 words). */
+export const REFERENCES_MAX = 5000;
 
 // --- Design direction ----------------------------------------------------------------------
 

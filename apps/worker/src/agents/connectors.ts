@@ -65,6 +65,8 @@ export async function runConnectorTask(input: {
   prompt: string;
   effort?: "low" | "medium" | "high";
   maxContinuations?: number;
+  /** Per connector, the only tools the model may call (all of the server's tools when absent). */
+  onlyTools?: Partial<Record<string, string[]>>;
 }): Promise<{ text: string; calls: number; usage: UsageTotals }> {
   let usage: UsageTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
   const messages: Anthropic.Beta.Messages.BetaMessageParam[] = [
@@ -86,7 +88,7 @@ export async function runConnectorTask(input: {
         name: c.id,
         authorization_token: c.token,
       })),
-      tools: input.connectors.map((c) => ({ type: "mcp_toolset" as const, mcp_server_name: c.id })),
+      tools: input.connectors.map((c) => toolset(c.id, input.onlyTools?.[c.id])),
       messages,
     });
     usage = addUsage(usage, response);
@@ -96,4 +98,15 @@ export async function runConnectorTask(input: {
     messages.push({ role: "assistant", content: response.content });
   }
   return { text: response ? textOf(response).trim() : "", calls, usage };
+}
+
+/** A connector's tools for the model: all of them, or only `allowed` (the rest switched off). */
+function toolset(server: string, allowed?: string[]): Anthropic.Beta.Messages.BetaMCPToolset {
+  if (!allowed) return { type: "mcp_toolset", mcp_server_name: server };
+  return {
+    type: "mcp_toolset",
+    mcp_server_name: server,
+    default_config: { enabled: false },
+    configs: Object.fromEntries(allowed.map((name) => [name, { enabled: true }])),
+  };
 }

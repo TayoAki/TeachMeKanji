@@ -6,6 +6,7 @@ import { schema, type Database } from "@appbuilder/db";
 import {
   checkConnectorToken,
   completeAuthorization,
+  connectedConnectorIds,
   connectorAccess,
   discoverAuthServer,
   startAuthorization,
@@ -221,6 +222,10 @@ describe("connector sign-in (Postgres)", () => {
 
     const { code } = server.approve(first.url);
     await completeAuthorization({ db, pending: first.pending, code, fetchImpl: server.fetchImpl });
+
+    // A plan asks which reference libraries are connected without a "not connected" note.
+    expect(await connectedConnectorIds(db, user.id, ["mobbin", "notion"])).toEqual(["notion"]);
+    expect(await connectedConnectorIds(db, user.id, [])).toEqual([]);
 
     let access = await connectorAccess(db, user.id, ["notion", "mobbin"], server.fetchImpl);
     expect(access.connectors).toEqual([

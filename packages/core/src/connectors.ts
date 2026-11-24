@@ -451,6 +451,20 @@ export interface ConnectorAccess {
  * The user's working connections among `ids`, with fresh tokens. `problems` says, in words for
  * the chat, which named connectors can't be used and what the user can do about it.
  */
+/** Which of `ids` the user has connected, without touching their tokens. */
+export async function connectedConnectorIds(
+  db: Database,
+  userId: string,
+  ids: ConnectorId[],
+): Promise<ConnectorId[]> {
+  if (!ids.length) return [];
+  const rows = await db
+    .select({ provider: schema.integration.provider })
+    .from(schema.integration)
+    .where(and(eq(schema.integration.userId, userId), inArray(schema.integration.provider, ids)));
+  return ids.filter((id) => rows.some((r) => r.provider === id));
+}
+
 export async function connectorAccess(
   db: Database,
   userId: string,

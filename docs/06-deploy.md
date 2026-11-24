@@ -195,7 +195,8 @@ npm first: switching the chat on refuses while the pinned version isn't there.
 
 **Design first (mockups before the build).** A first plan now starts with web research
 (Claude with Anthropic's web search tool, `RESEARCH_MODEL`, default Haiku; `RESEARCH=0` turns
-it off), then the plan (`PLAN_MODEL`, default Sonnet). After the plan, **Design my screens** runs
+it off). When the person has Mobbin connected (Settings → Connectors, a paid Mobbin plan), it also
+studies how real apps design the key screens (`DESIGN_REFERENCES=0` turns that off). Then the plan (`PLAN_MODEL`, default Sonnet). After the plan, **Design my screens** runs
 a `design` job: the visual direction (`DESIGN_MODEL`, default Gemini 3.8 Flash through OpenRouter,
 which won a blind bake-off of twelve models; Haiku without an OpenRouter key), a mascot in three
 poses when the app suits one (cut out of a green background on the worker), two options for the
