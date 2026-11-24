@@ -37,6 +37,11 @@ export interface Connector {
   note?: string;
   /** A message that matches uses this connector. */
   mentions: RegExp;
+  /**
+   * A library of real apps' screens: once connected, a new app's plan reads it on its own (see
+   * `referenceConnectorIds`), with only these read-only tools enabled.
+   */
+  referenceTools?: string[];
 }
 
 export const CONNECTORS: readonly Connector[] = [
@@ -143,12 +148,15 @@ export const CONNECTORS: readonly Connector[] = [
   {
     id: "mobbin",
     name: "Mobbin",
-    description: "Find real app screens and flows to design from.",
+    description:
+      "Find real app screens and flows to design from. Once connected, every new app's plan studies them.",
     mcpUrl: "https://api.mobbin.com/mcp",
     oauth: true,
     token: null,
     note: "Needs a paid Mobbin plan.",
     mentions: /\bmobbin\b/i,
+    // Mobbin's search tools only: its MCP server can also save, comment and create collections.
+    referenceTools: ["search_flows", "search_screens"],
   },
   {
     id: "appllama",
@@ -195,4 +203,9 @@ export function isConnectable(connector: Connector): boolean {
 /** The connectors a message names, in catalog order. */
 export function mentionedConnectors(text: string): ConnectorId[] {
   return CONNECTORS.filter((c) => c.mentions.test(text)).map((c) => c.id);
+}
+
+/** Connectors a new plan reads on its own when the user has connected them (Mobbin). */
+export function referenceConnectorIds(): ConnectorId[] {
+  return CONNECTORS.filter((c) => c.referenceTools?.length && isConnectable(c)).map((c) => c.id);
 }

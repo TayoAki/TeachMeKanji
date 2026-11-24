@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { normalizePlan, type AppPlan } from "./app-plan";
-import { keyScreenPath, normalizeDirection, normalizeResearch, poseImageName } from "./design";
+import {
+  keyScreenPath,
+  normalizeDirection,
+  normalizeResearch,
+  poseImageName,
+  REFERENCES_MAX,
+} from "./design";
 
 const plan = normalizePlan(
   {
@@ -104,5 +110,15 @@ describe("design direction", () => {
       whatPeopleLove: [],
       complaints: ["Ads"],
     });
+    expect(r).not.toHaveProperty("references");
+  });
+
+  it("keeps the references from real apps, even when the web research found nothing", () => {
+    const r = normalizeResearch({
+      references: `  Onboarding: 3 questions, then a plan.${"x".repeat(6000)}`,
+    });
+    expect(r?.references?.startsWith("Onboarding: 3 questions")).toBe(true);
+    expect(r?.references).toHaveLength(REFERENCES_MAX);
+    expect(r?.brief).toBe("");
   });
 });

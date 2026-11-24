@@ -5,6 +5,7 @@ import {
   mentionedConnectors,
   normalizeResearch,
   readPlatformConfig,
+  referenceConnectorIds,
   refreshTemplate,
   type AppPlan,
   type ProjectFiles,
@@ -15,6 +16,7 @@ import {
   addMessage,
   commitVersion,
   confirmPlan,
+  connectedConnectorIds,
   connectorAccess,
   errorsForAgent,
   getCurrentFiles,
@@ -40,7 +42,8 @@ import { lockEdit } from "../design/edit-lock";
 import { withIncludedSupportChat } from "../support-chat";
 import { addPromptPictures, matchMockups, matchSummary } from "../design/match-loop";
 import { walkthroughApp, walkthroughSummary } from "../walkthrough/walkthrough";
-import { researchIdea } from "../design/research";
+import { researchIdea, RESEARCH_MODEL } from "../design/research";
+import { readDesignReferences } from "../design/references";
 import { researchForPlanner } from "../design/prompts";
 import { platformUrl, withHostedLegalLinks } from "../platform-url";
 import {
@@ -170,6 +173,60 @@ async function readNamedConnectors(
   }
 }
 
+const EMPTY_RESEARCH: ResearchBrief = {
+  competitors: [],
+  mustHaveFeatures: [],
+  differentiators: [],
+  signatureInteractionIdeas: [],
+  brief: "",
+};
+
+/**
+ * With a design library connected (Mobbin), a new plan first studies how real apps handle the
+ * idea's key moments, and keeps that with its research. Silent when none is connected; never
+ * fails the run: problems become notes for the chat.
+ */
+async function studyDesignReferences(
+  ctx: HandlerContext,
+  idea: string,
+  research: ResearchBrief | null,
+): Promise<{ research: ResearchBrief | null; usage: UsageTotals; notes: string[] }> {
+  // A library the idea names is read with the rest of the named connectors.
+  const named = mentionedConnectors(idea);
+  const ids = (await connectedConnectorIds(ctx.db, ctx.run.userId, referenceConnectorIds())).filter(
+    (id) => !named.includes(id),
+  );
+  if (!ids.length) return { research, usage: NO_USAGE, notes: [] };
+  const { connectors, problems } = await connectorAccess(ctx.db, ctx.run.userId, ids);
+  if (!connectors.length) return { research, usage: NO_USAGE, notes: problems };
+  const names = connectors.map((c) => c.name).join(" and ");
+  await ctx.emit("step", { label: `Studying how real apps design these screens on ${names}` });
+  try {
+    const read = await readDesignReferences({
+      createMessage: ctx.createMessage,
+      model: RESEARCH_MODEL(),
+      connectors,
+      idea,
+      competitors: research?.competitors.map((c) => c.name),
+    });
+    if (!read.references) return { research, usage: read.usage, notes: problems };
+    return {
+      research: { ...(research ?? EMPTY_RESEARCH), references: read.references },
+      usage: read.usage,
+      notes: [`Studied how real apps design these screens on ${names}.`, ...problems],
+    };
+  } catch (error) {
+    return {
+      research,
+      usage: NO_USAGE,
+      notes: [
+        ...problems,
+        `I couldn't read ${names} (${(error as Error).message.slice(0, 200)}), so I planned without it.`,
+      ],
+    };
+  }
+}
+
 function forwardAgentEvent(ctx: HandlerContext) {
   return async (event: AgentEvent) => {
     if (event.type === "files") await ctx.emit("files", { files: event.files });
@@ -206,8 +263,15 @@ export async function handlePlan(ctx: HandlerContext): Promise<HandlerResult> {
     });
     research = found.research;
     researchUsage = found.usage;
-    await ctx.emit("step", { label: "Drafting the plan" });
   }
+  let referenceNotes: string[] = [];
+  if (!previous && !ctx.offline && process.env.DESIGN_REFERENCES !== "0") {
+    const studied = await studyDesignReferences(ctx, project.prompt, research);
+    research = studied.research;
+    researchUsage = sumUsage(researchUsage, studied.usage);
+    referenceNotes = studied.notes;
+  }
+  if (!previous) await ctx.emit("step", { label: "Drafting the plan" });
   const result = await planApp({
     createMessage: ctx.createMessage,
     model: ctx.offline ? ctx.model : PLAN_MODEL(),
@@ -228,12 +292,13 @@ export async function handlePlan(ctx: HandlerContext): Promise<HandlerResult> {
     result.plan,
     research as unknown as Record<string, unknown> | null,
   );
-  if (connectors.notes.length)
+  const notes = [...connectors.notes, ...referenceNotes];
+  if (notes.length)
     await addMessage(ctx.db, {
       projectId: project.id,
       role: "assistant",
       runId: ctx.run.id,
-      content: { text: connectors.notes.join(" ") },
+      content: { text: notes.join(" ") },
     });
   await addMessage(ctx.db, {
     projectId: project.id,
